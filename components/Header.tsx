@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useAuth } from '../../contexts/AuthContext.tsx';
-import { useTheme } from '../../contexts/ThemeContext.tsx';
-import { InterfaceMode, Unit, Customer, Booking, Expense, Payment, SearchResult, Project } from '../types.ts';
-import { pageNames } from '../../utils/pageNames.ts';
-import { CalendarIcon, BriefcaseIcon, BellIcon, MicrophoneIcon } from './shared/Icons.tsx';
+import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { InterfaceMode, Unit, Customer, Booking, Expense, Payment, SearchResult, Project } from '../types';
+import { pageNames } from '../utils/pageNames';
+import { CalendarIcon, BriefcaseIcon, BellIcon, MicrophoneIcon } from './shared/Icons';
 
 const Header: React.FC<{
     activePage: string;
