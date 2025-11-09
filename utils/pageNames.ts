@@ -1,0 +1,23 @@
+export const pageNames: { [key: string]: string } = {
+    'dashboard': 'لوحة التحكم',
+    'units': 'الوحدات',
+    'customers': 'العملاء',
+    'bookings': 'الحجوزات',
+    'payments': 'الدفعات',
+    'sales': 'المبيعات',
+    'financial-summary': 'الملخص الشامل',
+    'sales-documents': 'مستندات البيع',
+    'reports': 'التقارير',
+    'customization': 'تخصيص',
+    'users': 'المستخدمون',
+    'expense_dashboard': 'لوحة التحكم',
+    'expenses': 'الحركات المالية',
+    'treasury': 'إدارة الصندوق و حساب البنك',
+    'deferred-payments': 'الدفعات الآجلة',
+    'employees': 'الموظفين',
+    'projects': 'إدارة المشاريع',
+    'projects-accounting': 'محاسبة المشاريع',
+    'category-accounting': 'دفتر الأستاذ',
+    'documents-accounting': 'المستندات',
+    'activity-log': 'سجل النشاطات'
+};
