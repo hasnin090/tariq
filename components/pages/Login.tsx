@@ -1,22 +1,32 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext.tsx';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Login: React.FC = () => {
-  const { login } = useAuth();
-  const [username, setUsername] = useState('');
+  const { login, signUp } = useAuth();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const success = await login(username, password);
-    if (!success) {
-      setError('اسم المستخدم أو كلمة المرور غير صحيحة.');
+
+    try {
+      const { error } = isRegistering 
+        ? await signUp(email, password)
+        : await login(email, password);
+
+      if (error) {
+        setError(error.message);
+      }
+    } catch (err) {
+      setError('حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -24,30 +34,33 @@ const Login: React.FC = () => {
       <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-primary-700 dark:text-primary-400">نظام عقاري</h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-300">تسجيل الدخول إلى حسابك</p>
+          <p className="mt-2 text-slate-600 dark:text-slate-300">
+            {isRegistering ? 'تسجيل حساب جديد' : 'تسجيل الدخول إلى حسابك'}
+          </p>
         </div>
-        <form className="space-y-6" onSubmit={handleLogin}>
+
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-              اسم المستخدم
+            <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              البريد الإلكتروني
             </label>
             <div className="mt-1">
               <input
-                id="username"
-                name="username"
-                type="text"
-                autoComplete="username"
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
                 required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Admin User"
+                placeholder="your@email.com"
+                dir="ltr"
               />
             </div>
           </div>
 
           <div>
-            {/* FIX: Removed extraneous and incorrect `TMLFor` attribute from a label element, which was causing a rendering error. */}
             <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               كلمة المرور
             </label>
@@ -56,17 +69,19 @@ const Login: React.FC = () => {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete={isRegistering ? 'new-password' : 'current-password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="123"
+                dir="ltr"
               />
             </div>
           </div>
-          
-          {error && <p className="text-sm text-rose-600 dark:text-rose-400 text-center">{error}</p>}
+
+          {error && (
+            <div className="text-red-500 text-sm text-center">{error}</div>
+          )}
 
           <div>
             <button
@@ -74,7 +89,17 @@ const Login: React.FC = () => {
               disabled={loading}
               className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
             >
-              {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
+              {loading ? 'جاري التحميل...' : isRegistering ? 'تسجيل حساب جديد' : 'تسجيل الدخول'}
+            </button>
+          </div>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setIsRegistering(!isRegistering)}
+              className="text-primary-600 hover:text-primary-500 text-sm font-medium focus:outline-none"
+            >
+              {isRegistering ? 'لديك حساب بالفعل؟ سجل دخولك' : 'ليس لديك حساب؟ سجل الآن'}
             </button>
           </div>
         </form>

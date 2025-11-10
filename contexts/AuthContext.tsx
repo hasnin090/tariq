@@ -1,53 +1,69 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-// FIX: Add Project to imports to find assigned project on login.
-import { User, AuthContextType, Project } from '../types.ts';
+import { User } from '@supabase/supabase-js';
+import { supabase } from '../src/lib/supabase';
+
+interface AuthContextType {
+  currentUser: User | null;
+  login: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  logout: () => Promise<void>;
+  loading: boolean;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<AuthContextType['currentUser']>(() => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check active sessions and sets the user
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for changes on auth state (logged in, signed out, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = async (email: string, password: string) => {
     try {
-      const storedUser = sessionStorage.getItem('currentUser');
-      return storedUser ? JSON.parse(storedUser) : null;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return { error };
     } catch (error) {
-      console.error("Failed to parse user from session storage:", error);
-      return null;
+      return { error: error as Error };
     }
-  });
-
-  const login = async (username: string, password?: string): Promise<boolean> => {
-    const users: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find(u => u.name === username && u.password === password);
-    
-    if (user) {
-      // FIX: Find the project assigned to the user and add its ID to the currentUser object.
-      const projects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
-      const assignedProject = projects.find(p => p.assignedUserId === user.id);
-
-      const userToStore = { 
-        id: user.id, 
-        name: user.name, 
-        role: user.role,
-        assignedProjectId: assignedProject?.id,
-        permissions: user.permissions,
-      };
-
-      setCurrentUser(userToStore);
-      sessionStorage.setItem('currentUser', JSON.stringify(userToStore));
-      return true;
-    }
-    
-    return false;
   };
 
-  const logout = () => {
-    setCurrentUser(null);
-    sessionStorage.removeItem('currentUser');
+  const signUp = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signUp({ email, password });
+      return { error };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   const value = {
     currentUser,
     login,
+    signUp,
+    logout,
+    loading,
     logout,
   };
 
