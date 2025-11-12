@@ -3,10 +3,12 @@ import { Booking, Unit, Customer, Payment, Account, Transaction } from '../../ty
 import { useToast } from '../../contexts/ToastContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
+import { bookingsService, unitsService, customersService, accountsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import { CloseIcon, DocumentTextIcon } from '../shared/Icons';
 
 export const Bookings: React.FC = () => {
+    const { addToast } = useToast();
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -15,16 +17,49 @@ export const Bookings: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
     const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setBookings(JSON.parse(localStorage.getItem('bookings') || '[]'));
-        setUnits(JSON.parse(localStorage.getItem('units') || '[]'));
-        setCustomers(JSON.parse(localStorage.getItem('customers') || '[]'));
-        setAccounts(JSON.parse(localStorage.getItem('accounts') || '[]'));
+        loadData();
+        
+        const bookingsSubscription = bookingsService.subscribe((data) => {
+            setBookings(data);
+        });
+
+        const unitsSubscription = unitsService.subscribe((data) => {
+            setUnits(data);
+        });
+
+        const customersSubscription = customersService.subscribe((data) => {
+            setCustomers(data);
+        });
+
+        return () => {
+            bookingsSubscription?.unsubscribe();
+            unitsSubscription?.unsubscribe();
+            customersSubscription?.unsubscribe();
+        };
     }, []);
 
-    const saveData = (key: string, data: any[]) => {
-        localStorage.setItem(key, JSON.stringify(data));
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const [bookingsData, unitsData, customersData, accountsData] = await Promise.all([
+                bookingsService.getAll(),
+                unitsService.getAll(),
+                customersService.getAll(),
+                accountsService.getAll()
+            ]);
+            setBookings(bookingsData);
+            setUnits(unitsData);
+            setCustomers(customersData);
+            setAccounts(accountsData);
+        } catch (error) {
+            console.error('Error loading data:', error);
+            addToast('خطأ في تحميل البيانات', 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleOpenModal = (booking: Booking | null) => {
@@ -37,84 +72,65 @@ export const Bookings: React.FC = () => {
         setIsModalOpen(false);
     };
 
-    const handleSave = (bookingData: Omit<Booking, 'id' | 'unitName' | 'customerName' | 'status'>) => {
-        const unit = units.find(u => u.id === bookingData.unitId);
-        const customer = customers.find(c => c.id === bookingData.customerId);
-        const account = accounts.find(a => a.id === 'acc_1'); // Assume default account for now. Should be selectable.
-        if (!unit || !customer || !account) return;
-
-        if (editingBooking) {
-            // Update logic here
-        } else {
-            const newBooking: Booking = { 
-                id: `bk_${Date.now()}`, 
-                ...bookingData, 
-                unitName: unit.name, 
-                customerName: customer.name, 
-                status: 'Active' 
-            };
-            
-            const allBookings = [...bookings, newBooking];
-            saveData('bookings', allBookings);
-            setBookings(allBookings);
-
-            // Update Unit status
-            const updatedUnits = units.map(u => u.id === unit.id ? { ...u, status: 'Booked', customerId: customer.id, customerName: customer.name } : u);
-            saveData('units', updatedUnits);
-            setUnits(updatedUnits);
-
-            // Create initial payment and transaction
-            if (bookingData.amountPaid > 0) {
-                const allPayments = JSON.parse(localStorage.getItem('payments') || '[]');
-                const allTransactions = JSON.parse(localStorage.getItem('transactions') || '[]');
-                const newPayment: Payment = {
-                    id: `pay_${Date.now()}`,
-                    customerId: customer.id,
-                    customerName: customer.name,
-                    unitId: unit.id,
-                    unitName: unit.name,
-                    amount: bookingData.amountPaid,
-                    paymentDate: bookingData.bookingDate,
-                    accountId: account.id,
-                };
-                const newTransaction: Transaction = {
-                    id: `trans_${Date.now()}`,
-                    accountId: account.id,
-                    accountName: account.name,
-                    type: 'Deposit',
-                    date: bookingData.bookingDate,
-                    description: `دفعة حجز للوحدة ${unit.name}`,
-                    amount: bookingData.amountPaid,
-                    sourceId: newPayment.id,
-                    sourceType: 'Payment',
-                };
-                newPayment.transactionId = newTransaction.id;
-                saveData('payments', [...allPayments, newPayment]);
-                saveData('transactions', [...allTransactions, newTransaction]);
+    const handleSave = async (bookingData: Omit<Booking, 'id' | 'unitName' | 'customerName' | 'status'>) => {
+        try {
+            const unit = units.find(u => u.id === bookingData.unitId);
+            const customer = customers.find(c => c.id === bookingData.customerId);
+            const account = accounts.find(a => a.id === 'acc_1');
+            if (!unit || !customer || !account) {
+                addToast('تأكد من اختيار وحدة وعميل وحساب صحيحة', 'error');
+                return;
             }
 
-            logActivity('New Booking', `Booked unit ${unit.name} for ${customer.name}`);
+            if (editingBooking) {
+                await bookingsService.update(editingBooking.id, {
+                    ...bookingData,
+                    unitName: unit.name,
+                    customerName: customer.name,
+                });
+                logActivity('Update Booking', `Updated booking for ${customer.name}`);
+                addToast('تم تحديث الحجز بنجاح', 'success');
+            } else {
+                const newBooking: Omit<Booking, 'id'> = { 
+                    ...bookingData, 
+                    unitName: unit.name, 
+                    customerName: customer.name, 
+                    status: 'Active' 
+                };
+                await bookingsService.create(newBooking);
+                logActivity('Add Booking', `Added booking for ${customer.name}`);
+                addToast('تم إضافة الحجز بنجاح', 'success');
+            }
+            handleCloseModal();
+            await loadData();
+        } catch (error) {
+            console.error('Error saving booking:', error);
+            addToast('خطأ في حفظ الحجز', 'error');
         }
-        handleCloseModal();
     };
     
     const handleCancelRequest = (booking: Booking) => {
         setBookingToCancel(booking);
     };
     
-    const confirmCancel = () => {
+    const confirmCancel = async () => {
         if (!bookingToCancel) return;
-        // FIX: Explicitly typed the `updatedBookings` variable to `Booking[]` to resolve a TypeScript type inference error where the status property was being widened to `string` instead of the correct union type.
-        const updatedBookings: Booking[] = bookings.map(b => b.id === bookingToCancel.id ? { ...b, status: 'Cancelled' } : b);
-        saveData('bookings', updatedBookings);
-        setBookings(updatedBookings);
-
-        const updatedUnits = units.map(u => u.id === bookingToCancel.unitId ? { ...u, status: 'Available', customerId: undefined, customerName: undefined } : u);
-        saveData('units', updatedUnits);
-        setUnits(updatedUnits);
-        
-        logActivity('Cancel Booking', `Cancelled booking for unit ${bookingToCancel.unitName}`);
-        setBookingToCancel(null);
+        try {
+            await bookingsService.update(bookingToCancel.id, { status: 'Cancelled' });
+            
+            const unit = units.find(u => u.id === bookingToCancel.unitId);
+            if (unit) {
+                await unitsService.update(unit.id, { status: 'Available', customerId: undefined, customerName: undefined });
+            }
+            
+            logActivity('Cancel Booking', `Cancelled booking for unit ${bookingToCancel.unitName}`);
+            addToast('تم إلغاء الحجز بنجاح', 'success');
+            setBookingToCancel(null);
+            await loadData();
+        } catch (error) {
+            console.error('Error canceling booking:', error);
+            addToast('خطأ في إلغاء الحجز', 'error');
+        }
     };
     
     const getStatusStyle = (status: Booking['status']) => {

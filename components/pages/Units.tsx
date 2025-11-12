@@ -4,12 +4,14 @@ import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
+import { unitsService, customersService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import { CloseIcon, BuildingIcon, EditIcon, TrashIcon, UnitsEmptyIcon } from '../shared/Icons';
 import EmptyState from '../shared/EmptyState';
 
 const Units: React.FC = () => {
     const { currentUser } = useAuth();
+    const { addToast } = useToast();
     const [units, setUnits] = useState<Unit[]>([]);
     const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
     const [unitStatuses, setUnitStatuses] = useState<UnitStatus[]>([]);
@@ -17,20 +19,47 @@ const Units: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
     const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const canEdit = currentUser?.role === 'Admin' || currentUser?.permissions?.canEdit;
-    const canDelete = currentUser?.role === 'Admin' || currentUser?.permissions?.canDelete;
+    const canEdit = currentUser?.role === 'Admin';
+    const canDelete = currentUser?.role === 'Admin';
 
     useEffect(() => {
-        setUnits(JSON.parse(localStorage.getItem('units') || '[]'));
-        setUnitTypes(JSON.parse(localStorage.getItem('unitTypes') || '[]'));
-        setUnitStatuses(JSON.parse(localStorage.getItem('unitStatuses') || '[]'));
-        setCustomers(JSON.parse(localStorage.getItem('customers') || '[]'));
+        loadData();
+        
+        const unitsSubscription = unitsService.subscribe((data) => {
+            setUnits(data);
+        });
+
+        const customersSubscription = customersService.subscribe((data) => {
+            setCustomers(data);
+        });
+
+        return () => {
+            unitsSubscription?.unsubscribe();
+            customersSubscription?.unsubscribe();
+        };
     }, []);
 
-    const saveData = (data: Unit[]) => {
-        localStorage.setItem('units', JSON.stringify(data));
-        setUnits(data);
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const [unitsData, customersData] = await Promise.all([
+                unitsService.getAll(),
+                customersService.getAll()
+            ]);
+            setUnits(unitsData);
+            setCustomers(customersData);
+            
+            // Load unit types and statuses from localStorage as fallback
+            setUnitTypes(JSON.parse(localStorage.getItem('unitTypes') || '[]'));
+            setUnitStatuses(JSON.parse(localStorage.getItem('unitStatuses') || '[]'));
+        } catch (error) {
+            console.error('Error loading data:', error);
+            addToast('خطأ في تحميل البيانات', 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleOpenModal = (unit: Unit | null) => {
@@ -43,29 +72,41 @@ const Units: React.FC = () => {
         setIsModalOpen(false);
     };
 
-    const handleSave = (unitData: Omit<Unit, 'id'>) => {
-        if (editingUnit) {
-            const updatedUnits = units.map(u => u.id === editingUnit.id ? { ...editingUnit, ...unitData } : u);
-            saveData(updatedUnits);
-            logActivity('Update Unit', `Updated unit: ${unitData.name}`);
-        } else {
-            const newUnit: Unit = { id: `u_${Date.now()}`, ...unitData };
-            saveData([...units, newUnit]);
-            logActivity('Add Unit', `Added unit: ${unitData.name}`);
+    const handleSave = async (unitData: Omit<Unit, 'id'>) => {
+        try {
+            if (editingUnit) {
+                await unitsService.update(editingUnit.id, unitData);
+                logActivity('Update Unit', `Updated unit: ${unitData.name}`);
+                addToast('تم تحديث الوحدة بنجاح', 'success');
+            } else {
+                await unitsService.create(unitData);
+                logActivity('Add Unit', `Added unit: ${unitData.name}`);
+                addToast('تم إضافة الوحدة بنجاح', 'success');
+            }
+            handleCloseModal();
+            await loadData();
+        } catch (error) {
+            console.error('Error saving unit:', error);
+            addToast('خطأ في حفظ الوحدة', 'error');
         }
-        handleCloseModal();
     };
 
     const handleDelete = (unit: Unit) => {
         setUnitToDelete(unit);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (unitToDelete) {
-            const updatedUnits = units.filter(u => u.id !== unitToDelete.id);
-            saveData(updatedUnits);
-            logActivity('Delete Unit', `Deleted unit: ${unitToDelete.name}`);
-            setUnitToDelete(null);
+            try {
+                await unitsService.delete(unitToDelete.id);
+                logActivity('Delete Unit', `Deleted unit: ${unitToDelete.name}`);
+                addToast('تم حذف الوحدة بنجاح', 'success');
+                setUnitToDelete(null);
+                await loadData();
+            } catch (error) {
+                console.error('Error deleting unit:', error);
+                addToast('خطأ في حذف الوحدة', 'error');
+            }
         }
     };
     

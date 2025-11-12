@@ -1,16 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { Payment } from '../../types';
+import { useToast } from '../../contexts/ToastContext';
 import { formatCurrency } from '../../utils/currencyFormatter';
+import { paymentsService } from '../../src/services/supabaseService';
 import { CreditCardIcon } from '../shared/Icons';
 
 const Payments: React.FC = () => {
+    const { addToast } = useToast();
     const [payments, setPayments] = useState<Payment[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const allPayments: Payment[] = JSON.parse(localStorage.getItem('payments') || '[]');
-        const sortedPayments = allPayments.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
-        setPayments(sortedPayments);
+        loadPayments();
+        
+        const subscription = paymentsService.subscribe((data) => {
+            const sortedPayments = data.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+            setPayments(sortedPayments);
+        });
+
+        return () => {
+            subscription?.unsubscribe();
+        };
     }, []);
+
+    const loadPayments = async () => {
+        try {
+            setLoading(true);
+            const data = await paymentsService.getAll();
+            const sortedPayments = data.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+            setPayments(sortedPayments);
+        } catch (error) {
+            console.error('Error loading payments:', error);
+            addToast('خطأ في تحميل الدفعات', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="container mx-auto">
