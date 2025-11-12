@@ -3,27 +3,47 @@ import { Customer } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import logActivity from '../../utils/activityLogger';
+import { customersService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import { CloseIcon, UsersIcon, CustomersEmptyIcon } from '../shared/Icons';
 import EmptyState from '../shared/EmptyState';
 
 const Customers: React.FC = () => {
     const { currentUser } = useAuth();
+    const { addToast } = useToast();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const canEdit = currentUser?.role === 'Admin' || currentUser?.permissions?.canEdit;
-    const canDelete = currentUser?.role === 'Admin' || currentUser?.permissions?.canDelete;
+    const canEdit = currentUser?.role === 'Admin';
+    const canDelete = currentUser?.role === 'Admin';
 
     useEffect(() => {
-        setCustomers(JSON.parse(localStorage.getItem('customers') || '[]'));
+        loadCustomers();
+        
+        // Subscribe to real-time changes
+        const subscription = customersService.subscribe((data) => {
+            setCustomers(data);
+        });
+
+        return () => {
+            subscription?.unsubscribe();
+        };
     }, []);
 
-    const saveData = (data: Customer[]) => {
-        localStorage.setItem('customers', JSON.stringify(data));
-        setCustomers(data);
+    const loadCustomers = async () => {
+        try {
+            setLoading(true);
+            const data = await customersService.getAll();
+            setCustomers(data);
+        } catch (error) {
+            console.error('Error loading customers:', error);
+            addToast('خطأ في تحميل العملاء', 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleOpenModal = (customer: Customer | null) => {
@@ -36,29 +56,41 @@ const Customers: React.FC = () => {
         setIsModalOpen(false);
     };
 
-    const handleSave = (customerData: Omit<Customer, 'id'>) => {
-        if (editingCustomer) {
-            const updated = customers.map(c => c.id === editingCustomer.id ? { ...editingCustomer, ...customerData } : c);
-            saveData(updated);
-            logActivity('Update Customer', `Updated customer: ${customerData.name}`);
-        } else {
-            const newCustomer: Customer = { id: `c_${Date.now()}`, ...customerData };
-            saveData([...customers, newCustomer]);
-            logActivity('Add Customer', `Added customer: ${newCustomer.name}`);
+    const handleSave = async (customerData: Omit<Customer, 'id'>) => {
+        try {
+            if (editingCustomer) {
+                await customersService.update(editingCustomer.id, customerData);
+                logActivity('Update Customer', `Updated customer: ${customerData.name}`);
+                addToast('تم تحديث العميل بنجاح', 'success');
+            } else {
+                await customersService.create(customerData);
+                logActivity('Add Customer', `Added customer: ${customerData.name}`);
+                addToast('تم إضافة العميل بنجاح', 'success');
+            }
+            handleCloseModal();
+            await loadCustomers();
+        } catch (error) {
+            console.error('Error saving customer:', error);
+            addToast('خطأ في حفظ العميل', 'error');
         }
-        handleCloseModal();
     };
 
-    const handleDelete = (customer: Customer) => {
+    const handleDelete = async (customer: Customer) => {
         setCustomerToDelete(customer);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (customerToDelete) {
-            const updated = customers.filter(c => c.id !== customerToDelete.id);
-            saveData(updated);
-            logActivity('Delete Customer', `Deleted customer: ${customerToDelete.name}`);
-            setCustomerToDelete(null);
+            try {
+                await customersService.delete(customerToDelete.id);
+                logActivity('Delete Customer', `Deleted customer: ${customerToDelete.name}`);
+                addToast('تم حذف العميل بنجاح', 'success');
+                setCustomerToDelete(null);
+                await loadCustomers();
+            } catch (error) {
+                console.error('Error deleting customer:', error);
+                addToast('خطأ في حذف العميل', 'error');
+            }
         }
     };
     
