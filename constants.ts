@@ -59,25 +59,11 @@ const initialAccounts: Account[] = [
 ];
 
 export const initializeLocalStorage = () => {
-    if (!localStorage.getItem('users')) localStorage.setItem('users', JSON.stringify(initialUsers));
+    // Legacy localStorage initialization - data is now managed by Supabase
+    // Keeping only unitTypes and unitStatuses as fallback for read-only reference data
     if (!localStorage.getItem('unitTypes')) localStorage.setItem('unitTypes', JSON.stringify(initialUnitTypes));
     if (!localStorage.getItem('unitStatuses')) localStorage.setItem('unitStatuses', JSON.stringify(initialUnitStatuses));
-    if (!localStorage.getItem('units')) localStorage.setItem('units', JSON.stringify(initialUnits));
-    if (!localStorage.getItem('customers')) localStorage.setItem('customers', JSON.stringify(initialCustomers));
-    if (!localStorage.getItem('expenseCategories')) localStorage.setItem('expenseCategories', JSON.stringify(initialExpenseCategories));
-    if (!localStorage.getItem('vendors')) localStorage.setItem('vendors', JSON.stringify(initialVendors));
-    if (!localStorage.getItem('projects')) localStorage.setItem('projects', JSON.stringify(initialProjects));
-    if (!localStorage.getItem('employees')) localStorage.setItem('employees', JSON.stringify(initialEmployees));
-    if (!localStorage.getItem('accounts')) localStorage.setItem('accounts', JSON.stringify(initialAccounts));
-    
-    // Initialize empty arrays for transactional data
-    if (!localStorage.getItem('bookings')) localStorage.setItem('bookings', '[]');
-    if (!localStorage.getItem('payments')) localStorage.setItem('payments', '[]');
-    if (!localStorage.getItem('unitSales')) localStorage.setItem('unitSales', '[]');
-    if (!localStorage.getItem('expenses')) localStorage.setItem('expenses', '[]');
-    if (!localStorage.getItem('deferredPayments')) localStorage.setItem('deferredPayments', '[]');
-    if (!localStorage.getItem('deferredPaymentInstallments')) localStorage.setItem('deferredPaymentInstallments', '[]');
-    if (!localStorage.getItem('budgets')) localStorage.setItem('budgets', '[]');
+};
     if (!localStorage.getItem('activityLog')) localStorage.setItem('activityLog', '[]');
     if (!localStorage.getItem('transactions')) localStorage.setItem('transactions', '[]');
     if (!localStorage.getItem('projectTransactions')) localStorage.setItem('projectTransactions', '[]');
