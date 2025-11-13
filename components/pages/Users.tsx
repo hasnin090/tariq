@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { User, Project } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import logActivity from '../../utils/activityLogger';
+import { usersService, projectsService } from '../../src/services/supabaseService';
 import { CloseIcon, UserGroupIcon, SearchIcon, TrashIcon, EyeIcon, EditIcon } from '../shared/Icons';
 import ConfirmModal from '../shared/ConfirmModal';
 
@@ -143,9 +144,20 @@ const Users: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
-        setUsers(JSON.parse(localStorage.getItem('users') || '[]'));
-        setProjects(JSON.parse(localStorage.getItem('projects') || '[]'));
-    }, []);
+        const fetchData = async () => {
+            try {
+                const [usersData, projectsData] = await Promise.all([
+                    usersService.getAll(),
+                    projectsService.getAll(),
+                ]);
+                setUsers(usersData);
+                setProjects(projectsData);
+            } catch (error) {
+                addToast('Failed to fetch data.', 'error');
+            }
+        };
+        fetchData();
+    }, [addToast]);
 
     const saveUsers = (data: User[]) => {
         localStorage.setItem('users', JSON.stringify(data));
@@ -157,46 +169,41 @@ const Users: React.FC = () => {
         setProjects(data);
     };
 
-    const handleSave = (userData: Omit<User, 'id'> & { assignedProjectId?: string }) => {
+    const handleSave = async (userData: Omit<User, 'id'> & { assignedProjectId?: string }) => {
         const isEditing = !!editingUser;
-        let userToSave: User;
-        
-        // Destructure to separate assignedProjectId from the rest of the user data
-        const { assignedProjectId, ...coreUserData } = userData;
+        try {
+            const { assignedProjectId, ...coreUserData } = userData;
+            let userToSave: User;
 
-        if (isEditing) {
-            // If password is not provided, keep the old one.
-            const newPassword = coreUserData.password ? coreUserData.password : editingUser.password;
-            // Now coreUserData does not have assignedProjectId
-            userToSave = { ...editingUser, ...coreUserData, password: newPassword };
-        } else {
-            if (!coreUserData.password) {
-                addToast('كلمة المرور مطلوبة للمستخدمين الجدد.', 'error');
-                return;
+            if (isEditing) {
+                const newPassword = coreUserData.password ? coreUserData.password : editingUser.password;
+                userToSave = await usersService.update(editingUser.id, { ...coreUserData, password: newPassword });
+            } else {
+                if (!coreUserData.password) {
+                    addToast('كلمة المرور مطلوبة للمستخدمين الجدد.', 'error');
+                    return;
+                }
+                userToSave = await usersService.create(coreUserData);
             }
-            // Now coreUserData does not have assignedProjectId
-            userToSave = { id: `user_${Date.now()}`, ...coreUserData };
+
+            // Handle project assignment
+            if (userToSave.role === 'Accounting' && assignedProjectId) {
+                await projectsService.update(assignedProjectId, { assignedUserId: userToSave.id });
+            } else if (isEditing && editingUser.role === 'Accounting' && editingUser.assignedProjectId && editingUser.assignedProjectId !== assignedProjectId) {
+                // Unassign from old project if changed
+                await projectsService.update(editingUser.assignedProjectId, { assignedUserId: undefined });
+            }
+
+            const updatedUsers = await usersService.getAll();
+            setUsers(updatedUsers);
+
+            addToast(isEditing ? 'تم تحديث المستخدم بنجاح.' : 'تمت إضافة المستخدم بنجاح.', 'success');
+            logActivity(isEditing ? 'Update User' : 'Add User', `User: ${userToSave.name}`);
+            setIsModalOpen(false);
+            setEditingUser(null);
+        } catch (error) {
+            addToast('فشل حفظ المستخدم.', 'error');
         }
-
-        const updatedUsers = isEditing
-            ? users.map(u => (u.id === userToSave.id ? userToSave : u))
-            : [...users, userToSave];
-        saveUsers(updatedUsers);
-
-        let currentProjects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
-        // First, unassign this user from any project they might have been assigned to
-        currentProjects = currentProjects.map(p => (p.assignedUserId === userToSave.id ? { ...p, assignedUserId: undefined } : p));
-        
-        // Then, if a new project is assigned, set it
-        if (userToSave.role === 'Accounting' && assignedProjectId) {
-            currentProjects = currentProjects.map(p => (p.id === assignedProjectId ? { ...p, assignedUserId: userToSave.id } : p));
-        }
-        saveProjects(currentProjects);
-
-        addToast(isEditing ? 'تم تحديث المستخدم بنجاح.' : 'تمت إضافة المستخدم بنجاح.', 'success');
-        logActivity(isEditing ? 'Update User' : 'Add User', `User: ${userToSave.name}`);
-        setIsModalOpen(false);
-        setEditingUser(null);
     };
 
     const handleDeleteRequest = (user: User) => {

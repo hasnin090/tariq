@@ -1,5 +1,56 @@
 import { supabase } from '../lib/supabase';
-import { Customer, Unit, Booking, Payment, Expense, Transaction, Employee, UnitSaleRecord, Project, Vendor, ExpenseCategory, Account } from '../../types';
+import { Customer, Unit, Booking, Payment, Expense, Transaction, Employee, UnitSaleRecord, Project, Vendor, ExpenseCategory, Account, User } from '../../types';
+
+/**
+ * USERS SERVICE
+ */
+export const usersService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getById(id: string) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async create(user: Omit<User, 'id'>) {
+    const { data, error } = await supabase
+      .from('users')
+      .insert([user])
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
+
+  async update(id: string, user: Partial<User>) {
+    const { data, error } = await supabase
+      .from('users')
+      .update(user)
+      .eq('id', id)
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+};
 
 /**
  * CUSTOMERS SERVICE

@@ -4,6 +4,7 @@ import { useAuth } from '../../../contexts/AuthContext.tsx';
 import { useToast } from '../../../contexts/ToastContext.tsx';
 import logActivity from '../../../utils/activityLogger.ts';
 import { formatCurrency } from '../../../utils/currencyFormatter.ts';
+import { expensesService, expenseCategoriesService, projectsService, accountsService, transactionsService } from '../../../src/services/supabaseService.ts';
 import ConfirmModal from '../../shared/ConfirmModal.tsx';
 import { CloseIcon, ReceiptIcon, FileIcon, EyeIcon, PaperClipIcon, FilterIcon, XCircleIcon } from '../../shared/Icons.tsx';
 import EmptyState from '../../shared/EmptyState.tsx';
@@ -126,8 +127,8 @@ export const Expenses: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
 
-    const canEdit = currentUser?.role === 'Admin' || currentUser?.permissions?.canEdit;
-    const canDelete = currentUser?.role === 'Admin' || currentUser?.permissions?.canDelete;
+    const canEdit = currentUser?.role === 'Admin';
+    const canDelete = currentUser?.role === 'Admin';
 
     const [visibleColumns, setVisibleColumns] = useState(() => {
         const saved = localStorage.getItem('expenseVisibleColumns');
@@ -151,17 +152,44 @@ export const Expenses: React.FC = () => {
     };
 
     useEffect(() => {
-        // FIX: Corrected syntax error by removing an extra closing parenthesis.
-        let expensesData: Expense[] = JSON.parse(localStorage.getItem('expenses') || '[]');
-        if (currentUser?.assignedProjectId) {
-            expensesData = expensesData.filter(e => e.projectId === currentUser.assignedProjectId);
-        }
-        setAllExpenses(expensesData.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        const fetchExpenses = async () => {
+            try {
+                let expensesData = await expensesService.getAll();
+                if (currentUser?.assignedProjectId) {
+                    expensesData = expensesData.filter(e => e.projectId === currentUser.assignedProjectId);
+                }
+                setAllExpenses(expensesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+            } catch (error) {
+                addToast('Failed to fetch expenses.', 'error');
+            }
+        };
 
-        setCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
-        setProjects(JSON.parse(localStorage.getItem('projects') || '[]'));
-        setAccounts(JSON.parse(localStorage.getItem('accounts') || '[]'));
-    }, [currentUser]);
+        const fetchRelatedData = async () => {
+            try {
+                const [categoriesData, projectsData, accountsData] = await Promise.all([
+                    expenseCategoriesService.getAll(),
+                    projectsService.getAll(),
+                    accountsService.getAll(),
+                ]);
+                setCategories(categoriesData);
+                setProjects(projectsData);
+                setAccounts(accountsData);
+            } catch (error) {
+                addToast('Failed to fetch related data.', 'error');
+            }
+        };
+
+        fetchExpenses();
+        fetchRelatedData();
+
+        const expenseSubscription = expensesService.subscribe((newExpenses) => {
+            setAllExpenses(newExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        });
+
+        return () => {
+            expenseSubscription.unsubscribe();
+        };
+    }, [currentUser, addToast]);
 
     useEffect(() => {
         const filtered = allExpenses.filter(expense => {
@@ -188,9 +216,7 @@ export const Expenses: React.FC = () => {
         return filteredExpenses.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     }, [currentPage, filteredExpenses]);
 
-    const saveData = (key: string, data: any[]) => {
-        localStorage.setItem(key, JSON.stringify(data));
-    };
+
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -218,93 +244,84 @@ export const Expenses: React.FC = () => {
         setIsModalOpen(false);
     };
 
-    const handleSave = (expenseData: Omit<Expense, 'id'>) => {
-        if (editingExpense) {
-            const currentExpenses: Expense[] = JSON.parse(localStorage.getItem('expenses') || '[]');
-            const currentTransactions: Transaction[] = JSON.parse(localStorage.getItem('transactions') || '[]');
-    
-            const expenseIndex = currentExpenses.findIndex(e => e.id === editingExpense.id);
-            const transactionIndex = currentTransactions.findIndex(t => t.id === editingExpense.transactionId);
-            
-            if (expenseIndex === -1) {
-                addToast('خطأ: لم يتم العثور على الحركة المالية للتحديث.', 'error');
-                return;
-            }
-    
-            const updatedExpense: Expense = { ...editingExpense, ...expenseData };
-            currentExpenses[expenseIndex] = updatedExpense;
-            
-            if (transactionIndex !== -1) {
+    const handleSave = async (expenseData: Omit<Expense, 'id'>) => {
+        try {
+            if (editingExpense) {
+                const updatedExpense = await expensesService.update(editingExpense.id, expenseData);
+                if (updatedExpense && updatedExpense.transactionId) {
+                    const account = accounts.find(a => a.id === expenseData.accountId);
+                    await transactionsService.update(updatedExpense.transactionId, {
+                        accountId: expenseData.accountId,
+                        accountName: account?.name || '',
+                        date: expenseData.date,
+                        description: expenseData.description,
+                        amount: expenseData.amount,
+                    });
+                }
+                addToast('تم تحديث الحركة المالية بنجاح.', 'success');
+                logActivity('Update Expense', `Updated expense: ${expenseData.description}`);
+            } else {
                 const account = accounts.find(a => a.id === expenseData.accountId);
-                const updatedTransaction: Transaction = {
-                    ...currentTransactions[transactionIndex],
+                if (!account) {
+                    addToast('الحساب المحدد غير صالح.', 'error');
+                    return;
+                }
+                
+                // Create transaction first to get its ID
+                const newTransaction = await transactionsService.create({
                     accountId: expenseData.accountId,
-                    accountName: account?.name || '',
+                    accountName: account.name,
+                    type: 'Withdrawal',
                     date: expenseData.date,
                     description: expenseData.description,
                     amount: expenseData.amount,
-                };
-                currentTransactions[transactionIndex] = updatedTransaction;
+                    sourceType: 'Expense',
+                });
+
+                if (!newTransaction) {
+                    throw new Error("Failed to create transaction");
+                }
+
+                // Then create expense and link it to the transaction
+                const newExpense = await expensesService.create({ 
+                    ...expenseData, 
+                    transactionId: newTransaction.id 
+                });
+
+                // Update transaction with the sourceId
+                await transactionsService.update(newTransaction.id, { sourceId: newExpense.id });
+
+                addToast('تمت إضافة المصروف بنجاح.', 'success');
+                logActivity('Add Expense', `Added expense: ${newExpense.description}`);
             }
-    
-            saveData('expenses', currentExpenses);
-            saveData('transactions', currentTransactions);
-            
-            setAllExpenses(currentExpenses.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    
-            addToast('تم تحديث الحركة المالية بنجاح.', 'success');
-            logActivity('Update Expense', `Updated expense: ${expenseData.description}`);
-
-        } else {
-            const account = accounts.find(a => a.id === expenseData.accountId);
-            if (!account) {
-                 addToast('الحساب المحدد غير صالح.', 'error');
-                return;
-            }
-            const newExpense: Expense = { id: `exp_${Date.now()}`, ...expenseData };
-            const newTransaction: Transaction = {
-                id: `trans_${Date.now()}`,
-                accountId: expenseData.accountId,
-                accountName: account.name,
-                type: 'Withdrawal',
-                date: expenseData.date,
-                description: expenseData.description,
-                amount: expenseData.amount,
-                sourceId: newExpense.id,
-                sourceType: 'Expense',
-            };
-            newExpense.transactionId = newTransaction.id;
-            
-            const currentExpenses = [...JSON.parse(localStorage.getItem('expenses') || '[]'), newExpense];
-            const currentTransactions = [...JSON.parse(localStorage.getItem('transactions') || '[]'), newTransaction];
-            saveData('expenses', currentExpenses);
-            saveData('transactions', currentTransactions);
-
-            const sortedExpenses = currentExpenses.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            setAllExpenses(sortedExpenses);
-
-            addToast('تمت إضافة المصروف بنجاح.', 'success');
-            logActivity('Add Expense', `Added expense: ${newExpense.description}`);
+            handleCloseModal();
+        } catch (error) {
+            console.error('Error saving expense:', error);
+            addToast('فشل حفظ المصروف.', 'error');
         }
-        handleCloseModal();
     };
 
      const handleDeleteRequest = (expense: Expense) => {
         setExpenseToDelete(expense);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (expenseToDelete) {
-            const allExpenses: Expense[] = JSON.parse(localStorage.getItem('expenses') || '[]');
-            const updatedExpenses = allExpenses.filter(e => e.id !== expenseToDelete.id);
-            const updatedTransactions = (JSON.parse(localStorage.getItem('transactions') || '[]') as Transaction[]).filter(t => t.id !== expenseToDelete.transactionId);
-            
-            saveData('expenses', updatedExpenses);
-            saveData('transactions', updatedTransactions);
-            setAllExpenses(updatedExpenses.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            addToast('تم حذف المصروف بنجاح.', 'success');
-            logActivity('Delete Expense', `Deleted expense: ${expenseToDelete.description}`);
-            setExpenseToDelete(null);
+            try {
+                // First delete the associated transaction
+                if (expenseToDelete.transactionId) {
+                    await transactionsService.delete(expenseToDelete.transactionId);
+                }
+                // Then delete the expense
+                await expensesService.delete(expenseToDelete.id);
+                
+                addToast('تم حذف المصروف بنجاح.', 'success');
+                logActivity('Delete Expense', `Deleted expense: ${expenseToDelete.description}`);
+                setExpenseToDelete(null);
+            } catch (error) {
+                console.error('Error deleting expense:', error);
+                addToast('فشل حذف المصروف.', 'error');
+            }
         }
     };
     
