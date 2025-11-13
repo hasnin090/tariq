@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UnitType, UnitStatus, ExpenseCategory } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import logActivity from '../../utils/activityLogger';
+import { unitTypesService, unitStatusesService, expenseCategoriesService, settingsService } from '../../src/services/supabaseService';
 
 interface EditableListItem {
   id: string;
@@ -12,42 +13,58 @@ interface EditableListItem {
 const CustomizationSection: React.FC<{
     title: string;
     items: EditableListItem[];
-    storageKey: string;
+    storageKey: 'unitTypes' | 'unitStatuses' | 'expenseCategories';
     onUpdate: (items: any[]) => void;
 }> = ({ title, items, storageKey, onUpdate }) => {
     const { addToast } = useToast();
-    const [localItems, setLocalItems] = useState(items);
     const [newItemName, setNewItemName] = useState('');
 
-    const handleAddItem = () => {
+    const services = {
+        unitTypes: unitTypesService,
+        unitStatuses: unitStatusesService,
+        expenseCategories: expenseCategoriesService,
+    };
+
+    const service = services[storageKey];
+
+    const handleAddItem = async () => {
         if (!newItemName.trim()) {
             addToast('الاسم لا يمكن أن يكون فارغًا.', 'error');
             return;
         }
-        const newItem = { id: `${storageKey}_${Date.now()}`, name: newItemName };
-        const updatedItems = [...localItems, newItem];
-        setLocalItems(updatedItems);
-        localStorage.setItem(storageKey, JSON.stringify(updatedItems));
-        onUpdate(updatedItems);
-        setNewItemName('');
-        logActivity(`Add ${storageKey}`, `Added new item: ${newItemName}`);
-        addToast('تمت الإضافة بنجاح', 'success');
+        try {
+            const newItem = await service.create({ name: newItemName });
+            if (newItem) {
+                const updatedItems = [...items, newItem];
+                onUpdate(updatedItems);
+                setNewItemName('');
+                logActivity(`Add ${storageKey}`, `Added new item: ${newItemName}`);
+                addToast('تمت الإضافة بنجاح', 'success');
+            }
+        } catch (error) {
+            console.error(`Error adding item to ${storageKey}:`, error);
+            addToast('حدث خطأ أثناء الإضافة.', 'error');
+        }
     };
 
-    const handleDeleteItem = (itemId: string) => {
-        const updatedItems = localItems.filter(item => item.id !== itemId);
-        setLocalItems(updatedItems);
-        localStorage.setItem(storageKey, JSON.stringify(updatedItems));
-        onUpdate(updatedItems);
-        logActivity(`Delete ${storageKey}`, `Deleted item ID: ${itemId}`);
-        addToast('تم الحذف بنجاح', 'success');
+    const handleDeleteItem = async (itemId: string) => {
+        try {
+            await service.delete(itemId);
+            const updatedItems = items.filter(item => item.id !== itemId);
+            onUpdate(updatedItems);
+            logActivity(`Delete ${storageKey}`, `Deleted item ID: ${itemId}`);
+            addToast('تم الحذف بنجاح', 'success');
+        } catch (error) {
+            console.error(`Error deleting item from ${storageKey}:`, error);
+            addToast('حدث خطأ أثناء الحذف.', 'error');
+        }
     };
     
     return (
         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
             <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">{title}</h3>
             <ul className="space-y-2 mb-4">
-                {localItems.map(item => (
+                {items.map(item => (
                     <li key={item.id} className="flex justify-between items-center bg-slate-100 dark:bg-slate-700 p-3 rounded-lg">
                         <span className="font-medium text-slate-700 dark:text-slate-300">{item.name}</span>
                         {!item.isSystem ? (
@@ -71,11 +88,8 @@ const Customization: React.FC = () => {
     const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
     const [unitStatuses, setUnitStatuses] = useState<UnitStatus[]>([]);
     const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
-    const [currency, setCurrency] = useState(() => localStorage.getItem('systemCurrency') || 'IQD');
-    const [decimalPlaces, setDecimalPlaces] = useState(() => {
-        const saved = localStorage.getItem('systemDecimalPlaces');
-        return saved ? parseInt(saved, 10) : 2;
-    });
+    const [currency, setCurrency] = useState('IQD');
+    const [decimalPlaces, setDecimalPlaces] = useState(2);
 
     const currencies = [
         { code: 'IQD', name: 'دينار عراقي' },
@@ -87,25 +101,59 @@ const Customization: React.FC = () => {
     ];
 
     useEffect(() => {
-        setUnitTypes(JSON.parse(localStorage.getItem('unitTypes') || '[]'));
-        setUnitStatuses(JSON.parse(localStorage.getItem('unitStatuses') || '[]'));
-        setExpenseCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
-    }, []);
+        const fetchData = async () => {
+            try {
+                const [
+                    unitTypesData, 
+                    unitStatusesData, 
+                    expenseCategoriesData,
+                    currencyData,
+                    decimalPlacesData
+                ] = await Promise.all([
+                    unitTypesService.getAll(),
+                    unitStatusesService.getAll(),
+                    expenseCategoriesService.getAll(),
+                    settingsService.get('systemCurrency'),
+                    settingsService.get('systemDecimalPlaces')
+                ]);
+                setUnitTypes(unitTypesData as UnitType[]);
+                setUnitStatuses(unitStatusesData as UnitStatus[]);
+                setExpenseCategories(expenseCategoriesData as ExpenseCategory[]);
+                if (currencyData) setCurrency(currencyData);
+                if (decimalPlacesData) setDecimalPlaces(parseInt(decimalPlacesData, 10));
 
-    const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+            } catch (error) {
+                console.error("Failed to fetch customization data:", error);
+                addToast("فشل في تحميل بيانات التخصيص.", "error");
+            }
+        };
+        fetchData();
+    }, [addToast]);
+
+    const handleCurrencyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newCurrency = e.target.value;
         setCurrency(newCurrency);
-        localStorage.setItem('systemCurrency', newCurrency);
-        logActivity('Update Currency', `Set system currency to ${newCurrency}`);
-        addToast('تم تحديث العملة. ستظهر التغييرات عند تنقلك في التطبيق.', 'success');
+        try {
+            await settingsService.set('systemCurrency', newCurrency);
+            logActivity('Update Currency', `Set system currency to ${newCurrency}`);
+            addToast('تم تحديث العملة. ستظهر التغييرات عند تنقلك في التطبيق.', 'success');
+        } catch (error) {
+            console.error("Failed to save currency setting:", error);
+            addToast("فشل في حفظ إعداد العملة.", "error");
+        }
     };
     
-    const handleDecimalPlacesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const handleDecimalPlacesChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newDecimalPlaces = parseInt(e.target.value, 10);
         setDecimalPlaces(newDecimalPlaces);
-        localStorage.setItem('systemDecimalPlaces', newDecimalPlaces.toString());
-        logActivity('Update Decimal Places', `Set system decimal places to ${newDecimalPlaces}`);
-        addToast('تم تحديث عدد الخانات العشرية. ستظهر التغييرات عند تنقلك في التطبيق.', 'success');
+        try {
+            await settingsService.set('systemDecimalPlaces', newDecimalPlaces.toString());
+            logActivity('Update Decimal Places', `Set system decimal places to ${newDecimalPlaces}`);
+            addToast('تم تحديث عدد الخانات العشرية. ستظهر التغييرات عند تنقلك في التطبيق.', 'success');
+        } catch (error) {
+            console.error("Failed to save decimal places setting:", error);
+            addToast("فشل في حفظ إعداد الخانات العشرية.", "error");
+        }
     };
 
     return (

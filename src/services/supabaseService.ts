@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Customer, Unit, Booking, Payment, Expense, Transaction, Employee, UnitSaleRecord, Project, Vendor, ExpenseCategory, Account, User } from '../../types';
+import { Customer, Unit, Booking, Payment, Expense, Transaction, Employee, UnitSaleRecord, Project, Vendor, ExpenseCategory, Account, User, UnitType, UnitStatus } from '../../types';
 
 /**
  * USERS SERVICE
@@ -518,32 +518,22 @@ export const vendorsService = {
 };
 
 /**
- * ACCOUNTS SERVICE
+ * UNIT TYPES SERVICE
  */
-export const accountsService = {
+export const unitTypesService = {
   async getAll() {
     const { data, error } = await supabase
-      .from('accounts')
+      .from('unit_types')
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data || [];
   },
 
-  async create(account: Omit<Account, 'id'>) {
+  async create(item: Omit<UnitType, 'id'>) {
     const { data, error } = await supabase
-      .from('accounts')
-      .insert([account])
-      .select();
-    if (error) throw error;
-    return data?.[0];
-  },
-
-  async update(id: string, account: Partial<Account>) {
-    const { data, error } = await supabase
-      .from('accounts')
-      .update(account)
-      .eq('id', id)
+      .from('unit_types')
+      .insert([item])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -551,7 +541,38 @@ export const accountsService = {
 
   async delete(id: string) {
     const { error } = await supabase
-      .from('accounts')
+      .from('unit_types')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  }
+};
+
+/**
+ * UNIT STATUSES SERVICE
+ */
+export const unitStatusesService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('unit_statuses')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async create(item: Omit<UnitStatus, 'id'>) {
+    const { data, error } = await supabase
+      .from('unit_statuses')
+      .insert([item])
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('unit_statuses')
       .delete()
       .eq('id', id);
     if (error) throw error;
@@ -571,20 +592,10 @@ export const expenseCategoriesService = {
     return data || [];
   },
 
-  async create(category: Omit<ExpenseCategory, 'id'>) {
+  async create(item: Omit<ExpenseCategory, 'id'>) {
     const { data, error } = await supabase
       .from('expense_categories')
-      .insert([category])
-      .select();
-    if (error) throw error;
-    return data?.[0];
-  },
-
-  async update(id: string, category: Partial<ExpenseCategory>) {
-    const { data, error } = await supabase
-      .from('expense_categories')
-      .update(category)
-      .eq('id', id)
+      .insert([item])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -597,6 +608,33 @@ export const expenseCategoriesService = {
       .eq('id', id);
     if (error) throw error;
   }
+};
+
+/**
+ * SETTINGS SERVICE
+ */
+export const settingsService = {
+  async get(key: string) {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', key)
+      .single();
+    // Gracefully handle not found error, return null
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+    return data?.value || null;
+  },
+
+  async set(key: string, value: string) {
+    const { data, error } = await supabase
+      .from('settings')
+      .upsert({ key, value }, { onConflict: 'key' })
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
 };
 
 /**

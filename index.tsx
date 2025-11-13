@@ -2,13 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 // FIX: Corrected import path for App.tsx
 import App from './App.tsx';
-import { initializeLocalStorage } from './constants.ts';
 import './src/index.css';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { ToastProvider } from './contexts/ToastContext.tsx';
 import { ThemeProvider } from './contexts/ThemeContext.tsx';
-
-initializeLocalStorage();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

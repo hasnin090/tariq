@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { InterfaceMode, Unit, Customer, Booking, Expense, Payment, SearchResult, Project } from '../types';
 import { pageNames } from '../utils/pageNames';
+import { unitsService, customersService, bookingsService, expensesService, paymentsService, projectsService } from '../src/services/supabaseService';
 import { CalendarIcon, BriefcaseIcon, BellIcon, MicrophoneIcon } from './shared/Icons';
 
 const Header: React.FC<{
@@ -45,7 +46,15 @@ const Header: React.FC<{
     }, []);
 
     useEffect(() => {
-        setProjects(JSON.parse(localStorage.getItem('projects') || '[]'));
+        const fetchProjects = async () => {
+            try {
+                const projectsData = await projectsService.getAll();
+                setProjects(projectsData);
+            } catch (error) {
+                console.error("Failed to fetch projects", error);
+            }
+        };
+        fetchProjects();
     }, []);
 
     useEffect(() => {
@@ -108,22 +117,28 @@ const Header: React.FC<{
             return;
         }
 
-        const units: Unit[] = JSON.parse(localStorage.getItem('units') || '[]');
-        const customers: Customer[] = JSON.parse(localStorage.getItem('customers') || '[]');
-        const bookings: Booking[] = JSON.parse(localStorage.getItem('bookings') || '[]');
-        const expenses: Expense[] = JSON.parse(localStorage.getItem('expenses') || '[]');
-        const payments: Payment[] = JSON.parse(localStorage.getItem('payments') || '[]');
+        const fetchResults = async () => {
+            const term = searchTerm.toLowerCase();
+            const [units, customers, bookings, expenses, payments] = await Promise.all([
+                unitsService.getAll(),
+                customersService.getAll(),
+                bookingsService.getAll(),
+                expensesService.getAll(),
+                paymentsService.getAll(),
+            ]);
 
-        const results: SearchResult[] = [];
-        const term = searchTerm.toLowerCase();
+            const results: SearchResult[] = [];
 
-        units.filter(u => u.name.toLowerCase().includes(term)).forEach(u => results.push({ id: u.id, name: u.name, type: 'unit', page: 'units' }));
-        customers.filter(c => c.name.toLowerCase().includes(term)).forEach(c => results.push({ id: c.id, name: c.name, type: 'customer', page: 'customers' }));
-        bookings.filter(b => b.unitName.toLowerCase().includes(term) || b.customerName.toLowerCase().includes(term)).forEach(b => results.push({ id: b.id, name: `${b.unitName} - ${b.customerName}`, type: 'booking', page: 'bookings' }));
-        expenses.filter(e => e.description.toLowerCase().includes(term)).forEach(e => results.push({ id: e.id, name: e.description, type: 'expense', page: 'expenses' }));
-        payments.filter(p => p.unitName.toLowerCase().includes(term) || p.customerName.toLowerCase().includes(term)).forEach(p => results.push({ id: p.id, name: `${p.unitName} - ${p.customerName}`, type: 'payment', page: 'payments' }));
+            units.filter(u => u.name.toLowerCase().includes(term)).forEach(u => results.push({ id: u.id, name: u.name, type: 'unit', page: 'units' }));
+            customers.filter(c => c.name.toLowerCase().includes(term)).forEach(c => results.push({ id: c.id, name: c.name, type: 'customer', page: 'customers' }));
+            bookings.filter(b => b.unitName.toLowerCase().includes(term) || b.customerName.toLowerCase().includes(term)).forEach(b => results.push({ id: b.id, name: `${b.unitName} - ${b.customerName}`, type: 'booking', page: 'bookings' }));
+            expenses.filter(e => e.description.toLowerCase().includes(term)).forEach(e => results.push({ id: e.id, name: e.description, type: 'expense', page: 'expenses' }));
+            payments.filter(p => p.unitName.toLowerCase().includes(term) || p.customerName.toLowerCase().includes(term)).forEach(p => results.push({ id: p.id, name: `${p.unitName} - ${p.customerName}`, type: 'payment', page: 'payments' }));
 
-        setSearchResults(results.slice(0, 7));
+            setSearchResults(results.slice(0, 7));
+        };
+
+        fetchResults();
     }, [searchTerm]);
     
     const handleResultClick = (result: SearchResult) => {

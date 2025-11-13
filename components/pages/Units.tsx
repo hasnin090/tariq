@@ -4,7 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
-import { unitsService, customersService } from '../../src/services/supabaseService';
+import { unitsService, customersService, unitTypesService, unitStatusesService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import { CloseIcon, BuildingIcon, EditIcon, TrashIcon, UnitsEmptyIcon } from '../shared/Icons';
 import EmptyState from '../shared/EmptyState';
@@ -44,16 +44,16 @@ const Units: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [unitsData, customersData] = await Promise.all([
+            const [unitsData, customersData, unitTypesData, unitStatusesData] = await Promise.all([
                 unitsService.getAll(),
-                customersService.getAll()
+                customersService.getAll(),
+                unitTypesService.getAll(),
+                unitStatusesService.getAll()
             ]);
             setUnits(unitsData);
             setCustomers(customersData);
-            
-            // Load unit types and statuses from localStorage as fallback
-            setUnitTypes(JSON.parse(localStorage.getItem('unitTypes') || '[]'));
-            setUnitStatuses(JSON.parse(localStorage.getItem('unitStatuses') || '[]'));
+            setUnitTypes(unitTypesData as UnitType[]);
+            setUnitStatuses(unitStatusesData as UnitStatus[]);
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات', 'error');
