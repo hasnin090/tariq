@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Customer, Unit, Booking, Payment, Expense, Transaction, Employee, UnitSaleRecord, Project, Vendor, ExpenseCategory, Account, User, UnitType, UnitStatus } from '../../types';
+import { Customer, Unit, Booking, Payment, Expense, Transaction, Employee, UnitSaleRecord, Project, Vendor, ExpenseCategory, Account, User, UnitType, UnitStatus, Document } from '../../types';
 
 /**
  * USERS SERVICE
@@ -635,6 +635,115 @@ export const settingsService = {
     if (error) throw error;
     return data?.[0];
   },
+};
+
+/**
+ * DOCUMENTS SERVICE
+ */
+export const documentsService = {
+  // Function to get documents for a specific customer
+  async getForCustomer(customerId: string) {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('customer_id', customerId)
+      .order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Function to get documents for a specific booking
+  async getForBooking(bookingId: string) {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('booking_id', bookingId)
+      .order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Function to upload a file and create a document record
+  async upload(file: File, linkedTo: { customer_id?: string; booking_id?: string }) {
+    if (!linkedTo.customer_id && !linkedTo.booking_id) {
+      throw new Error('Document must be linked to a customer or a booking.');
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // 1. Upload file to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    // 2. Create a record in the 'documents' table
+    const { data, error: dbError } = await supabase
+      .from('documents')
+      .insert({
+        ...linkedTo,
+        file_name: file.name,
+        storage_path: filePath,
+        file_type: file.type,
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      // If database insert fails, try to remove the uploaded file
+      await supabase.storage.from('documents').remove([filePath]);
+      throw dbError;
+    }
+
+    return data;
+  },
+
+  // Function to delete a document record and the file from storage
+  async delete(documentId: string) {
+    // First, get the document record to find its storage path
+    const { data: doc, error: getError } = await supabase
+      .from('documents')
+      .select('storage_path')
+      .eq('id', documentId)
+      .single();
+
+    if (getError || !doc) {
+      throw getError || new Error('Document not found.');
+    }
+
+    // 1. Delete the file from Supabase Storage
+    const { error: storageError } = await supabase.storage
+      .from('documents')
+      .remove([doc.storage_path]);
+
+    if (storageError) {
+      // Log the error but proceed to delete the DB record anyway
+      console.error('Storage file deletion failed, but proceeding to delete DB record:', storageError);
+    }
+
+    // 2. Delete the record from the 'documents' table
+    const { error: dbError } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', documentId);
+
+    if (dbError) {
+      throw dbError;
+    }
+  },
+
+  // Function to get a public URL for a file
+  getPublicUrl(filePath: string) {
+    const { data } = supabase.storage
+      .from('documents')
+      .getPublicUrl(filePath);
+    return data.publicUrl;
+  }
 };
 
 /**

@@ -4,7 +4,7 @@ import Toast from '../components/shared/Toast.tsx';
 type ToastMessage = {
   id: number;
   message: string;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'warning';
 };
 
 interface ToastContextType {

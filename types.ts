@@ -38,7 +38,7 @@ export interface Customer {
   name: string;
   phone: string;
   email: string;
-  documents?: SaleDocument[];
+  documents?: Document[];
 }
 
 export interface Booking {
@@ -50,43 +50,44 @@ export interface Booking {
   bookingDate: string;
   amountPaid: number;
   status: 'Active' | 'Cancelled' | 'Completed';
+  documents?: Document[];
 }
 
 export interface Payment {
     id: string;
-    customerId: string;
-    customerName: string;
-    unitId: string;
-    unitName: string;
-    amount: number;
-    paymentDate: string;
+// ... existing code ...
     accountId: string;
     transactionId?: string;
+}
+
+export interface Document {
+  id: string;
+  file_name: string;
+  storage_path: string;
+  file_type?: string;
+  uploaded_at: string;
+  customer_id?: string;
+  booking_id?: string;
+  publicUrl?: string;
 }
 
 export interface SaleDocument {
     id: string;
     name: string;
-    type: string;
-    fileName?: string;
-    content: string;
-    mimeType: string;
+// ... existing code ...
     expenseId?: string;
     uploadedAt?: string;
 }
 
 export interface UnitSaleRecord {
-    id: string;
-    unitId: string;
-    unitName: string;
-    customerId: string;
-    customerName: string;
+// ... existing code ...
     finalSalePrice: number;
     saleDate: string;
     documents: SaleDocument[];
     accountId: string;
     transactionId?: string;
 }
+
 
 export interface ExpenseCategory {
     id: string;

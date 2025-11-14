@@ -5,8 +5,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import logActivity from '../../utils/activityLogger';
 import { customersService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
-import { CloseIcon, UsersIcon, CustomersEmptyIcon } from '../shared/Icons';
+import { CloseIcon, UsersIcon, CustomersEmptyIcon, DocumentTextIcon } from '../shared/Icons';
 import EmptyState from '../shared/EmptyState';
+import DocumentManager from '../shared/DocumentManager';
 
 const Customers: React.FC = () => {
     const { currentUser } = useAuth();
@@ -15,10 +16,13 @@ const Customers: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+    const [isDocManagerOpen, setIsDocManagerOpen] = useState(false);
+    const [selectedCustomerForDocs, setSelectedCustomerForDocs] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(true);
 
     const canEdit = currentUser?.role === 'Admin';
     const canDelete = currentUser?.role === 'Admin';
+    const canManageDocs = currentUser?.role === 'Admin';
 
     useEffect(() => {
         loadCustomers();
@@ -54,6 +58,16 @@ const Customers: React.FC = () => {
     const handleCloseModal = () => {
         setEditingCustomer(null);
         setIsModalOpen(false);
+    };
+
+    const handleOpenDocManager = (customer: Customer) => {
+        setSelectedCustomerForDocs(customer);
+        setIsDocManagerOpen(true);
+    };
+
+    const handleCloseDocManager = () => {
+        setSelectedCustomerForDocs(null);
+        setIsDocManagerOpen(false);
     };
 
     const handleSave = async (customerData: Omit<Customer, 'id'>) => {
@@ -116,11 +130,12 @@ const Customers: React.FC = () => {
                                 <tr key={customer.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{customer.name}</td>
                                     <td className="p-4 text-slate-600 dark:text-slate-300">{customer.phone}</td>
-                                    <td className="p-4 text-slate-600 dark:text-slate-300">{customer.email}</td>
-                                    {(canEdit || canDelete) && (
-                                        <td className="p-4">
+                                     <td className="p-4 text-slate-600 dark:text-slate-300">{customer.email}</td>
+                                    {(canEdit || canDelete || canManageDocs) && (
+                                        <td className="p-4 space-x-4">
+                                            {canManageDocs && <button onClick={() => handleOpenDocManager(customer)} className="text-teal-600 hover:underline font-semibold">المستندات</button>}
                                             {canEdit && <button onClick={() => handleOpenModal(customer)} className="text-primary-600 hover:underline font-semibold">تعديل</button>}
-                                            {canDelete && <button onClick={() => handleDelete(customer)} className="text-rose-600 hover:underline mr-4 font-semibold">حذف</button>}
+                                            {canDelete && <button onClick={() => handleDelete(customer)} className="text-rose-600 hover:underline font-semibold">حذف</button>}
                                         </td>
                                     )}
                                 </tr>
@@ -132,12 +147,19 @@ const Customers: React.FC = () => {
                 <EmptyState Icon={CustomersEmptyIcon} title="لا يوجد عملاء" message="ابدأ بإضافة بيانات العملاء لتتمكن من ربطهم بالوحدات." actionButton={{ text: 'إضافة عميل', onClick: () => handleOpenModal(null)}} />
             )}
             {isModalOpen && <CustomerPanel customer={editingCustomer} onClose={handleCloseModal} onSave={handleSave} />}
+            {isDocManagerOpen && selectedCustomerForDocs && (
+                <DocumentManager 
+                    isOpen={isDocManagerOpen}
+                    onClose={handleCloseDocManager}
+                    entityId={selectedCustomerForDocs.id}
+                    entityType="customer"
+                    entityName={selectedCustomerForDocs.name}
+                />
+            )}
             <ConfirmModal isOpen={!!customerToDelete} onClose={() => setCustomerToDelete(null)} onConfirm={confirmDelete} title="تأكيد الحذف" message={`هل أنت متأكد من حذف العميل "${customerToDelete?.name}"؟`} />
         </div>
     );
-};
-
-interface PanelProps { customer: Customer | null; onClose: () => void; onSave: (data: Omit<Customer, 'id'>) => void; }
+};interface PanelProps { customer: Customer | null; onClose: () => void; onSave: (data: Omit<Customer, 'id'>) => void; }
 
 const CustomerPanel: React.FC<PanelProps> = ({ customer, onClose, onSave }) => {
     const { addToast } = useToast();

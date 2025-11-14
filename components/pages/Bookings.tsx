@@ -5,6 +5,7 @@ import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { bookingsService, unitsService, customersService, accountsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
+import DocumentManager from '../shared/DocumentManager';
 import { CloseIcon, DocumentTextIcon } from '../shared/Icons';
 
 export const Bookings: React.FC = () => {
@@ -18,6 +19,19 @@ export const Bookings: React.FC = () => {
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
     const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
+    
+    const [isDocManagerOpen, setIsDocManagerOpen] = useState(false);
+    const [selectedBookingForDocs, setSelectedBookingForDocs] = useState<Booking | null>(null);
+
+    const handleOpenDocManager = (booking: Booking) => {
+        setSelectedBookingForDocs(booking);
+        setIsDocManagerOpen(true);
+    };
+
+    const handleCloseDocManager = () => {
+        setSelectedBookingForDocs(null);
+        setIsDocManagerOpen(false);
+    };
 
     useEffect(() => {
         loadData();
@@ -161,7 +175,8 @@ export const Bookings: React.FC = () => {
                                 <td className="p-4 text-slate-600 dark:text-slate-300">{booking.bookingDate}</td>
                                 <td className="p-4 text-emerald-600 dark:text-emerald-400 font-semibold">{formatCurrency(booking.amountPaid)}</td>
                                 <td className="p-4"><span className={`px-3 py-1 text-xs font-bold rounded-full ${getStatusStyle(booking.status)}`}>{booking.status}</span></td>
-                                <td className="p-4">
+                                <td className="p-4 space-x-4">
+                                    <button onClick={() => handleOpenDocManager(booking)} className="text-teal-600 hover:underline font-semibold">المستندات</button>
                                     {booking.status === 'Active' && <button onClick={() => handleCancelRequest(booking)} className="text-rose-600 dark:text-rose-400 hover:underline font-semibold">إلغاء</button>}
                                 </td>
                             </tr>
@@ -171,6 +186,15 @@ export const Bookings: React.FC = () => {
                  {bookings.length === 0 && <p className="text-center p-8 text-slate-500 dark:text-slate-400">لا توجد حجوزات حالية.</p>}
             </div>
             {isModalOpen && <BookingPanel booking={editingBooking} units={units.filter(u => u.status === 'Available')} customers={customers} onClose={handleCloseModal} onSave={handleSave} />}
+            {isDocManagerOpen && selectedBookingForDocs && (
+                <DocumentManager
+                    isOpen={isDocManagerOpen}
+                    onClose={handleCloseDocManager}
+                    entityId={selectedBookingForDocs.id}
+                    entityType="booking"
+                    entityName={`حجز ${selectedBookingForDocs.unitName}`}
+                />
+            )}
             <ConfirmModal isOpen={!!bookingToCancel} onClose={() => setBookingToCancel(null)} onConfirm={confirmCancel} title="تأكيد إلغاء الحجز" message={`هل أنت متأكد من إلغاء حجز الوحدة "${bookingToCancel?.unitName}"؟ ستعود الوحدة متاحة.`} />
         </div>
     );
