@@ -4,7 +4,7 @@ import { useAuth } from '../../../contexts/AuthContext.tsx';
 import { useToast } from '../../../contexts/ToastContext.tsx';
 import logActivity from '../../../utils/activityLogger.ts';
 import { formatCurrency } from '../../../utils/currencyFormatter.ts';
-import { expensesService, expenseCategoriesService, projectsService, accountsService, transactionsService } from '../../../src/services/supabaseService.ts';
+import { expensesService, expenseCategoriesService, projectsService, transactionsService } from '../../../src/services/supabaseService.ts';
 import ConfirmModal from '../../shared/ConfirmModal.tsx';
 import { CloseIcon, ReceiptIcon, FileIcon, EyeIcon, PaperClipIcon, FilterIcon, XCircleIcon } from '../../shared/Icons.tsx';
 import EmptyState from '../../shared/EmptyState.tsx';
@@ -108,7 +108,6 @@ export const Expenses: React.FC = () => {
     const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
-    const [accounts, setAccounts] = useState<Account[]>([]);
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -166,14 +165,12 @@ export const Expenses: React.FC = () => {
 
         const fetchRelatedData = async () => {
             try {
-                const [categoriesData, projectsData, accountsData] = await Promise.all([
+                const [categoriesData, projectsData] = await Promise.all([
                     expenseCategoriesService.getAll(),
                     projectsService.getAll(),
-                    accountsService.getAll(),
                 ]);
                 setCategories(categoriesData);
                 setProjects(projectsData);
-                setAccounts(accountsData);
             } catch (error) {
                 addToast('Failed to fetch related data.', 'error');
             }
@@ -249,10 +246,9 @@ export const Expenses: React.FC = () => {
             if (editingExpense) {
                 const updatedExpense = await expensesService.update(editingExpense.id, expenseData);
                 if (updatedExpense && updatedExpense.transactionId) {
-                    const account = accounts.find(a => a.id === expenseData.accountId);
                     await transactionsService.update(updatedExpense.transactionId, {
                         accountId: expenseData.accountId,
-                        accountName: account?.name || '',
+                        accountName: expenseData.accountName || '',
                         date: expenseData.date,
                         description: expenseData.description,
                         amount: expenseData.amount,
@@ -261,8 +257,7 @@ export const Expenses: React.FC = () => {
                 addToast('تم تحديث الحركة المالية بنجاح.', 'success');
                 logActivity('Update Expense', `Updated expense: ${expenseData.description}`);
             } else {
-                const account = accounts.find(a => a.id === expenseData.accountId);
-                if (!account) {
+                if (!expenseData.accountId) {
                     addToast('الحساب المحدد غير صالح.', 'error');
                     return;
                 }
@@ -270,7 +265,7 @@ export const Expenses: React.FC = () => {
                 // Create transaction first to get its ID
                 const newTransaction = await transactionsService.create({
                     accountId: expenseData.accountId,
-                    accountName: account.name,
+                    accountName: expenseData.accountName || '',
                     type: 'Withdrawal',
                     date: expenseData.date,
                     description: expenseData.description,
@@ -438,7 +433,7 @@ export const Expenses: React.FC = () => {
                     />
                 )
             )}
-            {isModalOpen && <ExpensePanel expense={editingExpense} categories={categories} projects={projects} accounts={accounts} onClose={handleCloseModal} onSave={handleSave} />}
+            {isModalOpen && <ExpensePanel expense={editingExpense} categories={categories} projects={projects} onClose={handleCloseModal} onSave={handleSave} />}
             <ConfirmModal isOpen={!!expenseToDelete} onClose={() => setExpenseToDelete(null)} onConfirm={confirmDelete} title="تأكيد الحذف" message="هل أنت متأكد من حذف هذه الحركة المالية؟" />
             <AttachmentViewerModal document={viewingAttachment} onClose={() => setViewingAttachment(null)} />
         </div>
@@ -450,12 +445,11 @@ interface PanelProps {
     expense: Expense | null;
     categories: ExpenseCategory[];
     projects: Project[];
-    accounts: Account[];
     onClose: () => void;
     onSave: (data: Omit<Expense, 'id'>) => void;
 }
 
-const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, accounts, onClose, onSave }) => {
+const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, onClose, onSave }) => {
     const { addToast } = useToast();
     const [formData, setFormData] = useState({
         date: expense?.date || new Date().toISOString().split('T')[0],
@@ -518,7 +512,7 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
                             <input type="date" name="date" value={formData.date} onChange={handleChange} className={inputStyle} required />
                             <input type="number" name="amount" placeholder="المبلغ" value={formData.amount} onChange={handleChange} className={inputStyle} required min="0.01" step="0.01" />
                         </div>
-                        <select name="accountId" value={formData.accountId} onChange={handleChange} className={selectStyle} required><option value="">اختر حساب الدفع</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+                        <input type="text" name="accountId" placeholder="معرف الحساب" value={formData.accountId} onChange={handleChange} className={inputStyle} required />
                         <select name="categoryId" value={formData.categoryId} onChange={handleChange} className={selectStyle} required><option value="">اختر فئة</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                         <select name="projectId" value={formData.projectId} onChange={handleChange} className={selectStyle}><option value="">اختر مشروع (اختياري)</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                         <div>
