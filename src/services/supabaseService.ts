@@ -66,9 +66,10 @@ export const customersService = {
   },
 
   async create(customer: Omit<Customer, 'id'>) {
+    const id = `customer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { data, error } = await supabase
       .from('customers')
-      .insert([customer])
+      .insert([{ ...customer, id }])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -118,9 +119,10 @@ export const unitsService = {
   },
 
   async create(unit: Omit<Unit, 'id'>) {
+    const id = `unit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { data, error } = await supabase
       .from('units')
-      .insert([unit])
+      .insert([{ ...unit, id }])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -170,9 +172,10 @@ export const bookingsService = {
   },
 
   async create(booking: Omit<Booking, 'id'>) {
+    const id = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { data, error } = await supabase
       .from('bookings')
-      .insert([booking])
+      .insert([{ ...booking, id }])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -222,9 +225,10 @@ export const paymentsService = {
   },
 
   async create(payment: Omit<Payment, 'id'>) {
-    const { data, error } = await supabase
+    const id = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const { data, error} = await supabase
       .from('payments')
-      .insert([payment])
+      .insert([{ ...payment, id }])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -274,9 +278,10 @@ export const expensesService = {
   },
 
   async create(expense: Omit<Expense, 'id'>) {
+    const id = `expense_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { data, error } = await supabase
       .from('expenses')
-      .insert([expense])
+      .insert([{ ...expense, id }])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -326,9 +331,10 @@ export const transactionsService = {
   },
 
   async create(transaction: Omit<Transaction, 'id'>) {
+    const id = `transaction_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { data, error } = await supabase
       .from('transactions')
-      .insert([transaction])
+      .insert([{ ...transaction, id }])
       .select();
     if (error) throw error;
     return data?.[0];
