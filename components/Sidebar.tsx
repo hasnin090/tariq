@@ -101,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 onClick={onClose}
                 aria-hidden="true"
             ></div>
-            <aside className={`fixed lg:static inset-y-0 right-0 w-64 bg-slate-900 text-white flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-in-out lg:translate-x-0 no-print ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <aside className={`fixed lg:relative inset-y-0 right-0 w-64 bg-slate-900 text-white flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-in-out no-print ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
                 <div className="h-20 flex items-center justify-center border-b border-slate-800">
                     <h1 className="text-2xl font-bold text-white">{systemTitle}</h1>
                 </div>

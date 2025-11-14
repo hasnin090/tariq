@@ -30,7 +30,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setCurrentUser({ ...sessionUser, ...appUser });
       } catch (error) {
         console.error("Failed to fetch user profile", error);
-        setCurrentUser(sessionUser as AppUser); // Fallback to session user
+        // Fallback with default values if user profile doesn't exist in database
+        setCurrentUser({ 
+          ...sessionUser, 
+          name: sessionUser.email?.split('@')[0] || 'User',
+          role: 'Admin', // Default role
+        } as AppUser);
       } finally {
         setLoading(false);
       }
