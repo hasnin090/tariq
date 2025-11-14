@@ -3,7 +3,7 @@ import { Booking, Unit, Customer, Payment, Account, Transaction } from '../../ty
 import { useToast } from '../../contexts/ToastContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
-import { bookingsService, unitsService, customersService, accountsService } from '../../src/services/supabaseService';
+import { bookingsService, unitsService, customersService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import DocumentManager from '../shared/DocumentManager';
 import { CloseIcon, DocumentTextIcon } from '../shared/Icons';
@@ -13,7 +13,6 @@ export const Bookings: React.FC = () => {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
-    const [accounts, setAccounts] = useState<Account[]>([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
@@ -58,16 +57,14 @@ export const Bookings: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [bookingsData, unitsData, customersData, accountsData] = await Promise.all([
+            const [bookingsData, unitsData, customersData] = await Promise.all([
                 bookingsService.getAll(),
                 unitsService.getAll(),
                 customersService.getAll(),
-                accountsService.getAll()
             ]);
             setBookings(bookingsData);
             setUnits(unitsData);
             setCustomers(customersData);
-            setAccounts(accountsData);
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات', 'error');
@@ -90,9 +87,8 @@ export const Bookings: React.FC = () => {
         try {
             const unit = units.find(u => u.id === bookingData.unitId);
             const customer = customers.find(c => c.id === bookingData.customerId);
-            const account = accounts.find(a => a.id === 'acc_1');
-            if (!unit || !customer || !account) {
-                addToast('تأكد من اختيار وحدة وعميل وحساب صحيحة', 'error');
+            if (!unit || !customer) {
+                addToast('تأكد من اختيار وحدة وعميل صحيحة', 'error');
                 return;
             }
 
