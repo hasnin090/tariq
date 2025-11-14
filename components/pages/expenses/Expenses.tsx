@@ -244,11 +244,14 @@ export const Expenses: React.FC = () => {
     const handleSave = async (expenseData: Omit<Expense, 'id'>) => {
         try {
             if (editingExpense) {
-                const updatedExpense = await expensesService.update(editingExpense.id, expenseData);
+                // Remove documents field before updating expense (documents are stored separately)
+                const { documents, ...expenseDataWithoutDocs } = expenseData;
+                
+                const updatedExpense = await expensesService.update(editingExpense.id, expenseDataWithoutDocs);
                 if (updatedExpense && updatedExpense.transactionId) {
                     await transactionsService.update(updatedExpense.transactionId, {
                         accountId: expenseData.accountId,
-                        accountName: expenseData.accountName || '',
+                        accountName: '', // Account name will be populated by the backend
                         date: expenseData.date,
                         description: expenseData.description,
                         amount: expenseData.amount,
@@ -265,7 +268,7 @@ export const Expenses: React.FC = () => {
                 // Create transaction first to get its ID
                 const newTransaction = await transactionsService.create({
                     accountId: expenseData.accountId,
-                    accountName: expenseData.accountName || '',
+                    accountName: '', // Account name will be populated by the backend
                     type: 'Withdrawal',
                     date: expenseData.date,
                     description: expenseData.description,
@@ -277,9 +280,12 @@ export const Expenses: React.FC = () => {
                     throw new Error("Failed to create transaction");
                 }
 
+                // Remove documents field before creating expense (documents are stored separately)
+                const { documents, ...expenseDataWithoutDocs } = expenseData;
+
                 // Then create expense and link it to the transaction
                 const newExpense = await expensesService.create({ 
-                    ...expenseData, 
+                    ...expenseDataWithoutDocs, 
                     transactionId: newTransaction.id 
                 });
 

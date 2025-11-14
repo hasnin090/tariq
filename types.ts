@@ -75,7 +75,10 @@ export interface Document {
 export interface SaleDocument {
     id: string;
     name: string;
-// ... existing code ...
+    type?: string;
+    fileName?: string;
+    content?: string;
+    mimeType?: string;
     expenseId?: string;
     uploadedAt?: string;
 }
