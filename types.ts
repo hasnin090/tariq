@@ -3,6 +3,7 @@ export type InterfaceMode = 'projects' | 'expenses';
 export interface User {
   id: string;
   name: string;
+  email: string;
   password?: string;
   role: 'Admin' | 'Sales' | 'Accounting';
   permissions?: {

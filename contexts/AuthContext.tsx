@@ -12,7 +12,7 @@ interface AppUser extends User {
 interface AuthContextType {
   currentUser: AppUser | null;
   login: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, name: string, role: 'Admin' | 'Sales' | 'Accounting') => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -66,10 +66,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, name: string, role: 'Admin' | 'Sales' | 'Accounting') => {
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
-      return { error };
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      
+      if (error) return { error };
+      
+      if (data.user) {
+        // Create user profile in users table
+        const userProfile = {
+          name,
+          email,
+          role,
+          password: '',
+        };
+        await usersService.create({ ...userProfile, id: data.user.id } as any);
+      }
+      
+      return { error: null };
     } catch (error) {
       return { error: error as Error };
     }

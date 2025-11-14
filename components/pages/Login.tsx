@@ -5,6 +5,8 @@ const Login: React.FC = () => {
   const { login, signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<'Admin' | 'Sales' | 'Accounting'>('Sales');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -16,7 +18,7 @@ const Login: React.FC = () => {
 
     try {
       const { error } = isRegistering 
-        ? await signUp(email, password)
+        ? await signUp(email, password, name, role)
         : await login(email, password);
 
       if (error) {
@@ -40,6 +42,48 @@ const Login: React.FC = () => {
         </div>
 
         <form className="space-y-6" onSubmit={handleSubmit}>
+          {isRegistering && (
+            <>
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  الاسم الكامل
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="أحمد محمد"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  الدور الوظيفي
+                </label>
+                <div className="mt-1">
+                  <select
+                    id="role"
+                    name="role"
+                    required
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as 'Admin' | 'Sales' | 'Accounting')}
+                    className="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="Sales">مبيعات</option>
+                    <option value="Accounting">محاسبة</option>
+                    <option value="Admin">مدير</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               البريد الإلكتروني
