@@ -4,7 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { CloseIcon, TrendingUpIcon, PaperClipIcon } from '../shared/Icons';
-import { unitSalesService, unitsService, customersService, accountsService, transactionsService, documentsService } from '../../src/services/supabaseService';
+import { unitSalesService, unitsService, customersService, transactionsService, documentsService } from '../../src/services/supabaseService';
 
 const UnitSales: React.FC = () => {
     const [sales, setSales] = useState<UnitSaleRecord[]>([]);
@@ -21,16 +21,14 @@ const UnitSales: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [salesData, unitsData, customersData, accountsData] = await Promise.all([
+            const [salesData, unitsData, customersData] = await Promise.all([
                 unitSalesService.getAll(),
                 unitsService.getAll(),
                 customersService.getAll(),
-                accountsService.getAll(),
             ]);
             setSales(salesData);
             setUnits(unitsData);
             setCustomers(customersData);
-            setAccounts(accountsData);
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات.', 'error');
@@ -42,10 +40,9 @@ const UnitSales: React.FC = () => {
     const handleSave = async (saleData: Omit<UnitSaleRecord, 'id' | 'unitName' | 'customerName'>, documents: File[]) => {
         const unit = units.find(u => u.id === saleData.unitId);
         const customer = customers.find(c => c.id === saleData.customerId);
-        const account = accounts.find(a => a.id === saleData.accountId);
 
-        if (!unit || !customer || !account) {
-            addToast('بيانات غير مكتملة. يرجى التحقق من الوحدة والعميل والحساب.', 'error');
+        if (!unit || !customer) {
+            addToast('بيانات غير مكتملة. يرجى التحقق من الوحدة والعميل.', 'error');
             return;
         }
 
