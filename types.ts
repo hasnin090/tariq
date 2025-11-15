@@ -40,6 +40,7 @@ export interface Customer {
   phone: string;
   email: string;
   documents?: Document[];
+  unitId?: string;
 }
 
 export interface Booking {
@@ -80,6 +81,7 @@ export interface SaleDocument {
     content?: string;
     mimeType?: string;
     expenseId?: string;
+    sale_id?: string;
     uploadedAt?: string;
 }
 

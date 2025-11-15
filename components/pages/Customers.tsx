@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Customer } from '../../types';
+import { Customer, Unit } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import logActivity from '../../utils/activityLogger';
-import { customersService } from '../../src/services/supabaseService';
+import { customersService, unitsService, documentsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
-import { CloseIcon, UsersIcon, CustomersEmptyIcon, DocumentTextIcon } from '../shared/Icons';
+import { CloseIcon, UsersIcon, CustomersEmptyIcon, DocumentTextIcon, PaperClipIcon } from '../shared/Icons';
 import EmptyState from '../shared/EmptyState';
 import DocumentManager from '../shared/DocumentManager';
 
@@ -13,6 +13,7 @@ const Customers: React.FC = () => {
     const { currentUser } = useAuth();
     const { addToast } = useToast();
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [units, setUnits] = useState<Unit[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
@@ -25,7 +26,7 @@ const Customers: React.FC = () => {
     const canManageDocs = currentUser?.role === 'Admin';
 
     useEffect(() => {
-        loadCustomers();
+        loadData();
         
         // Subscribe to real-time changes
         const subscription = customersService.subscribe((data) => {
@@ -37,14 +38,18 @@ const Customers: React.FC = () => {
         };
     }, []);
 
-    const loadCustomers = async () => {
+    const loadData = async () => {
         try {
             setLoading(true);
-            const data = await customersService.getAll();
-            setCustomers(data);
+            const [customersData, unitsData] = await Promise.all([
+                customersService.getAll(),
+                unitsService.getAll()
+            ]);
+            setCustomers(customersData);
+            setUnits(unitsData);
         } catch (error) {
-            console.error('Error loading customers:', error);
-            addToast('خطأ في تحميل العملاء', 'error');
+            console.error('Error loading data:', error);
+            addToast('خطأ في تحميل البيانات', 'error');
         } finally {
             setLoading(false);
         }
@@ -70,19 +75,36 @@ const Customers: React.FC = () => {
         setIsDocManagerOpen(false);
     };
 
-    const handleSave = async (customerData: Omit<Customer, 'id'>) => {
+    const handleSave = async (customerData: Omit<Customer, 'id'>, documents?: File[]) => {
         try {
+            let savedCustomer;
             if (editingCustomer) {
-                await customersService.update(editingCustomer.id, customerData);
+                savedCustomer = await customersService.update(editingCustomer.id, customerData);
                 logActivity('Update Customer', `Updated customer: ${customerData.name}`);
                 addToast('تم تحديث العميل بنجاح', 'success');
             } else {
-                await customersService.create(customerData);
+                savedCustomer = await customersService.create(customerData);
                 logActivity('Add Customer', `Added customer: ${customerData.name}`);
                 addToast('تم إضافة العميل بنجاح', 'success');
             }
+
+            if (savedCustomer && documents && documents.length > 0) {
+                for (const doc of documents) {
+                    await documentsService.upload(doc, { customer_id: savedCustomer.id });
+                }
+                addToast(`تم رفع ${documents.length} مستندات بنجاح`, 'success');
+            }
+
+            if (customerData.unitId) {
+                await unitsService.update(customerData.unitId, {
+                    status: 'Sold',
+                    customerId: savedCustomer.id
+                });
+                logActivity('Update Unit Status', `Unit ${customerData.unitId} marked as Sold`);
+            }
+
             handleCloseModal();
-            await loadCustomers();
+            await loadData();
         } catch (error) {
             console.error('Error saving customer:', error);
             addToast('خطأ في حفظ العميل', 'error');
@@ -100,7 +122,7 @@ const Customers: React.FC = () => {
                 logActivity('Delete Customer', `Deleted customer: ${customerToDelete.name}`);
                 addToast('تم حذف العميل بنجاح', 'success');
                 setCustomerToDelete(null);
-                await loadCustomers();
+                await loadData();
             } catch (error) {
                 console.error('Error deleting customer:', error);
                 addToast('خطأ في حذف العميل', 'error');
@@ -146,7 +168,7 @@ const Customers: React.FC = () => {
             ) : (
                 <EmptyState Icon={CustomersEmptyIcon} title="لا يوجد عملاء" message="ابدأ بإضافة بيانات العملاء لتتمكن من ربطهم بالوحدات." actionButton={{ text: 'إضافة عميل', onClick: () => handleOpenModal(null)}} />
             )}
-            {isModalOpen && <CustomerPanel customer={editingCustomer} onClose={handleCloseModal} onSave={handleSave} />}
+            {isModalOpen && <CustomerPanel customer={editingCustomer} units={units} onClose={handleCloseModal} onSave={handleSave} />}
             {isDocManagerOpen && selectedCustomerForDocs && (
                 <DocumentManager 
                     isOpen={isDocManagerOpen}
@@ -159,15 +181,23 @@ const Customers: React.FC = () => {
             <ConfirmModal isOpen={!!customerToDelete} onClose={() => setCustomerToDelete(null)} onConfirm={confirmDelete} title="تأكيد الحذف" message={`هل أنت متأكد من حذف العميل "${customerToDelete?.name}"؟`} />
         </div>
     );
-};interface PanelProps { customer: Customer | null; onClose: () => void; onSave: (data: Omit<Customer, 'id'>) => void; }
+};interface PanelProps { customer: Customer | null; units: Unit[]; onClose: () => void; onSave: (data: Omit<Customer, 'id'>, documents?: File[]) => void; }
 
-const CustomerPanel: React.FC<PanelProps> = ({ customer, onClose, onSave }) => {
+const CustomerPanel: React.FC<PanelProps> = ({ customer, units, onClose, onSave }) => {
     const { addToast } = useToast();
     const [formData, setFormData] = useState({
         name: customer?.name || '',
         phone: customer?.phone || '',
         email: customer?.email || '',
+        unitId: customer?.unitId || '',
     });
+    const [documents, setDocuments] = useState<File[]>([]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setDocuments(Array.from(e.target.files));
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -175,10 +205,10 @@ const CustomerPanel: React.FC<PanelProps> = ({ customer, onClose, onSave }) => {
             addToast('الاسم ورقم الهاتف حقول إلزامية.', 'error');
             return;
         }
-        onSave(formData);
+        onSave(formData, documents);
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
     
@@ -194,6 +224,36 @@ const CustomerPanel: React.FC<PanelProps> = ({ customer, onClose, onSave }) => {
                         <div className="grid grid-cols-2 gap-4">
                            <input type="tel" name="phone" placeholder="رقم الهاتف" value={formData.phone} onChange={handleChange} className={inputStyle} required />
                            <input type="email" name="email" placeholder="البريد الإلكتروني" value={formData.email} onChange={handleChange} className={inputStyle} />
+                        </div>
+                        <div>
+                            <label htmlFor="unitId" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">ربط بوحدة سكنية (اختياري)</label>
+                            <select id="unitId" name="unitId" value={formData.unitId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}>
+                                <option value="">اختر وحدة</option>
+                                {units.filter(u => u.status === 'Available' || u.customerId === customer?.id).map(unit => (
+                                    <option key={unit.id} value={unit.id}>{unit.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">المستندات الثبوتية</label>
+                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-slate-900/25 dark:border-slate-50/25 px-6 py-10">
+                                <div className="text-center">
+                                    <PaperClipIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+                                    <div className="mt-4 flex text-sm leading-6 text-gray-600">
+                                        <label htmlFor="file-upload" className="relative cursor-pointer rounded-md bg-white dark:bg-slate-800 font-semibold text-primary-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-600 focus-within:ring-offset-2 hover:text-primary-500">
+                                            <span>ارفع ملفات</span>
+                                            <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple onChange={handleFileChange} />
+                                        </label>
+                                        <p className="pr-1">أو اسحبها وأفلتها</p>
+                                    </div>
+                                    <p className="text-xs leading-5 text-gray-600">PNG, JPG, PDF up to 10MB</p>
+                                </div>
+                            </div>
+                            {documents.length > 0 && (
+                                <div className="mt-2 text-sm text-slate-500">
+                                    {documents.map(file => <span key={file.name} className="block">{file.name}</span>)}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold">إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm">حفظ</button></div>
