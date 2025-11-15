@@ -77,14 +77,17 @@ const Customers: React.FC = () => {
 
     const handleSave = async (customerData: Omit<Customer, 'id'>, documents?: File[]) => {
         try {
+            const { unitId, unit_id, ...customerWithoutUnit } = customerData as any;
+            const unitIdValue = unitId || unit_id;
+            
             let savedCustomer;
             if (editingCustomer) {
-                savedCustomer = await customersService.update(editingCustomer.id, customerData);
-                logActivity('Update Customer', `Updated customer: ${customerData.name}`);
+                savedCustomer = await customersService.update(editingCustomer.id, customerWithoutUnit);
+                logActivity('Update Customer', `Updated customer: ${customerWithoutUnit.name}`);
                 addToast('تم تحديث العميل بنجاح', 'success');
             } else {
-                savedCustomer = await customersService.create(customerData);
-                logActivity('Add Customer', `Added customer: ${customerData.name}`);
+                savedCustomer = await customersService.create(customerWithoutUnit);
+                logActivity('Add Customer', `Added customer: ${customerWithoutUnit.name}`);
                 addToast('تم إضافة العميل بنجاح', 'success');
             }
 
@@ -95,12 +98,12 @@ const Customers: React.FC = () => {
                 addToast(`تم رفع ${documents.length} مستندات بنجاح`, 'success');
             }
 
-            if (customerData.unitId) {
-                await unitsService.update(customerData.unitId, {
+            if (unitIdValue) {
+                await unitsService.update(unitIdValue, {
                     status: 'Sold',
                     customerId: savedCustomer.id
                 });
-                logActivity('Update Unit Status', `Unit ${customerData.unitId} marked as Sold`);
+                logActivity('Update Unit Status', `Unit ${unitIdValue} marked as Sold`);
             }
 
             handleCloseModal();
@@ -189,7 +192,7 @@ const CustomerPanel: React.FC<PanelProps> = ({ customer, units, onClose, onSave 
         name: customer?.name || '',
         phone: customer?.phone || '',
         email: customer?.email || '',
-        unitId: customer?.unitId || '',
+        unit_id: customer?.unitId || '',
     });
     const [documents, setDocuments] = useState<File[]>([]);
 
@@ -226,8 +229,8 @@ const CustomerPanel: React.FC<PanelProps> = ({ customer, units, onClose, onSave 
                            <input type="email" name="email" placeholder="البريد الإلكتروني" value={formData.email} onChange={handleChange} className={inputStyle} />
                         </div>
                         <div>
-                            <label htmlFor="unitId" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">ربط بوحدة سكنية (اختياري)</label>
-                            <select id="unitId" name="unitId" value={formData.unitId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}>
+                            <label htmlFor="unit_id" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">ربط بوحدة سكنية (اختياري)</label>
+                            <select id="unit_id" name="unit_id" value={formData.unit_id} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}>
                                 <option value="">اختر وحدة</option>
                                 {units.filter(u => u.status === 'Available' || u.customerId === customer?.id).map(unit => (
                                     <option key={unit.id} value={unit.id}>{unit.name}</option>
