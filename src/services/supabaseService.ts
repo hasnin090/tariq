@@ -303,27 +303,132 @@ export const paymentsService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Transform snake_case to camelCase
+    return (data || []).map((payment: any) => ({
+      id: payment.id,
+      bookingId: payment.booking_id,
+      customerId: payment.customer_id,
+      customerName: payment.customer_name,
+      unitId: payment.unit_id,
+      unitName: payment.unit_name,
+      amount: payment.amount,
+      paymentDate: payment.payment_date,
+      unitPrice: payment.unit_price,
+      remainingAmount: payment.unit_price - payment.amount,
+      accountId: payment.account_id,
+      transactionId: payment.transaction_id,
+    }));
   },
 
-  async create(payment: Omit<Payment, 'id'>) {
-    const id = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  async getByCustomerId(customerId: string) {
     const { data, error } = await supabase
       .from('payments')
-      .insert([{ ...payment, id }])
+      .select('*')
+      .eq('customer_id', customerId)
+      .order('payment_date', { ascending: false });
+    if (error) throw error;
+    
+    // Transform snake_case to camelCase
+    return (data || []).map((payment: any) => ({
+      id: payment.id,
+      bookingId: payment.booking_id,
+      customerId: payment.customer_id,
+      customerName: payment.customer_name,
+      unitId: payment.unit_id,
+      unitName: payment.unit_name,
+      amount: payment.amount,
+      paymentDate: payment.payment_date,
+      unitPrice: payment.unit_price,
+      remainingAmount: payment.unit_price - payment.amount,
+      accountId: payment.account_id,
+      transactionId: payment.transaction_id,
+    }));
+  },
+
+  async create(payment: Omit<Payment, 'id' | 'remainingAmount'>) {
+    const id = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Transform to snake_case for database
+    const dbData = {
+      id,
+      booking_id: payment.bookingId,
+      customer_id: payment.customerId,
+      customer_name: payment.customerName,
+      unit_id: payment.unitId,
+      unit_name: payment.unitName,
+      amount: payment.amount,
+      payment_date: payment.paymentDate,
+      unit_price: payment.unitPrice,
+      account_id: payment.accountId,
+      transaction_id: payment.transactionId,
+    };
+    
+    const { data, error } = await supabase
+      .from('payments')
+      .insert([dbData])
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    // Transform response back to camelCase
+    if (data?.[0]) {
+      return {
+        id: data[0].id,
+        bookingId: data[0].booking_id,
+        customerId: data[0].customer_id,
+        customerName: data[0].customer_name,
+        unitId: data[0].unit_id,
+        unitName: data[0].unit_name,
+        amount: data[0].amount,
+        paymentDate: data[0].payment_date,
+        unitPrice: data[0].unit_price,
+        remainingAmount: data[0].unit_price - data[0].amount,
+        accountId: data[0].account_id,
+        transactionId: data[0].transaction_id,
+      };
+    }
   },
 
   async update(id: string, payment: Partial<Payment>) {
+    // Transform to snake_case for database
+    const dbData: any = {};
+    Object.entries(payment).forEach(([key, value]) => {
+      if (key === 'bookingId') dbData.booking_id = value;
+      else if (key === 'customerId') dbData.customer_id = value;
+      else if (key === 'customerName') dbData.customer_name = value;
+      else if (key === 'unitId') dbData.unit_id = value;
+      else if (key === 'unitName') dbData.unit_name = value;
+      else if (key === 'paymentDate') dbData.payment_date = value;
+      else if (key === 'unitPrice') dbData.unit_price = value;
+      else if (key === 'accountId') dbData.account_id = value;
+      else if (key === 'transactionId') dbData.transaction_id = value;
+      else if (key !== 'id' && key !== 'remainingAmount') dbData[key] = value;
+    });
+    
     const { data, error } = await supabase
       .from('payments')
-      .update(payment)
+      .update(dbData)
       .eq('id', id)
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    // Transform response back to camelCase
+    if (data?.[0]) {
+      return {
+        id: data[0].id,
+        bookingId: data[0].booking_id,
+        customerId: data[0].customer_id,
+        customerName: data[0].customer_name,
+        unitId: data[0].unit_id,
+        unitName: data[0].unit_name,
+        amount: data[0].amount,
+        paymentDate: data[0].payment_date,
+        unitPrice: data[0].unit_price,
+        remainingAmount: data[0].unit_price - data[0].amount,
+        accountId: data[0].account_id,
+        transactionId: data[0].transaction_id,
+      };
+    }
   },
 
   async delete(id: string) {

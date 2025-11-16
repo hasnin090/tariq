@@ -3,7 +3,7 @@ import { Booking, Unit, Customer, Payment, Account, Transaction } from '../../ty
 import { useToast } from '../../contexts/ToastContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
-import { bookingsService, unitsService, customersService } from '../../src/services/supabaseService';
+import { bookingsService, unitsService, customersService, paymentsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import DocumentManager from '../shared/DocumentManager';
 import { CloseIcon, DocumentTextIcon } from '../shared/Icons';
@@ -111,8 +111,26 @@ export const Bookings: React.FC = () => {
                     ...dbData, 
                     status: 'Active' 
                 };
-                await bookingsService.create(newBooking as any);
+                const createdBooking = await bookingsService.create(newBooking as any);
                 logActivity('Add Booking', `Added booking for ${customer.name}`);
+                
+                // Create payment record if amountPaid > 0
+                if (bookingData.amountPaid > 0 && createdBooking) {
+                    const payment: Omit<Payment, 'id' | 'remainingAmount'> = {
+                        bookingId: createdBooking.id,
+                        customerId: customer.id,
+                        customerName: customer.name,
+                        unitId: unit.id,
+                        unitName: unit.name,
+                        amount: bookingData.amountPaid,
+                        paymentDate: bookingData.bookingDate,
+                        unitPrice: unit.price,
+                        accountId: 'default',
+                    };
+                    await paymentsService.create(payment);
+                    logActivity('Add Payment', `Created payment of ${formatCurrency(bookingData.amountPaid)} for booking`);
+                }
+                
                 addToast('تم إضافة الحجز بنجاح', 'success');
             }
             handleCloseModal();
@@ -166,21 +184,26 @@ export const Bookings: React.FC = () => {
             </div>
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                 <table className="w-full text-right">
-                    <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الحجز</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المدفوع</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th></tr></thead>
+                    <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الحجز</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المدفوع</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المتبقي</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th></tr></thead>
                     <tbody>
-                        {bookings.map(booking => (
+                        {bookings.map(booking => {
+                            const unit = units.find(u => u.id === booking.unitId);
+                            const remainingAmount = unit ? unit.price - booking.amountPaid : 0;
+                            return (
                             <tr key={booking.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
                                 <td className="p-4 font-medium text-slate-800 dark:text-slate-200">{booking.unitName}</td>
                                 <td className="p-4 text-slate-600 dark:text-slate-300">{booking.customerName}</td>
                                 <td className="p-4 text-slate-600 dark:text-slate-300">{booking.bookingDate}</td>
                                 <td className="p-4 text-emerald-600 dark:text-emerald-400 font-semibold">{formatCurrency(booking.amountPaid)}</td>
+                                <td className="p-4 text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(remainingAmount)}</td>
                                 <td className="p-4"><span className={`px-3 py-1 text-xs font-bold rounded-full ${getStatusStyle(booking.status)}`}>{booking.status}</span></td>
                                 <td className="p-4 space-x-4">
                                     <button onClick={() => handleOpenDocManager(booking)} className="text-teal-600 hover:underline font-semibold">المستندات</button>
                                     {booking.status === 'Active' && <button onClick={() => handleCancelRequest(booking)} className="text-rose-600 dark:text-rose-400 hover:underline font-semibold">إلغاء</button>}
                                 </td>
                             </tr>
-                        ))}
+                        );
+                        })}
                     </tbody>
                 </table>
                  {bookings.length === 0 && <p className="text-center p-8 text-slate-500 dark:text-slate-400">لا توجد حجوزات حالية.</p>}
