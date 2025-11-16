@@ -19,5 +19,7 @@ export const pageNames: { [key: string]: string } = {
     'projects-accounting': 'محاسبة المشاريع',
     'category-accounting': 'دفتر الأستاذ',
     'documents-accounting': 'المستندات',
-    'activity-log': 'سجل النشاطات'
+    'activity-log': 'سجل النشاطات',
+    'bookings-archive': 'أرشيف الحجوزات',
+    'general-archive': 'الأرشيف العام'
 };

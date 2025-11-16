@@ -55,6 +55,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <ArchiveIcon />, label: 'مستندات البيع', page: 'sales-documents', adminOnly: true },
         { icon: <ChartBarIcon />, label: 'التقارير', page: 'reports', adminOnly: true },
         { icon: <CollectionIcon />, label: 'الملخص الشامل', page: 'financial-summary', adminOnly: true },
+        { icon: <ArchiveIcon />, label: 'أرشيف الحجوزات', page: 'bookings-archive', adminOnly: false },
+        { icon: <ArchiveIcon />, label: 'الأرشيف العام', page: 'general-archive', adminOnly: false },
     ];
 
     const expensesLinks = [
@@ -68,6 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <TagIcon />, label: 'دفتر الأستاذ', page: 'category-accounting', adminOnly: true },
         { icon: <ArchiveIcon />, label: 'المستندات', page: 'documents-accounting', adminOnly: true },
         { icon: <ClockIcon />, label: 'سجل النشاطات', page: 'activity-log', adminOnly: true },
+        { icon: <ArchiveIcon />, label: 'الأرشيف العام', page: 'general-archive', adminOnly: false },
     ];
     
     const systemLinks = [

@@ -18,6 +18,8 @@ import Reports from './components/pages/Reports';
 import FinancialSummary from './components/pages/FinancialSummary';
 import Customization from './components/pages/Customization';
 import Users from './components/pages/Users';
+import BookingsArchive from './components/pages/BookingsArchive';
+import GeneralArchive from './components/pages/GeneralArchive';
 
 // Expenses Interface Pages
 import ExpenseDashboard from './components/pages/expenses/ExpenseDashboard';
@@ -90,6 +92,10 @@ const App: React.FC = () => {
       // System
       case 'customization': return <Customization />;
       case 'users': return <Users />;
+      
+      // Archive
+      case 'bookings-archive': return <BookingsArchive />;
+      case 'general-archive': return <GeneralArchive />;
       
       default: return <Dashboard />;
     }
