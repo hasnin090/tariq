@@ -15,6 +15,7 @@ export const Bookings: React.FC = () => {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [bookingPayments, setBookingPayments] = useState<Map<string, { totalPaid: number, paymentCount: number }>>(new Map());
+    const [allPayments, setAllPayments] = useState<Payment[]>([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
@@ -23,6 +24,9 @@ export const Bookings: React.FC = () => {
     
     const [isDocManagerOpen, setIsDocManagerOpen] = useState(false);
     const [selectedBookingForDocs, setSelectedBookingForDocs] = useState<Booking | null>(null);
+    
+    const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+    const [selectedBookingForPayments, setSelectedBookingForPayments] = useState<Booking | null>(null);
 
     const handleOpenDocManager = (booking: Booking) => {
         setSelectedBookingForDocs(booking);
@@ -70,6 +74,7 @@ export const Bookings: React.FC = () => {
             setUnits(unitsData);
             setCustomers(customersData);
             setAccounts(accountsData);
+            setAllPayments(paymentsData);
             
             // Calculate total payments per booking
             const paymentsMap = new Map<string, { totalPaid: number, paymentCount: number }>();
@@ -97,6 +102,16 @@ export const Bookings: React.FC = () => {
     const handleCloseModal = () => {
         setEditingBooking(null);
         setIsModalOpen(false);
+    };
+
+    const handleShowPayments = (booking: Booking) => {
+        setSelectedBookingForPayments(booking);
+        setShowPaymentsModal(true);
+    };
+
+    const handleClosePaymentsModal = () => {
+        setSelectedBookingForPayments(null);
+        setShowPaymentsModal(false);
     };
 
     const handleSave = async (bookingData: Omit<Booking, 'id' | 'unitName' | 'customerName' | 'status'>) => {
@@ -222,9 +237,12 @@ export const Bookings: React.FC = () => {
                                 <td className="p-4 font-semibold text-slate-800 dark:text-slate-100">{formatCurrency(unitPrice)}</td>
                                 <td className="p-4 text-emerald-600 dark:text-emerald-400 font-semibold">{formatCurrency(totalPaid)}</td>
                                 <td className="p-4 text-center">
-                                    <span className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm font-semibold">
+                                    <button 
+                                        onClick={() => handleShowPayments(booking)}
+                                        className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm font-semibold hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors cursor-pointer"
+                                    >
                                         {paymentCount}
-                                    </span>
+                                    </button>
                                 </td>
                                 <td className="p-4 font-semibold">
                                     <span className={remainingAmount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
@@ -254,6 +272,123 @@ export const Bookings: React.FC = () => {
                 />
             )}
             <ConfirmModal isOpen={!!bookingToCancel} onClose={() => setBookingToCancel(null)} onConfirm={confirmCancel} title="تأكيد إلغاء الحجز" message={`هل أنت متأكد من إلغاء حجز الوحدة "${bookingToCancel?.unitName}"؟ ستعود الوحدة متاحة.`} />
+            
+            {/* Payments Modal */}
+            {showPaymentsModal && selectedBookingForPayments && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                                    تفاصيل الدفعات - {selectedBookingForPayments.unitName}
+                                </h3>
+                                <button onClick={handleClosePaymentsModal} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                    <CloseIcon className="h-6 w-6" />
+                                </button>
+                            </div>
+
+                            {(() => {
+                                const unit = units.find(u => u.id === selectedBookingForPayments.unitId);
+                                const unitPrice = unit?.price || 0;
+                                const bookingPaymentsList = allPayments.filter(p => p.bookingId === selectedBookingForPayments.id);
+                                const totalFromPayments = bookingPaymentsList.reduce((sum, p) => sum + p.amount, 0);
+                                const totalPaid = totalFromPayments + selectedBookingForPayments.amountPaid;
+                                const remainingAmount = unitPrice - totalPaid;
+
+                                return (
+                                    <>
+                                        {/* Summary Cards */}
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                            <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4">
+                                                <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">سعر الوحدة</p>
+                                                <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(unitPrice)}</p>
+                                            </div>
+                                            <div className="bg-emerald-100 dark:bg-emerald-900 rounded-lg p-4">
+                                                <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-1">إجمالي المدفوع</p>
+                                                <p className="text-xl font-bold text-emerald-800 dark:text-emerald-200">{formatCurrency(totalPaid)}</p>
+                                            </div>
+                                            <div className="bg-amber-100 dark:bg-amber-900 rounded-lg p-4">
+                                                <p className="text-sm text-amber-700 dark:text-amber-300 mb-1">المبلغ المتبقي</p>
+                                                <p className="text-xl font-bold text-amber-800 dark:text-amber-200">{formatCurrency(remainingAmount)}</p>
+                                            </div>
+                                            <div className="bg-blue-100 dark:bg-blue-900 rounded-lg p-4">
+                                                <p className="text-sm text-blue-700 dark:text-blue-300 mb-1">عدد الدفعات</p>
+                                                <p className="text-xl font-bold text-blue-800 dark:text-blue-200">{bookingPaymentsList.length + 1}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Payments Table */}
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-right">
+                                                <thead>
+                                                    <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
+                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">#</th>
+                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>
+                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">النوع</th>
+                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>
+                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">المتبقي بعد الدفع</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {/* Initial Payment from Booking */}
+                                                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-blue-50 dark:bg-blue-900/20">
+                                                        <td className="p-3 font-semibold">1</td>
+                                                        <td className="p-3">{selectedBookingForPayments.bookingDate}</td>
+                                                        <td className="p-3">
+                                                            <span className="inline-block px-2 py-1 bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 rounded text-xs font-semibold">
+                                                                دفعة الحجز
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedBookingForPayments.amountPaid)}</td>
+                                                        <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(unitPrice - selectedBookingForPayments.amountPaid)}</td>
+                                                    </tr>
+                                                    
+                                                    {/* Subsequent Payments */}
+                                                    {bookingPaymentsList.map((payment, index) => {
+                                                        const paidSoFar = selectedBookingForPayments.amountPaid + bookingPaymentsList.slice(0, index + 1).reduce((sum, p) => sum + p.amount, 0);
+                                                        const remainingAfterThis = unitPrice - paidSoFar;
+                                                        
+                                                        return (
+                                                            <tr key={payment.id} className="border-b border-slate-200 dark:border-slate-700">
+                                                                <td className="p-3 font-semibold">{index + 2}</td>
+                                                                <td className="p-3">{payment.paymentDate}</td>
+                                                                <td className="p-3">
+                                                                    <span className="inline-block px-2 py-1 bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 rounded text-xs font-semibold">
+                                                                        دفعة إضافية
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</td>
+                                                                <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(remainingAfterThis)}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {remainingAmount === 0 && (
+                                            <div className="mt-6 p-4 bg-emerald-100 dark:bg-emerald-900 rounded-lg text-center">
+                                                <p className="text-emerald-800 dark:text-emerald-200 font-bold text-lg">
+                                                    ✓ تم سداد المبلغ بالكامل
+                                                </p>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
+
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={handleClosePaymentsModal}
+                                    className="px-6 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                                >
+                                    إغلاق
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
