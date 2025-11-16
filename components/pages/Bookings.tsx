@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Booking, Unit, Customer, Payment, Account, Transaction } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { bookingsService, unitsService, customersService, paymentsService, accountsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import DocumentManager from '../shared/DocumentManager';
-import { CloseIcon, DocumentTextIcon } from '../shared/Icons';
+import { CloseIcon, DocumentTextIcon, EditIcon } from '../shared/Icons';
 
 export const Bookings: React.FC = () => {
     const { addToast } = useToast();
+    const { currentUser } = useAuth();
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -27,6 +29,8 @@ export const Bookings: React.FC = () => {
     
     const [showPaymentsModal, setShowPaymentsModal] = useState(false);
     const [selectedBookingForPayments, setSelectedBookingForPayments] = useState<Booking | null>(null);
+    
+    const [editingPayment, setEditingPayment] = useState<{ id: string, amount: number, isBooking: boolean } | null>(null);
 
     const handleOpenDocManager = (booking: Booking) => {
         setSelectedBookingForDocs(booking);
@@ -112,6 +116,48 @@ export const Bookings: React.FC = () => {
     const handleClosePaymentsModal = () => {
         setSelectedBookingForPayments(null);
         setShowPaymentsModal(false);
+        setEditingPayment(null);
+    };
+
+    const handleEditPayment = (paymentId: string, currentAmount: number, isBooking: boolean) => {
+        if (currentUser?.role !== 'Admin') {
+            addToast('هذه العملية متاحة للمدير فقط', 'error');
+            return;
+        }
+        setEditingPayment({ id: paymentId, amount: currentAmount, isBooking });
+    };
+
+    const handleSavePaymentEdit = async () => {
+        if (!editingPayment || !selectedBookingForPayments) return;
+        
+        try {
+            if (editingPayment.isBooking) {
+                // Update booking amount_paid
+                await bookingsService.update(selectedBookingForPayments.id, {
+                    amountPaid: editingPayment.amount
+                } as any);
+                logActivity('Update Booking Payment', `Updated booking payment to ${formatCurrency(editingPayment.amount)}`);
+            } else {
+                // Update payment amount
+                await paymentsService.update(editingPayment.id, {
+                    amount: editingPayment.amount
+                } as any);
+                logActivity('Update Payment', `Updated payment amount to ${formatCurrency(editingPayment.amount)}`);
+            }
+            
+            addToast('تم تحديث المبلغ بنجاح', 'success');
+            setEditingPayment(null);
+            await loadData();
+            
+            // Reload payments modal data
+            if (selectedBookingForPayments) {
+                const updatedPayments = await paymentsService.getAll();
+                setAllPayments(updatedPayments);
+            }
+        } catch (error) {
+            console.error('Error updating payment:', error);
+            addToast('خطأ في تحديث المبلغ', 'error');
+        }
     };
 
     const handleSave = async (bookingData: Omit<Booking, 'id' | 'unitName' | 'customerName' | 'status'>) => {
@@ -143,29 +189,9 @@ export const Bookings: React.FC = () => {
                     status: 'Active' 
                 };
                 const createdBooking = await bookingsService.create(newBooking as any);
-                logActivity('Add Booking', `Added booking for ${customer.name}`);
+                logActivity('Add Booking', `Added booking for ${customer.name} with initial payment of ${formatCurrency(bookingData.amountPaid)}`);
                 
-                // Create payment record if amountPaid > 0
-                if (bookingData.amountPaid > 0 && createdBooking) {
-                    const payment: Omit<Payment, 'id' | 'remainingAmount'> = {
-                        bookingId: createdBooking.id,
-                        customerId: customer.id,
-                        customerName: customer.name,
-                        unitId: unit.id,
-                        unitName: unit.name,
-                        amount: bookingData.amountPaid,
-                        paymentDate: bookingData.bookingDate,
-                        unitPrice: unit.price,
-                        accountId: (bookingData as any).accountId || 'default',
-                    };
-                    try {
-                        await paymentsService.create(payment);
-                        logActivity('Add Payment', `Created payment of ${formatCurrency(bookingData.amountPaid)} for booking`);
-                    } catch (error) {
-                        console.error('Error creating payment:', error);
-                        // Continue anyway, payment is not critical
-                    }
-                }
+                // Note: amountPaid in booking is the first payment, no need to create separate payment record
                 
                 addToast('تم إضافة الحجز بنجاح', 'success');
             }
@@ -327,6 +353,9 @@ export const Bookings: React.FC = () => {
                                                         <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">النوع</th>
                                                         <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>
                                                         <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">المتبقي بعد الدفع</th>
+                                                        {currentUser?.role === 'Admin' && (
+                                                            <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">تعديل</th>
+                                                        )}
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -339,8 +368,46 @@ export const Bookings: React.FC = () => {
                                                                 دفعة الحجز
                                                             </span>
                                                         </td>
-                                                        <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedBookingForPayments.amountPaid)}</td>
+                                                        <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">
+                                                            {editingPayment?.id === selectedBookingForPayments.id && editingPayment?.isBooking ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <input
+                                                                        type="number"
+                                                                        value={editingPayment.amount}
+                                                                        onChange={(e) => setEditingPayment({ ...editingPayment, amount: parseFloat(e.target.value) || 0 })}
+                                                                        className="w-32 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                                                    />
+                                                                    <button
+                                                                        onClick={handleSavePaymentEdit}
+                                                                        className="px-3 py-1 bg-emerald-500 text-white rounded hover:bg-emerald-600 text-sm"
+                                                                    >
+                                                                        حفظ
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setEditingPayment(null)}
+                                                                        className="px-3 py-1 bg-slate-400 text-white rounded hover:bg-slate-500 text-sm"
+                                                                    >
+                                                                        إلغاء
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                formatCurrency(selectedBookingForPayments.amountPaid)
+                                                            )}
+                                                        </td>
                                                         <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(unitPrice - selectedBookingForPayments.amountPaid)}</td>
+                                                        {currentUser?.role === 'Admin' && (
+                                                            <td className="p-3">
+                                                                {!(editingPayment?.id === selectedBookingForPayments.id && editingPayment?.isBooking) && (
+                                                                    <button
+                                                                        onClick={() => handleEditPayment(selectedBookingForPayments.id, selectedBookingForPayments.amountPaid, true)}
+                                                                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                                        title="تعديل المبلغ"
+                                                                    >
+                                                                        <EditIcon />
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                     
                                                     {/* Subsequent Payments */}
@@ -357,8 +424,46 @@ export const Bookings: React.FC = () => {
                                                                         دفعة إضافية
                                                                     </span>
                                                                 </td>
-                                                                <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</td>
+                                                                <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">
+                                                                    {editingPayment?.id === payment.id && !editingPayment?.isBooking ? (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <input
+                                                                                type="number"
+                                                                                value={editingPayment.amount}
+                                                                                onChange={(e) => setEditingPayment({ ...editingPayment, amount: parseFloat(e.target.value) || 0 })}
+                                                                                className="w-32 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                                                            />
+                                                                            <button
+                                                                                onClick={handleSavePaymentEdit}
+                                                                                className="px-3 py-1 bg-emerald-500 text-white rounded hover:bg-emerald-600 text-sm"
+                                                                            >
+                                                                                حفظ
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => setEditingPayment(null)}
+                                                                                className="px-3 py-1 bg-slate-400 text-white rounded hover:bg-slate-500 text-sm"
+                                                                            >
+                                                                                إلغاء
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        formatCurrency(payment.amount)
+                                                                    )}
+                                                                </td>
                                                                 <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(remainingAfterThis)}</td>
+                                                                {currentUser?.role === 'Admin' && (
+                                                                    <td className="p-3">
+                                                                        {!(editingPayment?.id === payment.id && !editingPayment?.isBooking) && (
+                                                                            <button
+                                                                                onClick={() => handleEditPayment(payment.id, payment.amount, false)}
+                                                                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                                                title="تعديل المبلغ"
+                                                                            >
+                                                                                <EditIcon />
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                )}
                                                             </tr>
                                                         );
                                                     })}

@@ -32,6 +32,7 @@ export interface Unit {
   price: number;
   customerId?: string;
   customerName?: string;
+  projectId?: string;
 }
 
 export interface Customer {
@@ -53,6 +54,7 @@ export interface Booking {
   amountPaid: number;
   status: 'Active' | 'Cancelled' | 'Completed';
   documents?: Document[];
+  projectId?: string;
 }
 
 export interface Payment {
@@ -94,12 +96,18 @@ export interface SaleDocument {
 }
 
 export interface UnitSaleRecord {
-// ... existing code ...
+    id: string;
+    unitId: string;
+    unitName: string;
+    customerId: string;
+    customerName: string;
+    salePrice: number;
     finalSalePrice: number;
     saleDate: string;
     documents: SaleDocument[];
     accountId: string;
     transactionId?: string;
+    projectId?: string;
 }
 
 
