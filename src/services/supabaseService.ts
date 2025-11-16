@@ -62,7 +62,16 @@ export const customersService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Transform snake_case to camelCase
+    return (data || []).map((customer: any) => ({
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      unitId: customer.unit_id,
+      documents: customer.documents,
+    }));
   },
 
   async create(customer: Omit<Customer, 'id'>) {
@@ -115,7 +124,17 @@ export const unitsService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Transform snake_case to camelCase
+    return (data || []).map((unit: any) => ({
+      id: unit.id,
+      name: unit.name,
+      type: unit.type,
+      status: unit.status,
+      price: unit.price,
+      customerId: unit.customer_id,
+      customerName: unit.customer_name,
+    }));
   },
 
   async create(unit: Omit<Unit, 'id'>) {
