@@ -248,7 +248,7 @@ export const Bookings: React.FC = () => {
                 <table className="w-full text-right">
                     <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الحجز</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">سعر الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجمالي المدفوع</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">عدد الدفعات</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المتبقي</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th></tr></thead>
                     <tbody>
-                        {bookings.map(booking => {
+                        {bookings.filter(booking => booking.status !== 'Cancelled').map(booking => {
                             const unit = units.find(u => u.id === booking.unitId);
                             const unitPrice = unit?.price || 0;
                             const bookingPaymentInfo = bookingPayments.get(booking.id);
