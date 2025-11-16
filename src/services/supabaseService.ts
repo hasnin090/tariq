@@ -952,6 +952,29 @@ export const documentsService = {
 };
 
 /**
+ * ACCOUNTS SERVICE
+ */
+export const accountsService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('*');
+    if (error) throw error;
+    return data || [];
+  },
+  subscribe(callback: (accounts: Account[]) => void) {
+    const subscription = supabase
+      .channel('accounts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, () => {
+        accountsService.getAll().then(callback).catch(console.error);
+      })
+      .subscribe();
+    
+    return subscription;
+  }
+};
+
+/**
  * ACTIVITY LOG SERVICE
  */
 export const activityLogService = {
