@@ -261,6 +261,26 @@ export const bookingsService = {
     if (error) throw error;
   },
 
+  async getByUnitId(unitId: string) {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('unit_id', unitId);
+    if (error) throw error;
+    
+    // Transform snake_case to camelCase
+    return (data || []).map((booking: any) => ({
+      id: booking.id,
+      unitId: booking.unit_id,
+      unitName: booking.unit_name,
+      customerId: booking.customer_id,
+      customerName: booking.customer_name,
+      bookingDate: booking.booking_date,
+      amountPaid: booking.amount_paid,
+      status: booking.status,
+    }));
+  },
+
   subscribe(callback: (bookings: Booking[]) => void) {
     const subscription = supabase
       .channel('bookings')
