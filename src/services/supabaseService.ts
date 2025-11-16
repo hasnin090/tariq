@@ -168,27 +168,89 @@ export const bookingsService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Transform snake_case to camelCase
+    return (data || []).map((booking: any) => ({
+      id: booking.id,
+      unitId: booking.unit_id,
+      unitName: booking.unit_name,
+      customerId: booking.customer_id,
+      customerName: booking.customer_name,
+      bookingDate: booking.booking_date,
+      amountPaid: booking.amount_paid,
+      status: booking.status,
+    }));
   },
 
   async create(booking: Omit<Booking, 'id'>) {
     const id = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Transform to snake_case for database
+    const dbData = {
+      id,
+      unit_id: (booking as any).unit_id || booking.unitId,
+      customer_id: (booking as any).customer_id || booking.customerId,
+      booking_date: (booking as any).booking_date || booking.bookingDate,
+      amount_paid: (booking as any).amount_paid || booking.amountPaid,
+      unit_name: (booking as any).unit_name || booking.unitName,
+      customer_name: (booking as any).customer_name || booking.customerName,
+      status: booking.status || 'Active',
+    };
+    
     const { data, error } = await supabase
       .from('bookings')
-      .insert([{ ...booking, id }])
+      .insert([dbData])
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    // Transform response back to camelCase
+    if (data?.[0]) {
+      return {
+        id: data[0].id,
+        unitId: data[0].unit_id,
+        unitName: data[0].unit_name,
+        customerId: data[0].customer_id,
+        customerName: data[0].customer_name,
+        bookingDate: data[0].booking_date,
+        amountPaid: data[0].amount_paid,
+        status: data[0].status,
+      };
+    }
   },
 
   async update(id: string, booking: Partial<Booking>) {
+    // Transform to snake_case for database
+    const dbData: any = {};
+    Object.entries(booking).forEach(([key, value]) => {
+      if (key === 'unitId') dbData.unit_id = value;
+      else if (key === 'customerId') dbData.customer_id = value;
+      else if (key === 'bookingDate') dbData.booking_date = value;
+      else if (key === 'amountPaid') dbData.amount_paid = value;
+      else if (key === 'unitName') dbData.unit_name = value;
+      else if (key === 'customerName') dbData.customer_name = value;
+      else if (key !== 'id') dbData[key] = value;
+    });
+    
     const { data, error } = await supabase
       .from('bookings')
-      .update(booking)
+      .update(dbData)
       .eq('id', id)
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    // Transform response back to camelCase
+    if (data?.[0]) {
+      return {
+        id: data[0].id,
+        unitId: data[0].unit_id,
+        unitName: data[0].unit_name,
+        customerId: data[0].customer_id,
+        customerName: data[0].customer_name,
+        bookingDate: data[0].booking_date,
+        amountPaid: data[0].amount_paid,
+        status: data[0].status,
+      };
+    }
   },
 
   async delete(id: string) {
