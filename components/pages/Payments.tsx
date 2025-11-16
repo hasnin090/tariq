@@ -69,50 +69,146 @@ const Payments: React.FC = () => {
             const printWindow = window.open('', '', 'height=600,width=800');
             if (printWindow) {
                 const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
+                
+                // Format currency for print
+                const formatForPrint = (value: number): string => {
+                    return new Intl.NumberFormat('ar-SA', {
+                        style: 'currency',
+                        currency: 'SAR',
+                        minimumFractionDigits: 2,
+                    }).format(value);
+                };
+                
+                const paymentRows = customerPayments.map(p => `
+                    <tr>
+                        <td>${p.paymentDate}</td>
+                        <td>${p.unitName}</td>
+                        <td>${formatForPrint(p.amount)}</td>
+                        <td>${formatForPrint(p.unitPrice)}</td>
+                        <td>${formatForPrint(p.remainingAmount)}</td>
+                    </tr>
+                `).join('');
+                
                 printWindow.document.write(`
-                    <html>
+                    <!DOCTYPE html>
+                    <html dir="rtl">
                     <head>
+                        <meta charset="UTF-8">
                         <title>كشف حساب العميل</title>
                         <style>
-                            body { font-family: Arial, sans-serif; direction: rtl; }
-                            .header { text-align: center; margin-bottom: 20px; }
-                            table { width: 100%; border-collapse: collapse; }
-                            th, td { padding: 10px; text-align: right; border: 1px solid #ccc; }
-                            th { background-color: #f5f5f5; font-weight: bold; }
-                            .total { font-weight: bold; font-size: 16px; }
+                            * { margin: 0; padding: 0; box-sizing: border-box; }
+                            body { 
+                                font-family: 'Arial', sans-serif; 
+                                direction: rtl; 
+                                padding: 20px;
+                                background-color: #f9f9f9;
+                            }
+                            .container { 
+                                max-width: 900px; 
+                                margin: 0 auto;
+                                background-color: white;
+                                padding: 30px;
+                                border-radius: 8px;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                            }
+                            .header { 
+                                text-align: center; 
+                                margin-bottom: 30px;
+                                border-bottom: 2px solid #333;
+                                padding-bottom: 20px;
+                            }
+                            .header h2 { 
+                                font-size: 24px;
+                                font-weight: bold;
+                                margin-bottom: 15px;
+                                color: #333;
+                            }
+                            .header p { 
+                                font-size: 14px;
+                                margin: 5px 0;
+                                color: #666;
+                            }
+                            .header strong { 
+                                color: #333;
+                                display: inline-block;
+                                margin-left: 10px;
+                            }
+                            table { 
+                                width: 100%; 
+                                border-collapse: collapse;
+                                margin: 20px 0;
+                            }
+                            th { 
+                                background-color: #2c3e50;
+                                color: white;
+                                padding: 15px;
+                                text-align: right;
+                                font-weight: bold;
+                                font-size: 14px;
+                                border: 1px solid #34495e;
+                            }
+                            td { 
+                                padding: 12px 15px;
+                                text-align: right;
+                                border: 1px solid #ddd;
+                                font-size: 13px;
+                                color: #333;
+                            }
+                            tbody tr:nth-child(even) {
+                                background-color: #f5f5f5;
+                            }
+                            tbody tr:hover {
+                                background-color: #eff3f5;
+                            }
+                            .total-section { 
+                                margin-top: 30px;
+                                padding-top: 20px;
+                                border-top: 2px solid #2c3e50;
+                                text-align: left;
+                            }
+                            .total-section p {
+                                font-size: 16px;
+                                font-weight: bold;
+                                color: #27ae60;
+                            }
+                            .footer {
+                                margin-top: 30px;
+                                text-align: center;
+                                font-size: 12px;
+                                color: #999;
+                                border-top: 1px solid #ddd;
+                                padding-top: 15px;
+                            }
                         </style>
                     </head>
                     <body>
-                        <div class="header">
-                            <h2>كشف حساب العميل</h2>
-                            <p><strong>اسم العميل:</strong> ${customer?.name}</p>
-                            <p><strong>البريد الإلكتروني:</strong> ${customer?.email}</p>
-                            <p><strong>الهاتف:</strong> ${customer?.phone}</p>
-                        </div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>التاريخ</th>
-                                    <th>الوحدة</th>
-                                    <th>المبلغ المدفوع</th>
-                                    <th>سعر الوحدة</th>
-                                    <th>المبلغ المتبقي</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${customerPayments.map(p => `
+                        <div class="container">
+                            <div class="header">
+                                <h2>كشف حساب العميل</h2>
+                                <p><strong>اسم العميل:</strong> ${customer?.name || 'غير محدد'}</p>
+                                <p><strong>البريد الإلكتروني:</strong> ${customer?.email || 'غير محدد'}</p>
+                                <p><strong>الهاتف:</strong> ${customer?.phone || 'غير محدد'}</p>
+                            </div>
+                            <table>
+                                <thead>
                                     <tr>
-                                        <td>${p.paymentDate}</td>
-                                        <td>${p.unitName}</td>
-                                        <td>${formatCurrency(p.amount)}</td>
-                                        <td>${formatCurrency(p.unitPrice)}</td>
-                                        <td>${formatCurrency(p.remainingAmount)}</td>
+                                        <th>التاريخ</th>
+                                        <th>الوحدة</th>
+                                        <th>المبلغ المدفوع</th>
+                                        <th>سعر الوحدة</th>
+                                        <th>المبلغ المتبقي</th>
                                     </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                        <div class="total" style="margin-top: 20px; text-align: left;">
-                            <p>إجمالي المدفوع: ${formatCurrency(totalPaid)}</p>
+                                </thead>
+                                <tbody>
+                                    ${paymentRows}
+                                </tbody>
+                            </table>
+                            <div class="total-section">
+                                <p>إجمالي المدفوع: ${formatForPrint(totalPaid)}</p>
+                            </div>
+                            <div class="footer">
+                                <p>تم الطباعة في: ${new Date().toLocaleDateString('ar-SA')}</p>
+                            </div>
                         </div>
                     </body>
                     </html>
