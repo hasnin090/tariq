@@ -14,6 +14,7 @@ export const Bookings: React.FC = () => {
     const [units, setUnits] = useState<Unit[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
+    const [bookingPayments, setBookingPayments] = useState<Map<string, { totalPaid: number, paymentCount: number }>>(new Map());
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
@@ -58,16 +59,28 @@ export const Bookings: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [bookingsData, unitsData, customersData, accountsData] = await Promise.all([
+            const [bookingsData, unitsData, customersData, accountsData, paymentsData] = await Promise.all([
                 bookingsService.getAll(),
                 unitsService.getAll(),
                 customersService.getAll(),
                 accountsService.getAll(),
+                paymentsService.getAll(),
             ]);
             setBookings(bookingsData);
             setUnits(unitsData);
             setCustomers(customersData);
             setAccounts(accountsData);
+            
+            // Calculate total payments per booking
+            const paymentsMap = new Map<string, { totalPaid: number, paymentCount: number }>();
+            paymentsData.forEach(payment => {
+                const existing = paymentsMap.get(payment.bookingId) || { totalPaid: 0, paymentCount: 0 };
+                paymentsMap.set(payment.bookingId, {
+                    totalPaid: existing.totalPaid + payment.amount,
+                    paymentCount: existing.paymentCount + 1
+                });
+            });
+            setBookingPayments(paymentsMap);
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات', 'error');
@@ -192,18 +205,32 @@ export const Bookings: React.FC = () => {
             </div>
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                 <table className="w-full text-right">
-                    <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الحجز</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المدفوع</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المتبقي</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th></tr></thead>
+                    <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الحجز</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">سعر الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجمالي المدفوع</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">عدد الدفعات</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المتبقي</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th></tr></thead>
                     <tbody>
                         {bookings.map(booking => {
                             const unit = units.find(u => u.id === booking.unitId);
-                            const remainingAmount = unit ? unit.price - booking.amountPaid : 0;
+                            const unitPrice = unit?.price || 0;
+                            const bookingPaymentInfo = bookingPayments.get(booking.id);
+                            const totalPaid = (bookingPaymentInfo?.totalPaid || 0) + booking.amountPaid;
+                            const paymentCount = (bookingPaymentInfo?.paymentCount || 0) + (booking.amountPaid > 0 ? 1 : 0);
+                            const remainingAmount = unitPrice - totalPaid;
                             return (
                             <tr key={booking.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
                                 <td className="p-4 font-medium text-slate-800 dark:text-slate-200">{booking.unitName}</td>
                                 <td className="p-4 text-slate-600 dark:text-slate-300">{booking.customerName}</td>
                                 <td className="p-4 text-slate-600 dark:text-slate-300">{booking.bookingDate}</td>
-                                <td className="p-4 text-emerald-600 dark:text-emerald-400 font-semibold">{formatCurrency(booking.amountPaid)}</td>
-                                <td className="p-4 text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(remainingAmount)}</td>
+                                <td className="p-4 font-semibold text-slate-800 dark:text-slate-100">{formatCurrency(unitPrice)}</td>
+                                <td className="p-4 text-emerald-600 dark:text-emerald-400 font-semibold">{formatCurrency(totalPaid)}</td>
+                                <td className="p-4 text-center">
+                                    <span className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm font-semibold">
+                                        {paymentCount}
+                                    </span>
+                                </td>
+                                <td className="p-4 font-semibold">
+                                    <span className={remainingAmount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>
+                                        {formatCurrency(remainingAmount)}
+                                    </span>
+                                </td>
                                 <td className="p-4"><span className={`px-3 py-1 text-xs font-bold rounded-full ${getStatusStyle(booking.status)}`}>{booking.status}</span></td>
                                 <td className="p-4 space-x-4">
                                     <button onClick={() => handleOpenDocManager(booking)} className="text-teal-600 hover:underline font-semibold">المستندات</button>
