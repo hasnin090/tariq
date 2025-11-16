@@ -978,6 +978,11 @@ export const accountsService = {
     const { data, error } = await supabase
       .from('accounts')
       .select('*');
+    // If table doesn't exist, return empty array
+    if (error && error.code === 'PGRST205') {
+      console.warn('Accounts table does not exist, returning empty array');
+      return [];
+    }
     if (error) throw error;
     return data || [];
   },
