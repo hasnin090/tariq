@@ -211,7 +211,7 @@ export const Bookings: React.FC = () => {
                 </table>
                  {bookings.length === 0 && <p className="text-center p-8 text-slate-500 dark:text-slate-400">لا توجد حجوزات حالية.</p>}
             </div>
-            {isModalOpen && <BookingPanel booking={editingBooking} units={units.filter(u => u.status === 'Available')} customers={customers} accounts={accounts} onClose={handleCloseModal} onSave={handleSave} />}
+            {isModalOpen && <BookingPanel booking={editingBooking} units={units} customers={customers} accounts={accounts} onClose={handleCloseModal} onSave={handleSave} />}
             {isDocManagerOpen && selectedBookingForDocs && (
                 <DocumentManager
                     isOpen={isDocManagerOpen}
