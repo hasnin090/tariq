@@ -1,22 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Payment, Customer } from '../../types';
+import { Payment, Customer, Booking } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { formatCurrency } from '../../utils/currencyFormatter';
-import { paymentsService, customersService } from '../../src/services/supabaseService';
-import { CreditCardIcon, PrinterIcon } from '../shared/Icons';
+import { paymentsService, customersService, bookingsService } from '../../src/services/supabaseService';
+import { CreditCardIcon, PrinterIcon, PlusIcon } from '../shared/Icons';
 
 const Payments: React.FC = () => {
     const { addToast } = useToast();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
     const [customerPayments, setCustomerPayments] = useState<Payment[]>([]);
     const [showCustomerPayments, setShowCustomerPayments] = useState(false);
+    const [showAddPayment, setShowAddPayment] = useState(false);
+    const [newPayment, setNewPayment] = useState({
+        bookingId: '',
+        amount: 0,
+        paymentDate: new Date().toISOString().split('T')[0],
+    });
 
     useEffect(() => {
         loadPayments();
         loadCustomers();
+        loadBookings();
         
         const subscription = paymentsService.subscribe((data) => {
             const sortedPayments = data.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
@@ -48,6 +56,63 @@ const Payments: React.FC = () => {
             setCustomers(data);
         } catch (error) {
             console.error('Error loading customers:', error);
+        }
+    };
+
+    const loadBookings = async () => {
+        try {
+            const data = await bookingsService.getAll();
+            setBookings(data.filter(b => b.status === 'Active'));
+        } catch (error) {
+            console.error('Error loading bookings:', error);
+        }
+    };
+
+    const handleSavePayment = async () => {
+        try {
+            if (!newPayment.bookingId || newPayment.amount <= 0) {
+                addToast('الرجاء ملء جميع الحقول بشكل صحيح', 'error');
+                return;
+            }
+
+            const booking = bookings.find(b => b.id === newPayment.bookingId);
+            if (!booking) {
+                addToast('الحجز غير موجود', 'error');
+                return;
+            }
+
+            // Get unit price from bookings or calculate from previous payments
+            const previousPayments = await paymentsService.getByCustomerId(booking.customerId);
+            const bookingPayments = previousPayments.filter(p => p.bookingId === booking.id);
+            const totalPaid = bookingPayments.reduce((sum, p) => sum + p.amount, 0) + booking.amountPaid;
+            
+            // For unit price, we'll get it from the first payment or use 0
+            const unitPrice = previousPayments.length > 0 ? previousPayments[0].unitPrice : 0;
+
+            const payment: Omit<Payment, 'id' | 'remainingAmount'> = {
+                bookingId: booking.id,
+                customerId: booking.customerId,
+                customerName: booking.customerName,
+                unitId: booking.unitId,
+                unitName: booking.unitName,
+                amount: newPayment.amount,
+                paymentDate: newPayment.paymentDate,
+                unitPrice: unitPrice,
+                accountId: 'default',
+            };
+
+            await paymentsService.create(payment);
+            addToast('تم إضافة الدفعة بنجاح', 'success');
+            setShowAddPayment(false);
+            setNewPayment({
+                bookingId: '',
+                amount: 0,
+                paymentDate: new Date().toISOString().split('T')[0],
+            });
+            await loadPayments();
+        } catch (error) {
+            console.error('Error saving payment:', error);
+            addToast('خطأ في حفظ الدفعة', 'error');
         }
     };
 
@@ -225,11 +290,88 @@ const Payments: React.FC = () => {
         <div className="container mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">سجل الدفعات</h2>
-                <button onClick={handlePrint} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors flex items-center gap-2">
-                    <PrinterIcon className="h-5 w-5" />
-                    طباعة
-                </button>
+                <div className="flex gap-3">
+                    <button onClick={() => setShowAddPayment(true)} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2">
+                        <PlusIcon className="h-5 w-5" />
+                        إضافة دفعة
+                    </button>
+                    <button onClick={handlePrint} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors flex items-center gap-2">
+                        <PrinterIcon className="h-5 w-5" />
+                        طباعة
+                    </button>
+                </div>
             </div>
+
+            {/* Add Payment Modal */}
+            {showAddPayment && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6">
+                            <h3 className="text-2xl font-bold mb-6 text-slate-900 dark:text-slate-100">إضافة دفعة جديدة</h3>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-slate-700 dark:text-slate-200 font-medium mb-2">
+                                        الحجز
+                                    </label>
+                                    <select
+                                        value={newPayment.bookingId}
+                                        onChange={(e) => setNewPayment({ ...newPayment, bookingId: e.target.value })}
+                                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg"
+                                    >
+                                        <option value="">اختر حجز</option>
+                                        {bookings.map(b => (
+                                            <option key={b.id} value={b.id}>
+                                                {b.customerName} - {b.unitName} ({formatCurrency(b.amountPaid)} مدفوع)
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-slate-700 dark:text-slate-200 font-medium mb-2">
+                                        المبلغ المدفوع
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={newPayment.amount}
+                                        onChange={(e) => setNewPayment({ ...newPayment, amount: parseFloat(e.target.value) || 0 })}
+                                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg"
+                                        placeholder="أدخل المبلغ"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-slate-700 dark:text-slate-200 font-medium mb-2">
+                                        تاريخ الدفع
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={newPayment.paymentDate}
+                                        onChange={(e) => setNewPayment({ ...newPayment, paymentDate: e.target.value })}
+                                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={handleSavePayment}
+                                    className="flex-1 bg-primary-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-primary-700 transition-colors"
+                                >
+                                    حفظ
+                                </button>
+                                <button
+                                    onClick={() => setShowAddPayment(false)}
+                                    className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-6 py-2.5 rounded-lg font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                                >
+                                    إلغاء
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showCustomerPayments && selectedCustomer ? (
                 <div>
