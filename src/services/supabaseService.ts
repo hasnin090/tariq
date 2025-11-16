@@ -324,21 +324,35 @@ export const paymentsService = {
       .order('payment_date', { ascending: false });
     if (paymentsError) throw paymentsError;
     
-    // Get all bookings to map customer and unit data
+    // Get all bookings to map customer data
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('id, customer_id, customer_name, unit_id, unit_name, unit_price');
+      .select('id, customer_id, customer_name, unit_id, unit_name');
     if (bookingsError) throw bookingsError;
     
-    // Create a map of booking IDs to booking data
+    // Get all units to map unit_price
+    const { data: units, error: unitsError } = await supabase
+      .from('units')
+      .select('id, price');
+    if (unitsError) throw unitsError;
+    
+    // Create maps for efficient lookup
     const bookingMap = new Map();
     (bookings || []).forEach(booking => {
       bookingMap.set(booking.id, booking);
     });
     
-    // Transform payments with enriched booking data
+    const unitMap = new Map();
+    (units || []).forEach(unit => {
+      unitMap.set(unit.id, unit);
+    });
+    
+    // Transform payments with enriched booking and unit data
     return (payments || []).map((payment: any) => {
       const booking = bookingMap.get(payment.booking_id);
+      const unit = booking ? unitMap.get(booking.unit_id) : null;
+      const unitPrice = unit?.price || 0;
+      
       return {
         id: payment.id,
         bookingId: payment.booking_id,
@@ -348,8 +362,8 @@ export const paymentsService = {
         unitName: booking?.unit_name,
         amount: payment.amount,
         paymentDate: payment.payment_date,
-        unitPrice: booking?.unit_price,
-        remainingAmount: (booking?.unit_price || 0) - payment.amount,
+        unitPrice: unitPrice,
+        remainingAmount: unitPrice - payment.amount,
         accountId: payment.account_id,
         transactionId: payment.transaction_id,
       };
@@ -367,16 +381,27 @@ export const paymentsService = {
     // Get all bookings to map customer_id
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('id, customer_id, customer_name, unit_id, unit_name, unit_price');
+      .select('id, customer_id, customer_name, unit_id, unit_name');
     if (bookingsError) throw bookingsError;
     
-    // Create a map of booking IDs to booking data
+    // Get all units to map unit_price
+    const { data: units, error: unitsError } = await supabase
+      .from('units')
+      .select('id, price');
+    if (unitsError) throw unitsError;
+    
+    // Create maps for efficient lookup
     const bookingMap = new Map();
     (bookings || []).forEach(booking => {
       bookingMap.set(booking.id, booking);
     });
     
-    // Filter payments by customer and enrich with booking data
+    const unitMap = new Map();
+    (units || []).forEach(unit => {
+      unitMap.set(unit.id, unit);
+    });
+    
+    // Filter payments by customer and enrich with booking and unit data
     return (payments || [])
       .filter((payment: any) => {
         const booking = bookingMap.get(payment.booking_id);
@@ -384,6 +409,9 @@ export const paymentsService = {
       })
       .map((payment: any) => {
         const booking = bookingMap.get(payment.booking_id);
+        const unit = booking ? unitMap.get(booking.unit_id) : null;
+        const unitPrice = unit?.price || 0;
+        
         return {
           id: payment.id,
           bookingId: payment.booking_id,
@@ -393,8 +421,8 @@ export const paymentsService = {
           unitName: booking?.unit_name,
           amount: payment.amount,
           paymentDate: payment.payment_date,
-          unitPrice: booking?.unit_price,
-          remainingAmount: (booking?.unit_price || 0) - payment.amount,
+          unitPrice: unitPrice,
+          remainingAmount: unitPrice - payment.amount,
           accountId: payment.account_id,
           transactionId: payment.transaction_id,
         };
