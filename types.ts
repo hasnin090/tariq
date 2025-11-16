@@ -58,15 +58,15 @@ export interface Booking {
 export interface Payment {
     id: string;
     bookingId: string;
-    customerId: string;
-    customerName: string;
-    unitId: string;
-    unitName: string;
+    customerId?: string;
+    customerName?: string;
+    unitId?: string;
+    unitName?: string;
     amount: number;
     paymentDate: string;
     unitPrice: number;
     remainingAmount: number;
-    accountId: string;
+    accountId?: string;
     transactionId?: string;
 }
 
