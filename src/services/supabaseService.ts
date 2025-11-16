@@ -317,52 +317,88 @@ export const bookingsService = {
  */
 export const paymentsService = {
   async getAll() {
-    const { data, error } = await supabase
+    // Get all payments
+    const { data: payments, error: paymentsError } = await supabase
       .from('payments')
       .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+      .order('payment_date', { ascending: false });
+    if (paymentsError) throw paymentsError;
     
-    // Transform snake_case to camelCase
-    return (data || []).map((payment: any) => ({
-      id: payment.id,
-      bookingId: payment.booking_id,
-      customerId: payment.customer_id,
-      customerName: payment.customer_name,
-      unitId: payment.unit_id,
-      unitName: payment.unit_name,
-      amount: payment.amount,
-      paymentDate: payment.payment_date,
-      unitPrice: payment.unit_price,
-      remainingAmount: payment.unit_price - payment.amount,
-      accountId: payment.account_id,
-      transactionId: payment.transaction_id,
-    }));
+    // Get all bookings to map customer and unit data
+    const { data: bookings, error: bookingsError } = await supabase
+      .from('bookings')
+      .select('id, customer_id, customer_name, unit_id, unit_name, unit_price');
+    if (bookingsError) throw bookingsError;
+    
+    // Create a map of booking IDs to booking data
+    const bookingMap = new Map();
+    (bookings || []).forEach(booking => {
+      bookingMap.set(booking.id, booking);
+    });
+    
+    // Transform payments with enriched booking data
+    return (payments || []).map((payment: any) => {
+      const booking = bookingMap.get(payment.booking_id);
+      return {
+        id: payment.id,
+        bookingId: payment.booking_id,
+        customerId: booking?.customer_id,
+        customerName: booking?.customer_name,
+        unitId: booking?.unit_id,
+        unitName: booking?.unit_name,
+        amount: payment.amount,
+        paymentDate: payment.payment_date,
+        unitPrice: booking?.unit_price,
+        remainingAmount: (booking?.unit_price || 0) - payment.amount,
+        accountId: payment.account_id,
+        transactionId: payment.transaction_id,
+      };
+    });
   },
 
   async getByCustomerId(customerId: string) {
-    const { data, error } = await supabase
+    // Get all payments first, then filter by customer via bookings
+    const { data: payments, error: paymentsError } = await supabase
       .from('payments')
       .select('*')
-      .eq('customer_id', customerId)
       .order('payment_date', { ascending: false });
-    if (error) throw error;
+    if (paymentsError) throw paymentsError;
     
-    // Transform snake_case to camelCase
-    return (data || []).map((payment: any) => ({
-      id: payment.id,
-      bookingId: payment.booking_id,
-      customerId: payment.customer_id,
-      customerName: payment.customer_name,
-      unitId: payment.unit_id,
-      unitName: payment.unit_name,
-      amount: payment.amount,
-      paymentDate: payment.payment_date,
-      unitPrice: payment.unit_price,
-      remainingAmount: payment.unit_price - payment.amount,
-      accountId: payment.account_id,
-      transactionId: payment.transaction_id,
-    }));
+    // Get all bookings to map customer_id
+    const { data: bookings, error: bookingsError } = await supabase
+      .from('bookings')
+      .select('id, customer_id, customer_name, unit_id, unit_name, unit_price');
+    if (bookingsError) throw bookingsError;
+    
+    // Create a map of booking IDs to booking data
+    const bookingMap = new Map();
+    (bookings || []).forEach(booking => {
+      bookingMap.set(booking.id, booking);
+    });
+    
+    // Filter payments by customer and enrich with booking data
+    return (payments || [])
+      .filter((payment: any) => {
+        const booking = bookingMap.get(payment.booking_id);
+        return booking && booking.customer_id === customerId;
+      })
+      .map((payment: any) => {
+        const booking = bookingMap.get(payment.booking_id);
+        return {
+          id: payment.id,
+          bookingId: payment.booking_id,
+          customerId: booking?.customer_id,
+          customerName: booking?.customer_name,
+          unitId: booking?.unit_id,
+          unitName: booking?.unit_name,
+          amount: payment.amount,
+          paymentDate: payment.payment_date,
+          unitPrice: booking?.unit_price,
+          remainingAmount: (booking?.unit_price || 0) - payment.amount,
+          accountId: payment.account_id,
+          transactionId: payment.transaction_id,
+        };
+      });
   },
 
   async create(payment: Omit<Payment, 'id' | 'remainingAmount'>) {
