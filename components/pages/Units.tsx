@@ -4,7 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
-import { unitsService, customersService, unitTypesService, unitStatusesService, bookingsService } from '../../src/services/supabaseService';
+import { unitsService, customersService, unitTypesService, unitStatusesService, bookingsService, documentsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import { CloseIcon, BuildingIcon, EditIcon, TrashIcon, UnitsEmptyIcon } from '../shared/Icons';
 import EmptyState from '../shared/EmptyState';
@@ -98,16 +98,23 @@ const Units: React.FC = () => {
     const confirmDelete = async () => {
         if (unitToDelete) {
             try {
-                // First, delete all bookings associated with this unit
+                // First, get all bookings associated with this unit
                 const relatedBookings = await bookingsService.getByUnitId(unitToDelete.id);
+                
+                // For each booking, delete all associated documents first
+                for (const booking of relatedBookings) {
+                    await documentsService.deleteForBooking(booking.id);
+                }
+                
+                // Then delete all bookings
                 for (const booking of relatedBookings) {
                     await bookingsService.delete(booking.id);
                 }
                 
-                // Then delete the unit
+                // Finally delete the unit
                 await unitsService.delete(unitToDelete.id);
                 logActivity('Delete Unit', `Deleted unit: ${unitToDelete.name}`);
-                addToast('تم حذف الوحدة والحجوزات المرتبطة بنجاح', 'success');
+                addToast('تم حذف الوحدة والحجوزات والمستندات المرتبطة بنجاح', 'success');
                 setUnitToDelete(null);
                 await loadData();
             } catch (error) {

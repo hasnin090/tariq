@@ -826,6 +826,17 @@ export const documentsService = {
     }
   },
 
+  // Function to delete all documents for a booking
+  async deleteForBooking(bookingId: string) {
+    // Get all documents for this booking
+    const documents = await this.getForBooking(bookingId);
+    
+    // Delete each document
+    for (const doc of documents) {
+      await this.delete(doc.id);
+    }
+  },
+
   // Function to get a public URL for a file
   getPublicUrl(filePath: string) {
     const { data } = supabase.storage
