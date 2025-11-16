@@ -92,22 +92,26 @@ export const Bookings: React.FC = () => {
                 return;
             }
 
+            // Convert camelCase to snake_case for database
+            const dbData = {
+                unit_id: bookingData.unitId,
+                customer_id: bookingData.customerId,
+                booking_date: bookingData.bookingDate,
+                amount_paid: bookingData.amountPaid,
+                unit_name: unit.name,
+                customer_name: customer.name,
+            };
+
             if (editingBooking) {
-                await bookingsService.update(editingBooking.id, {
-                    ...bookingData,
-                    unitName: unit.name,
-                    customerName: customer.name,
-                });
+                await bookingsService.update(editingBooking.id, dbData as any);
                 logActivity('Update Booking', `Updated booking for ${customer.name}`);
                 addToast('تم تحديث الحجز بنجاح', 'success');
             } else {
-                const newBooking: Omit<Booking, 'id'> = { 
-                    ...bookingData, 
-                    unitName: unit.name, 
-                    customerName: customer.name, 
+                const newBooking = { 
+                    ...dbData, 
                     status: 'Active' 
                 };
-                await bookingsService.create(newBooking);
+                await bookingsService.create(newBooking as any);
                 logActivity('Add Booking', `Added booking for ${customer.name}`);
                 addToast('تم إضافة الحجز بنجاح', 'success');
             }
@@ -126,11 +130,11 @@ export const Bookings: React.FC = () => {
     const confirmCancel = async () => {
         if (!bookingToCancel) return;
         try {
-            await bookingsService.update(bookingToCancel.id, { status: 'Cancelled' });
+            await bookingsService.update(bookingToCancel.id, { status: 'Cancelled' } as any);
             
             const unit = units.find(u => u.id === bookingToCancel.unitId);
             if (unit) {
-                await unitsService.update(unit.id, { status: 'Available', customerId: undefined, customerName: undefined });
+                await unitsService.update(unit.id, { status: 'Available', customer_id: undefined, customer_name: undefined } as any);
             }
             
             logActivity('Cancel Booking', `Cancelled booking for unit ${bookingToCancel.unitName}`);
