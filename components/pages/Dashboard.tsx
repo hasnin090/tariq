@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Unit, Customer, UnitSaleRecord, Payment, UnitStatus } from '../../types.ts';
+import { Unit, Customer, UnitSaleRecord, Payment, UnitStatus, Booking } from '../../types.ts';
 import { formatCurrency } from '../../utils/currencyFormatter.ts';
 import { BuildingIcon, UsersIcon, TrendingUpIcon, CreditCardIcon } from '../shared/Icons.tsx';
+import { unitsService, customersService, unitStatusesService, paymentsService, bookingsService } from '../../src/services/supabaseService';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex items-center border border-slate-200 dark:border-slate-700">
@@ -140,47 +141,75 @@ const Dashboard: React.FC = () => {
         unitsAvailable: 0
     });
     const [unitStatusData, setUnitStatusData] = useState<{ label: string; value: number; color: string }[]>([]);
+    const [units, setUnits] = useState<Unit[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [loading, setLoading] = useState(true);
     
     useEffect(() => {
-        const units: Unit[] = JSON.parse(localStorage.getItem('units') || '[]');
-        const customers: Customer[] = JSON.parse(localStorage.getItem('customers') || '[]');
-        const unitSales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
-        const payments: Payment[] = JSON.parse(localStorage.getItem('payments') || '[]');
-        const unitStatuses: UnitStatus[] = JSON.parse(localStorage.getItem('unitStatuses') || '[]');
-
-        const totalRevenue = unitSales.reduce((sum, sale) => sum + sale.finalSalePrice, 0) + payments.reduce((sum, payment) => sum + payment.amount, 0);
-        
-        const statusCounts = units.reduce((acc, unit) => {
-            acc[unit.status] = (acc[unit.status] || 0) + 1;
-            return acc;
-        }, {} as { [key: string]: number });
-
-        const statusColors: { [key: string]: string } = {
-            'Available': '#10b981',
-            'Booked': '#f59e0b',
-            'Sold': '#f43f5e',
-        };
-
-        const donutData = unitStatuses.map(status => ({
-            label: status.name,
-            value: statusCounts[status.name] || 0,
-            color: statusColors[status.name] || '#64748b'
-        })).filter(item => item.value > 0);
-
-        setStats({
-            totalUnits: units.length,
-            totalCustomers: customers.length,
-            totalRevenue: totalRevenue,
-            unitsAvailable: statusCounts['Available'] || 0,
-        });
-        
-        setUnitStatusData(donutData);
-
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const [unitsData, customersData, unitStatusesData, paymentsData, bookingsData] = await Promise.all([
+                unitsService.getAll(),
+                customersService.getAll(),
+                unitStatusesService.getAll(),
+                paymentsService.getAll(),
+                bookingsService.getAll(),
+            ]);
+
+            setUnits(unitsData);
+            setCustomers(customersData);
+            setPayments(paymentsData);
+            setBookings(bookingsData);
+
+            // Get unitSales from localStorage (not in Supabase yet)
+            const unitSales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
+
+            // Calculate total revenue from payments + bookings amountPaid + unitSales
+            const paymentsRevenue = paymentsData.reduce((sum, payment) => sum + payment.amount, 0);
+            const bookingsRevenue = bookingsData.reduce((sum, booking) => sum + (booking.amountPaid || 0), 0);
+            const salesRevenue = unitSales.reduce((sum, sale) => sum + sale.finalSalePrice, 0);
+            const totalRevenue = paymentsRevenue + bookingsRevenue + salesRevenue;
+            
+            const statusCounts = unitsData.reduce((acc, unit) => {
+                acc[unit.status] = (acc[unit.status] || 0) + 1;
+                return acc;
+            }, {} as { [key: string]: number });
+
+            const statusColors: { [key: string]: string } = {
+                'Available': '#10b981',
+                'Booked': '#f59e0b',
+                'Sold': '#f43f5e',
+            };
+
+            const donutData = unitStatusesData.map(status => ({
+                label: status.name,
+                value: statusCounts[status.name] || 0,
+                color: statusColors[status.name] || '#64748b'
+            })).filter(item => item.value > 0);
+
+            setStats({
+                totalUnits: unitsData.length,
+                totalCustomers: customersData.length,
+                totalRevenue: totalRevenue,
+                unitsAvailable: statusCounts['Available'] || 0,
+            });
+            
+            setUnitStatusData(donutData);
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
     
     const salesTrendData = useMemo(() => {
         const unitSales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
-        const payments: Payment[] = JSON.parse(localStorage.getItem('payments') || '[]');
 
         const labels: string[] = [];
         const revenueData: number[] = [];
@@ -196,6 +225,7 @@ const Dashboard: React.FC = () => {
 
         const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1);
 
+        // Add unit sales revenue
         unitSales.forEach(sale => {
             const saleDate = new Date(sale.saleDate);
             if (saleDate >= sixMonthsAgo) {
@@ -207,12 +237,24 @@ const Dashboard: React.FC = () => {
             }
         });
         
+        // Add payments revenue
         payments.forEach(payment => {
              const paymentDate = new Date(payment.paymentDate);
             if (paymentDate >= sixMonthsAgo) {
                 const monthDiff = (paymentDate.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (paymentDate.getMonth() - sixMonthsAgo.getMonth());
                 if(monthDiff >= 0 && monthDiff < 6) {
                     revenueData[monthDiff] += payment.amount;
+                }
+            }
+        });
+
+        // Add bookings initial payments revenue
+        bookings.forEach(booking => {
+            const bookingDate = new Date(booking.bookingDate);
+            if (bookingDate >= sixMonthsAgo && booking.amountPaid) {
+                const monthDiff = (bookingDate.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (bookingDate.getMonth() - sixMonthsAgo.getMonth());
+                if(monthDiff >= 0 && monthDiff < 6) {
+                    revenueData[monthDiff] += booking.amountPaid;
                 }
             }
         });
@@ -225,7 +267,7 @@ const Dashboard: React.FC = () => {
             ]
         };
 
-    }, []);
+    }, [payments, bookings]);
 
     return (
         <div className="container mx-auto">
