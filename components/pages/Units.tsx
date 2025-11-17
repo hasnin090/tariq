@@ -159,7 +159,7 @@ const Units: React.FC = () => {
             {units.length > 0 ? (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                     <table className="w-full text-right">
-                         <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الاسم</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">النوع</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">السعر</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th>
+                         <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">رقم الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المساحة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">السعر</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th>
                          {(canEdit || canDelete) && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>}
                          </tr></thead>
                         <tbody>
