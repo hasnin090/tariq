@@ -189,6 +189,14 @@ export const Bookings: React.FC = () => {
                     status: 'Active' 
                 };
                 const createdBooking = await bookingsService.create(newBooking as any);
+                
+                // Update unit status to 'Booked' and link to customer
+                await unitsService.update(unit.id, { 
+                    status: 'Booked', 
+                    customer_id: customer.id,
+                    customer_name: customer.name 
+                } as any);
+                
                 logActivity('Add Booking', `Added booking for ${customer.name} with initial payment of ${formatCurrency(bookingData.amountPaid)}`);
                 
                 // Note: amountPaid in booking is the first payment, no need to create separate payment record
