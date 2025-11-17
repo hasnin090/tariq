@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Payment, Customer, Booking } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { formatCurrency } from '../../utils/currencyFormatter';
+import logActivity from '../../utils/activityLogger';
 import { paymentsService, customersService, bookingsService } from '../../src/services/supabaseService';
-import { CreditCardIcon, PrinterIcon, PlusIcon } from '../shared/Icons';
+import { CreditCardIcon, PrinterIcon, PlusIcon, TrashIcon } from '../shared/Icons';
+import ConfirmModal from '../shared/ConfirmModal';
 
 const Payments: React.FC = () => {
     const { addToast } = useToast();
+    const { currentUser } = useAuth();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
@@ -15,6 +19,7 @@ const Payments: React.FC = () => {
     const [customerPayments, setCustomerPayments] = useState<Payment[]>([]);
     const [showCustomerPayments, setShowCustomerPayments] = useState(false);
     const [showAddPayment, setShowAddPayment] = useState(false);
+    const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
     const [newPayment, setNewPayment] = useState({
         bookingId: '',
         amount: 0,
@@ -65,6 +70,29 @@ const Payments: React.FC = () => {
             setBookings(data.filter(b => b.status === 'Active'));
         } catch (error) {
             console.error('Error loading bookings:', error);
+        }
+    };
+
+    const handleDeletePayment = (payment: Payment) => {
+        if (currentUser?.role !== 'Admin') {
+            addToast('هذه العملية متاحة للمدير فقط', 'error');
+            return;
+        }
+        setPaymentToDelete(payment);
+    };
+
+    const confirmDeletePayment = async () => {
+        if (!paymentToDelete) return;
+
+        try {
+            await paymentsService.delete(paymentToDelete.id);
+            logActivity('Delete Payment', `Deleted payment of ${formatCurrency(paymentToDelete.amount)} for ${paymentToDelete.customerName}`);
+            addToast('تم حذف الدفعة بنجاح', 'success');
+            setPaymentToDelete(null);
+            await loadPayments();
+        } catch (error) {
+            console.error('Error deleting payment:', error);
+            addToast('خطأ في حذف الدفعة', 'error');
         }
     };
 
@@ -445,7 +473,18 @@ const Payments: React.FC = () => {
                                             <td className="p-4 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</td>
                                             <td className="p-4 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(payment.remainingAmount)}</td>
                                             <td className="p-4">
-                                                <button onClick={() => handleViewCustomerPayments(payment.customerId)} className="text-primary-600 hover:underline font-semibold">عرض الكل</button>
+                                                <div className="flex items-center gap-3">
+                                                    <button onClick={() => handleViewCustomerPayments(payment.customerId)} className="text-primary-600 hover:underline font-semibold">عرض الكل</button>
+                                                    {currentUser?.role === 'Admin' && (
+                                                        <button
+                                                            onClick={() => handleDeletePayment(payment)}
+                                                            className="text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300"
+                                                            title="حذف الدفعة"
+                                                        >
+                                                            <TrashIcon className="h-5 w-5" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -460,6 +499,20 @@ const Payments: React.FC = () => {
                         </div>
                     )}
                 </>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {paymentToDelete && (
+                <ConfirmModal
+                    isOpen={!!paymentToDelete}
+                    onClose={() => setPaymentToDelete(null)}
+                    onConfirm={confirmDeletePayment}
+                    title="تأكيد حذف الدفعة"
+                    message={`هل أنت متأكد من حذف دفعة بمبلغ ${formatCurrency(paymentToDelete.amount)} للعميل ${paymentToDelete.customerName}؟ هذا الإجراء لا يمكن التراجع عنه.`}
+                    confirmText="حذف"
+                    cancelText="إلغاء"
+                    type="danger"
+                />
             )}
         </div>
     );
