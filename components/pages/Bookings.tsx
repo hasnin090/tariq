@@ -190,11 +190,9 @@ export const Bookings: React.FC = () => {
                 };
                 const createdBooking = await bookingsService.create(newBooking as any);
                 
-                // Update unit status to 'Booked' and link to customer
+                // Update unit status to 'Booked'
                 await unitsService.update(unit.id, { 
-                    status: 'Booked', 
-                    customer_id: customer.id,
-                    customer_name: customer.name 
+                    status: 'Booked'
                 } as any);
                 
                 logActivity('Add Booking', `Added booking for ${customer.name} with initial payment of ${formatCurrency(bookingData.amountPaid)}`);
@@ -222,7 +220,7 @@ export const Bookings: React.FC = () => {
             
             const unit = units.find(u => u.id === bookingToCancel.unitId);
             if (unit) {
-                await unitsService.update(unit.id, { status: 'Available', customer_id: undefined, customer_name: undefined } as any);
+                await unitsService.update(unit.id, { status: 'Available' } as any);
             }
             
             logActivity('Cancel Booking', `Cancelled booking for unit ${bookingToCancel.unitName}`);
