@@ -4,7 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
-import { unitsService, customersService, unitTypesService, unitStatusesService, bookingsService, documentsService } from '../../src/services/supabaseService';
+import { unitsService, customersService, unitTypesService, unitStatusesService, bookingsService, documentsService, paymentsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import { CloseIcon, BuildingIcon, EditIcon, TrashIcon, UnitsEmptyIcon } from '../shared/Icons';
 import EmptyState from '../shared/EmptyState';
@@ -101,12 +101,24 @@ const Units: React.FC = () => {
                 // First, get all bookings associated with this unit
                 const relatedBookings = await bookingsService.getByUnitId(unitToDelete.id);
                 
-                // For each booking, delete all associated documents first
+                // Check if there are any bookings with payments
+                const allPayments = await paymentsService.getAll();
+                const hasPayments = relatedBookings.some(booking => 
+                    allPayments.some(payment => payment.bookingId === booking.id)
+                );
+                
+                if (hasPayments) {
+                    addToast('لا يمكن حذف الوحدة: يوجد حجوزات مرتبطة بدفعات. يرجى حذف الدفعات أولاً أو إلغاء الحجوزات.', 'error');
+                    setUnitToDelete(null);
+                    return;
+                }
+                
+                // Delete associated documents
                 for (const booking of relatedBookings) {
                     await documentsService.deleteForBooking(booking.id);
                 }
                 
-                // Then delete all bookings
+                // Delete all bookings
                 for (const booking of relatedBookings) {
                     await bookingsService.delete(booking.id);
                 }
@@ -117,9 +129,11 @@ const Units: React.FC = () => {
                 addToast('تم حذف الوحدة والحجوزات والمستندات المرتبطة بنجاح', 'success');
                 setUnitToDelete(null);
                 await loadData();
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error deleting unit:', error);
-                addToast('خطأ في حذف الوحدة', 'error');
+                const errorMessage = error?.message || error?.details || 'خطأ في حذف الوحدة';
+                addToast(errorMessage, 'error');
+                setUnitToDelete(null);
             }
         }
     };
