@@ -154,6 +154,20 @@ const SalePanel: React.FC<PanelProps> = ({ units, customers, accounts, onClose, 
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+        
+        // When unit is selected, automatically set the price
+        if (name === 'unitId') {
+            const selectedUnit = units.find(u => u.id === value);
+            if (selectedUnit) {
+                setFormData(prev => ({ 
+                    ...prev, 
+                    unitId: value,
+                    finalSalePrice: selectedUnit.price 
+                }));
+                return;
+            }
+        }
+        
         setFormData(prev => ({ ...prev, [name]: name === 'finalSalePrice' ? Number(value) : value }));
     };
 
@@ -163,10 +177,13 @@ const SalePanel: React.FC<PanelProps> = ({ units, customers, accounts, onClose, 
                 <form onSubmit={handleSubmit}>
                     <div className="p-5 border-b flex justify-between items-start"><h2 className="text-xl font-bold">تسجيل عملية بيع</h2><button type="button" onClick={onClose}><CloseIcon className="h-6 w-6"/></button></div>
                     <div className="p-6 space-y-4">
-                        <select name="unitId" value={formData.unitId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر الوحدة المباعة</option>{units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                        <select name="unitId" value={formData.unitId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر الوحدة المباعة</option>{units.map(u => <option key={u.id} value={u.id}>{u.name} - {formatCurrency(u.price)}</option>)}</select>
                         <select name="customerId" value={formData.customerId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر العميل</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                         <select name="accountId" value={formData.accountId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر حساب الإيداع</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
-                        <input type="number" name="finalSalePrice" placeholder="سعر البيع النهائي" value={formData.finalSalePrice} onChange={handleChange} className="w-full p-2.5 border rounded-lg dark:bg-slate-700" required min="1" />
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">سعر البيع النهائي</label>
+                            <input type="text" value={formData.finalSalePrice > 0 ? formatCurrency(formData.finalSalePrice) : ''} readOnly className="w-full p-2.5 border rounded-lg dark:bg-slate-700 bg-slate-50 dark:bg-slate-600 cursor-not-allowed" placeholder="سيتم تحديده تلقائياً عند اختيار الوحدة" />
+                        </div>
                         <input type="date" name="saleDate" value={formData.saleDate} onChange={handleChange} className="w-full p-2.5 border rounded-lg dark:bg-slate-700" required />
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">مستندات عملية البيع</label>
