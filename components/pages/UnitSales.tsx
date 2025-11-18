@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { CloseIcon, TrendingUpIcon, PaperClipIcon } from '../shared/Icons';
+import Modal from '../shared/Modal';
 import { unitSalesService, unitsService, customersService, transactionsService, documentsService, accountsService } from '../../src/services/supabaseService';
 
 const UnitSales: React.FC = () => {
@@ -178,11 +179,9 @@ const SalePanel: React.FC<PanelProps> = ({ units, customers, accounts, onClose, 
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-xl" onClick={e => e.stopPropagation()}>
+        <Modal isOpen={true} onClose={onClose} title="تسجيل عملية بيع" size="lg">
                 <form onSubmit={handleSubmit}>
-                    <div className="p-5 border-b flex justify-between items-start"><h2 className="text-xl font-bold">تسجيل عملية بيع</h2><button type="button" onClick={onClose}><CloseIcon className="h-6 w-6"/></button></div>
-                    <div className="p-6 space-y-4">
+                    <div className="space-y-4">
                         <select name="unitId" value={formData.unitId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر الوحدة المباعة</option>{units.map(u => <option key={u.id} value={u.id}>{u.name} - {formatCurrency(u.price)}</option>)}</select>
                         <select name="customerId" value={formData.customerId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر العميل</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                         <select name="accountId" value={formData.accountId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر حساب الإيداع</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
@@ -213,10 +212,9 @@ const SalePanel: React.FC<PanelProps> = ({ units, customers, accounts, onClose, 
                             )}
                         </div>
                     </div>
-                    <div className="px-6 py-4 border-t flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border font-semibold">إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg font-semibold">حفظ</button></div>
+                    <div className="pt-4 flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border font-semibold">إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg font-semibold">حفظ</button></div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 };
 
