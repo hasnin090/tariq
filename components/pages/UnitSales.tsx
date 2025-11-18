@@ -54,28 +54,20 @@ const UnitSales: React.FC = () => {
         }
 
         try {
-            // Generate IDs
-            const transactionId = `transaction_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const saleId = `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-            // 1. Create Transaction in localStorage
-            const transactions: Transaction[] = JSON.parse(localStorage.getItem('transactions') || '[]');
-            const newTransaction: Transaction = {
-                id: transactionId,
+            // 1. Create Transaction in Supabase
+            const newTransaction = await transactionsService.create({
                 accountId: saleData.accountId,
                 accountName: account.name,
                 type: 'Deposit',
                 date: saleData.saleDate,
                 description: `بيع الوحدة ${unit.name} إلى ${customer.name}`,
                 amount: saleData.finalSalePrice,
-                sourceType: 'Sale',
-                sourceId: saleId
-            };
-            transactions.push(newTransaction);
-            localStorage.setItem('transactions', JSON.stringify(transactions));
+                sourceType: 'Sale'
+            });
 
-            // 2. Create Sale Record in localStorage
+            // 2. Create Sale Record in localStorage (unitSales table doesn't exist in Supabase yet)
             const unitSales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
+            const saleId = `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const newSale: UnitSaleRecord = {
                 id: saleId,
                 unitId: saleData.unitId,
@@ -87,13 +79,16 @@ const UnitSales: React.FC = () => {
                 saleDate: saleData.saleDate,
                 documents: [],
                 accountId: saleData.accountId,
-                transactionId: transactionId,
+                transactionId: newTransaction.id,
                 projectId: unit.projectId
             };
             unitSales.push(newSale);
             localStorage.setItem('unitSales', JSON.stringify(unitSales));
 
-            // 3. Upload documents if any
+            // 3. Update transaction with sourceId
+            await transactionsService.update(newTransaction.id, { sourceId: saleId });
+
+            // 4. Upload documents if any
             if (documents.length > 0) {
                 for (const doc of documents) {
                     await documentsService.upload(doc, { sale_id: saleId });
@@ -101,7 +96,7 @@ const UnitSales: React.FC = () => {
                 addToast(`تم رفع ${documents.length} مستندات بنجاح.`, 'success');
             }
 
-            // 4. Update unit status to Sold
+            // 5. Update unit status to Sold
             await unitsService.update(unit.id, { 
                 status: 'Sold'
             });

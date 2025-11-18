@@ -606,6 +606,18 @@ export const expensesService = {
 /**
  * TRANSACTIONS SERVICE
  */
+const mapTransactionFromDb = (dbTransaction: any): Transaction => ({
+  id: dbTransaction.id,
+  accountId: dbTransaction.account_id,
+  accountName: dbTransaction.account_name,
+  type: dbTransaction.type,
+  date: dbTransaction.date,
+  description: dbTransaction.description,
+  amount: dbTransaction.amount,
+  sourceId: dbTransaction.source_id,
+  sourceType: dbTransaction.source_type
+});
+
 export const transactionsService = {
   async getAll() {
     const { data, error } = await supabase
@@ -613,27 +625,51 @@ export const transactionsService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    // Convert snake_case to camelCase
+    return (data || []).map(mapTransactionFromDb);
   },
 
   async create(transaction: Omit<Transaction, 'id'>) {
     const id = `transaction_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Convert camelCase to snake_case
+    const dbTransaction = {
+      id,
+      account_id: transaction.accountId,
+      account_name: transaction.accountName,
+      type: transaction.type,
+      date: transaction.date,
+      description: transaction.description,
+      amount: transaction.amount,
+      source_id: transaction.sourceId,
+      source_type: transaction.sourceType
+    };
     const { data, error } = await supabase
       .from('transactions')
-      .insert([{ ...transaction, id }])
+      .insert([dbTransaction])
       .select();
     if (error) throw error;
-    return data?.[0];
+    return data?.[0] ? mapTransactionFromDb(data[0]) : undefined;
   },
 
   async update(id: string, transaction: Partial<Transaction>) {
+    // Convert camelCase to snake_case for update
+    const dbUpdate: any = {};
+    if (transaction.accountId !== undefined) dbUpdate.account_id = transaction.accountId;
+    if (transaction.accountName !== undefined) dbUpdate.account_name = transaction.accountName;
+    if (transaction.type !== undefined) dbUpdate.type = transaction.type;
+    if (transaction.date !== undefined) dbUpdate.date = transaction.date;
+    if (transaction.description !== undefined) dbUpdate.description = transaction.description;
+    if (transaction.amount !== undefined) dbUpdate.amount = transaction.amount;
+    if (transaction.sourceId !== undefined) dbUpdate.source_id = transaction.sourceId;
+    if (transaction.sourceType !== undefined) dbUpdate.source_type = transaction.sourceType;
+    
     const { data, error } = await supabase
       .from('transactions')
-      .update(transaction)
+      .update(dbUpdate)
       .eq('id', id)
       .select();
     if (error) throw error;
-    return data?.[0];
+    return data?.[0] ? mapTransactionFromDb(data[0]) : undefined;
   },
 
   async delete(id: string) {
