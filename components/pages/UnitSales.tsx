@@ -4,9 +4,10 @@ import { useToast } from '../../contexts/ToastContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { CloseIcon, TrendingUpIcon, PaperClipIcon } from '../shared/Icons';
-import { unitSalesService, unitsService, customersService, transactionsService, documentsService } from '../../src/services/supabaseService';
+import { unitSalesService, unitsService, customersService, transactionsService, documentsService, accountsService } from '../../src/services/supabaseService';
 
 const UnitSales: React.FC = () => {
+    const { addToast } = useToast();
     const [sales, setSales] = useState<UnitSaleRecord[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -21,6 +22,9 @@ const UnitSales: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
+            // Load accounts from localStorage as fallback since accounts table doesn't exist in Supabase
+            const accountsData: Account[] = JSON.parse(localStorage.getItem('accounts') || '[]');
+            
             const [salesData, unitsData, customersData] = await Promise.all([
                 unitSalesService.getAll(),
                 unitsService.getAll(),
@@ -29,6 +33,7 @@ const UnitSales: React.FC = () => {
             setSales(salesData);
             setUnits(unitsData);
             setCustomers(customersData);
+            setAccounts(accountsData);
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات.', 'error');
@@ -40,9 +45,10 @@ const UnitSales: React.FC = () => {
     const handleSave = async (saleData: Omit<UnitSaleRecord, 'id' | 'unitName' | 'customerName'>, documents: File[]) => {
         const unit = units.find(u => u.id === saleData.unitId);
         const customer = customers.find(c => c.id === saleData.customerId);
+        const account = accounts.find(a => a.id === saleData.accountId);
 
-        if (!unit || !customer) {
-            addToast('بيانات غير مكتملة. يرجى التحقق من الوحدة والعميل.', 'error');
+        if (!unit || !customer || !account) {
+            addToast('بيانات غير مكتملة. يرجى التحقق من الوحدة والعميل والحساب.', 'error');
             return;
         }
 
