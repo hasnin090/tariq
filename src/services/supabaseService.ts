@@ -643,12 +643,20 @@ export const transactionsService = {
       source_id: transaction.sourceId,
       source_type: transaction.sourceType
     };
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('transactions')
-      .insert([dbTransaction])
-      .select();
+      .insert(dbTransaction);
     if (error) throw error;
-    return data?.[0] ? mapTransactionFromDb(data[0]) : undefined;
+    
+    // Fetch the created record
+    const { data: fetchedData, error: fetchError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (fetchError) throw fetchError;
+    
+    return fetchedData ? mapTransactionFromDb(fetchedData) : undefined;
   },
 
   async update(id: string, transaction: Partial<Transaction>) {
@@ -663,13 +671,21 @@ export const transactionsService = {
     if (transaction.sourceId !== undefined) dbUpdate.source_id = transaction.sourceId;
     if (transaction.sourceType !== undefined) dbUpdate.source_type = transaction.sourceType;
     
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('transactions')
       .update(dbUpdate)
-      .eq('id', id)
-      .select();
+      .eq('id', id);
     if (error) throw error;
-    return data?.[0] ? mapTransactionFromDb(data[0]) : undefined;
+    
+    // Fetch the updated record
+    const { data: fetchedData, error: fetchError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (fetchError) throw fetchError;
+    
+    return fetchedData ? mapTransactionFromDb(fetchedData) : undefined;
   },
 
   async delete(id: string) {
