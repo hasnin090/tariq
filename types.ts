@@ -84,9 +84,10 @@ export interface Document {
 }
 
 export interface SaleDocument {
-    id: string;
+    id?: string;
     name: string;
-    type?: string;
+    type: string;
+    data?: string;
     fileName?: string;
     content?: string;
     mimeType?: string;

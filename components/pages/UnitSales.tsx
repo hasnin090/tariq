@@ -88,7 +88,7 @@ const UnitSales: React.FC = () => {
             // 3. Update transaction with sourceId
             await transactionsService.update(newTransaction.id, { sourceId: saleId });
 
-            // 4. Upload documents if any
+            // 4. Upload documents to Supabase Storage
             if (documents.length > 0) {
                 for (const doc of documents) {
                     await documentsService.upload(doc, { sale_id: saleId });

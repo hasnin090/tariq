@@ -1026,10 +1026,21 @@ export const documentsService = {
     return data || [];
   },
 
+  // Function to get documents for a specific sale
+  async getForSale(saleId: string) {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('sale_id', saleId)
+      .order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
   // Function to upload a file and create a document record
-  async upload(file: File, linkedTo: { customer_id?: string; booking_id?: string }) {
-    if (!linkedTo.customer_id && !linkedTo.booking_id) {
-      throw new Error('Document must be linked to a customer or a booking.');
+  async upload(file: File, linkedTo: { customer_id?: string; booking_id?: string; sale_id?: string }) {
+    if (!linkedTo.customer_id && !linkedTo.booking_id && !linkedTo.sale_id) {
+      throw new Error('Document must be linked to a customer, booking, or sale.');
     }
 
     const fileExt = file.name.split('.').pop();
