@@ -264,40 +264,81 @@ const SalePanel: React.FC<PanelProps> = ({ units, customers, accounts, onClose, 
     };
 
     return (
-        <Modal isOpen={true} onClose={onClose} title="تسجيل عملية بيع" size="lg">
-                <form onSubmit={handleSubmit}>
+        <Modal 
+            isOpen={true} 
+            onClose={onClose} 
+            title="تسجيل عملية بيع" 
+            size="lg"
+            footer={
+                <div className="flex justify-end gap-4 w-full">
+                    <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">إلغاء</button>
+                    <button type="submit" form="sale-form" className="bg-gradient-to-r from-primary-600 to-primary-500 text-white px-8 py-2.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-primary-500/30 transition-all transform hover:-translate-y-0.5">حفظ</button>
+                </div>
+            }
+        >
+                <form id="sale-form" onSubmit={handleSubmit} className="space-y-5">
                     <div className="space-y-4">
-                        <select name="unitId" value={formData.unitId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر الوحدة المباعة</option>{units.map(u => <option key={u.id} value={u.id}>{u.name} - {formatCurrency(u.price)}</option>)}</select>
-                        <select name="customerId" value={formData.customerId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر العميل</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                        <select name="accountId" value={formData.accountId} onChange={handleChange} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700" required><option value="">اختر حساب الإيداع</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+                        <div className="grid grid-cols-1 gap-4">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">الوحدة السكنية</label>
+                            <select name="unitId" value={formData.unitId} onChange={handleChange} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" required>
+                                <option value="">اختر الوحدة المباعة</option>
+                                {units.map(u => <option key={u.id} value={u.id}>{u.name} - {formatCurrency(u.price)}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">العميل</label>
+                            <select name="customerId" value={formData.customerId} onChange={handleChange} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" required>
+                                <option value="">اختر العميل</option>
+                                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">حساب الإيداع</label>
+                            <select name="accountId" value={formData.accountId} onChange={handleChange} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" required>
+                                <option value="">اختر حساب الإيداع</option>
+                                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                        </div>
+
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">سعر البيع النهائي</label>
-                            <input type="text" value={formData.finalSalePrice > 0 ? formatCurrency(formData.finalSalePrice) : ''} readOnly className="w-full p-2.5 border rounded-lg dark:bg-slate-700 bg-slate-50 dark:bg-slate-600 cursor-not-allowed" placeholder="سيتم تحديده تلقائياً عند اختيار الوحدة" />
+                            <input type="text" value={formData.finalSalePrice > 0 ? formatCurrency(formData.finalSalePrice) : ''} readOnly className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-slate-600 text-slate-500 cursor-not-allowed" placeholder="سيتم تحديده تلقائياً عند اختيار الوحدة" />
                         </div>
-                        <input type="date" name="saleDate" value={formData.saleDate} onChange={handleChange} className="w-full p-2.5 border rounded-lg dark:bg-slate-700" required />
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">تاريخ البيع</label>
+                            <input type="date" name="saleDate" value={formData.saleDate} onChange={handleChange} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" required />
+                        </div>
+
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">مستندات عملية البيع</label>
-                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-slate-900/25 dark:border-slate-50/25 px-6 py-10">
+                            <div className="mt-2 flex justify-center rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 px-6 py-8 hover:border-primary-500 dark:hover:border-primary-400 transition-colors bg-slate-50/50 dark:bg-slate-800/50">
                                 <div className="text-center">
-                                    <PaperClipIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-                                    <div className="mt-4 flex text-sm leading-6 text-gray-600">
-                                        <label htmlFor="file-upload" className="relative cursor-pointer rounded-md bg-white dark:bg-slate-800 font-semibold text-primary-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-600 focus-within:ring-offset-2 hover:text-primary-500">
+                                    <PaperClipIcon className="mx-auto h-12 w-12 text-slate-400" aria-hidden="true" />
+                                    <div className="mt-4 flex text-sm leading-6 text-slate-600 dark:text-slate-400 justify-center">
+                                        <label htmlFor="file-upload" className="relative cursor-pointer rounded-md font-semibold text-primary-600 hover:text-primary-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-600 focus-within:ring-offset-2">
                                             <span>ارفع ملفات</span>
                                             <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple onChange={handleFileChange} />
                                         </label>
                                         <p className="pr-1">أو اسحبها وأفلتها</p>
                                     </div>
-                                    <p className="text-xs leading-5 text-gray-600">PNG, JPG, PDF up to 10MB</p>
+                                    <p className="text-xs leading-5 text-slate-500">PNG, JPG, PDF up to 10MB</p>
                                 </div>
                             </div>
                             {documents.length > 0 && (
-                                <div className="mt-2 text-sm text-slate-500">
-                                    {documents.map(file => <span key={file.name} className="block">{file.name}</span>)}
+                                <div className="mt-3 space-y-2">
+                                    {documents.map((file, idx) => (
+                                        <div key={idx} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 p-2 rounded-lg">
+                                            <PaperClipIcon className="h-4 w-4" />
+                                            <span className="truncate">{file.name}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
                     </div>
-                    <div className="pt-4 flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border font-semibold">إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg font-semibold">حفظ</button></div>
                 </form>
         </Modal>
     );
