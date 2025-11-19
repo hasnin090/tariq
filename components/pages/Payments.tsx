@@ -15,6 +15,7 @@ const Payments: React.FC = () => {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
+    const [allPaymentsWithBooking, setAllPaymentsWithBooking] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
     const [customerPayments, setCustomerPayments] = useState<Payment[]>([]);
@@ -28,20 +29,66 @@ const Payments: React.FC = () => {
     });
 
     useEffect(() => {
-        loadPayments();
-        loadCustomers();
-        loadBookings();
-        loadUnits();
+        loadAllData();
         
-        const subscription = paymentsService.subscribe((data) => {
+        const paymentsSubscription = paymentsService.subscribe((data) => {
             const sortedPayments = data.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
             setPayments(sortedPayments);
+            mergePaymentsWithBookings(sortedPayments, bookings, units);
+        });
+
+        const bookingsSubscription = bookingsService.subscribe((data) => {
+            setBookings(data.filter(b => b.status === 'Active'));
+            mergePaymentsWithBookings(payments, data.filter(b => b.status === 'Active'), units);
         });
 
         return () => {
-            subscription?.unsubscribe();
+            paymentsSubscription?.unsubscribe();
+            bookingsSubscription?.unsubscribe();
         };
     }, []);
+
+    const loadAllData = async () => {
+        await Promise.all([
+            loadPayments(),
+            loadCustomers(),
+            loadBookings(),
+            loadUnits()
+        ]);
+    };
+
+    const mergePaymentsWithBookings = (paymentsData: Payment[], bookingsData: Booking[], unitsData: Unit[]) => {
+        const combined: Payment[] = [];
+        
+        // Add booking initial payments
+        bookingsData.forEach(booking => {
+            if (booking.amountPaid > 0) {
+                const unit = unitsData.find(u => u.id === booking.unitId);
+                const bookingPayment: Payment = {
+                    id: `booking_${booking.id}`,
+                    bookingId: booking.id,
+                    customerId: booking.customerId,
+                    customerName: booking.customerName,
+                    unitId: booking.unitId,
+                    unitName: booking.unitName,
+                    amount: booking.amountPaid,
+                    paymentDate: booking.bookingDate,
+                    unitPrice: unit?.price || 0,
+                    remainingAmount: (unit?.price || 0) - booking.amountPaid,
+                    accountId: '',
+                };
+                combined.push(bookingPayment);
+            }
+        });
+        
+        // Add additional payments
+        combined.push(...paymentsData);
+        
+        // Sort by date
+        combined.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+        
+        setAllPaymentsWithBooking(combined);
+    };
 
     const loadPayments = async () => {
         try {
@@ -49,6 +96,7 @@ const Payments: React.FC = () => {
             const data = await paymentsService.getAll();
             const sortedPayments = data.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
             setPayments(sortedPayments);
+            mergePaymentsWithBookings(sortedPayments, bookings, units);
         } catch (error) {
             console.error('Error loading payments:', error);
             addToast('خطأ في تحميل الدفعات', 'error');
@@ -69,7 +117,9 @@ const Payments: React.FC = () => {
     const loadBookings = async () => {
         try {
             const data = await bookingsService.getAll();
-            setBookings(data.filter(b => b.status === 'Active'));
+            const activeBookings = data.filter(b => b.status === 'Active');
+            setBookings(activeBookings);
+            mergePaymentsWithBookings(payments, activeBookings, units);
         } catch (error) {
             console.error('Error loading bookings:', error);
         }
@@ -79,6 +129,7 @@ const Payments: React.FC = () => {
         try {
             const data = await unitsService.getAll();
             setUnits(data);
+            mergePaymentsWithBookings(payments, bookings, data);
         } catch (error) {
             console.error('Error loading units:', error);
         }
@@ -461,12 +512,13 @@ const Payments: React.FC = () => {
                         </label>
                     </div>
 
-                    {payments.length > 0 ? (
+                    {allPaymentsWithBooking.length > 0 ? (
                         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-right">
                                 <thead>
                                     <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
                                         <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الدفعة</th>
+                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">النوع</th>
                                         <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th>
                                         <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th>
                                         <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المدفوع</th>
@@ -475,29 +527,41 @@ const Payments: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {payments.map(payment => (
-                                        <tr key={payment.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
-                                            <td className="p-4 text-slate-600 dark:text-slate-300">{payment.paymentDate}</td>
-                                            <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{payment.customerName}</td>
-                                            <td className="p-4 text-slate-600 dark:text-slate-300">{payment.unitName}</td>
-                                            <td className="p-4 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</td>
-                                            <td className="p-4 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(payment.remainingAmount)}</td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-3">
-                                                    <button onClick={() => handleViewCustomerPayments(payment.customerId)} className="text-primary-600 hover:underline font-semibold">عرض الكل</button>
-                                                    {currentUser?.role === 'Admin' && (
-                                                        <button
-                                                            onClick={() => handleDeletePayment(payment)}
-                                                            className="text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300"
-                                                            title="حذف الدفعة"
-                                                        >
-                                                            <TrashIcon className="h-5 w-5" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {allPaymentsWithBooking.map(payment => {
+                                        const isBookingPayment = payment.id.startsWith('booking_');
+                                        return (
+                                            <tr key={payment.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
+                                                <td className="p-4 text-slate-600 dark:text-slate-300">{payment.paymentDate}</td>
+                                                <td className="p-4">
+                                                    <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                                                        isBookingPayment 
+                                                            ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100' 
+                                                            : 'bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100'
+                                                    }`}>
+                                                        {isBookingPayment ? 'دفعة حجز' : 'دفعة إضافية'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{payment.customerName}</td>
+                                                <td className="p-4 text-slate-600 dark:text-slate-300">{payment.unitName}</td>
+                                                <td className="p-4 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</td>
+                                                <td className="p-4 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(payment.remainingAmount)}</td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <button onClick={() => handleViewCustomerPayments(payment.customerId)} className="text-primary-600 hover:underline font-semibold">عرض الكل</button>
+                                                        {currentUser?.role === 'Admin' && !isBookingPayment && (
+                                                            <button
+                                                                onClick={() => handleDeletePayment(payment)}
+                                                                className="text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300"
+                                                                title="حذف الدفعة"
+                                                            >
+                                                                <TrashIcon className="h-5 w-5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
