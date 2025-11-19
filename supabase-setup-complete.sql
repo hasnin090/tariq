@@ -160,6 +160,19 @@ CREATE TABLE IF NOT EXISTS public.unit_statuses (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add is_system column if it doesn't exist (for existing tables)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'unit_statuses' 
+        AND column_name = 'is_system'
+    ) THEN
+        ALTER TABLE public.unit_statuses ADD COLUMN is_system BOOLEAN DEFAULT false;
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_unit_statuses_name ON public.unit_statuses(name);
 
 ALTER TABLE public.unit_statuses ENABLE ROW LEVEL SECURITY;
