@@ -5,6 +5,7 @@ import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { CloseIcon, TrendingUpIcon, PaperClipIcon } from '../shared/Icons';
 import Modal from '../shared/Modal';
+import DocumentViewerModal from '../shared/DocumentViewerModal';
 import { unitSalesService, unitsService, customersService, transactionsService, documentsService, accountsService } from '../../src/services/supabaseService';
 
 const UnitSales: React.FC = () => {
@@ -17,6 +18,7 @@ const UnitSales: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saleDocuments, setSaleDocuments] = useState<Map<string, Document[]>>(new Map());
     const [documentUrls, setDocumentUrls] = useState<Map<string, string>>(new Map());
+    const [viewDoc, setViewDoc] = useState<{ url: string; name: string; mimeType?: string } | null>(null);
 
     useEffect(() => {
         loadData();
@@ -187,15 +189,22 @@ const UnitSales: React.FC = () => {
                                                     {docs.map((doc, idx) => {
                                                         const signedUrl = documentUrls.get(`${sale.id}_${doc.id}`);
                                                         return (
-                                                            <a
+                                                            <button
                                                                 key={idx}
-                                                                href={signedUrl || '#'}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
+                                                                onClick={() => {
+                                                                    if (signedUrl) {
+                                                                        setViewDoc({ 
+                                                                            url: signedUrl, 
+                                                                            name: doc.fileName || doc.file_name, 
+                                                                            mimeType: doc.file_type 
+                                                                        });
+                                                                    }
+                                                                }}
                                                                 className={`text-primary-600 hover:text-primary-700 hover:underline text-sm flex items-center gap-1 ${!signedUrl ? 'opacity-50 cursor-wait' : ''}`}
+                                                                disabled={!signedUrl}
                                                             >
-                                                                📄 {doc.fileName}
-                                                            </a>
+                                                                📄 {doc.fileName || doc.file_name}
+                                                            </button>
                                                         );
                                                     })}
                                                 </div>
@@ -212,6 +221,15 @@ const UnitSales: React.FC = () => {
                 </div>
             )}
             {isModalOpen && <SalePanel units={units.filter(u => u.status === 'Available')} customers={customers} accounts={accounts} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}
+            {viewDoc && (
+                <DocumentViewerModal
+                    isOpen={true}
+                    onClose={() => setViewDoc(null)}
+                    url={viewDoc.url}
+                    fileName={viewDoc.name}
+                    mimeType={viewDoc.mimeType}
+                />
+            )}
         </div>
     );
 };
