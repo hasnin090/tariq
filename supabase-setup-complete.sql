@@ -1,31 +1,3 @@
-# إعداد قاعدة البيانات الكاملة في Supabase
-
-## ⚠️ هام: يجب إنشاء جميع الجداول المطلوبة
-
-النظام يحتاج إلى الجداول التالية:
-- ✅ accounts (الحسابات المصرفية والنقدية)
-- ✅ transactions (المعاملات المالية)
-- ✅ customers (العملاء)
-- ✅ units (الوحدات)
-- ✅ unit_types (أنواع الوحدات)
-- ✅ unit_statuses (حالات الوحدات)
-- ✅ employees (الموظفين)
-
-## الخطوات المطلوبة:
-
-### 1. افتح Supabase Dashboard
-انتقل إلى: https://supabase.com/dashboard/project/dlxtduzxlwogpwxjeqxm
-
-### 2. افتح SQL Editor
-- اضغط على "SQL Editor" من القائمة الجانبية
-- اضغط على "New query"
-
-### 3. انسخ الكود الكامل
-
-افتح الملف `supabase-setup-complete.sql` وانسخ **كل المحتوى**
-
-أو انسخ الكود التالي **بدون علامات markdown** (```sql و ```):
-
 -- ===================================
 -- Complete Supabase Database Setup
 -- ===================================
@@ -70,8 +42,6 @@ GRANT ALL ON public.accounts TO service_role;
 
 -- 2. Create Transactions Table
 -- ===================================
-
--- Create transactions table
 CREATE TABLE IF NOT EXISTS public.transactions (
     id TEXT PRIMARY KEY,
     account_id TEXT NOT NULL,
@@ -86,13 +56,11 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON public.transactions(account_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_source_id ON public.transactions(source_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON public.transactions(type);
 
--- Create updated_at trigger
 CREATE OR REPLACE FUNCTION update_transactions_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -106,32 +74,14 @@ CREATE TRIGGER transactions_updated_at_trigger
     FOR EACH ROW
     EXECUTE FUNCTION update_transactions_updated_at();
 
--- Enable Row Level Security
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
--- Create policies for authenticated users
-CREATE POLICY "Enable read access for all authenticated users" ON public.transactions
-    FOR SELECT
-    TO authenticated
-    USING (true);
-
-CREATE POLICY "Enable insert access for all authenticated users" ON public.transactions
-    FOR INSERT
-    TO authenticated
-    WITH CHECK (true);
-
-CREATE POLICY "Enable update access for all authenticated users" ON public.transactions
-    FOR UPDATE
+CREATE POLICY "Enable all access for authenticated users on transactions" ON public.transactions
+    FOR ALL
     TO authenticated
     USING (true)
     WITH CHECK (true);
 
-CREATE POLICY "Enable delete access for all authenticated users" ON public.transactions
-    FOR DELETE
-    TO authenticated
-    USING (true);
-
--- Grant permissions
 GRANT ALL ON public.transactions TO authenticated;
 GRANT ALL ON public.transactions TO service_role;
 
@@ -315,25 +265,4 @@ GRANT ALL ON public.employees TO service_role;
 -- ===================================
 -- Setup Complete!
 -- ===================================
-
-### 4. اضغط "Run" أو Ctrl+Enter
-
-### 5. تحقق من نجاح العملية
-- يجب أن ترى رسالة "Success. No rows returned"
-- انتقل إلى "Table Editor" من القائمة الجانبية
-- يجب أن ترى الجداول التالية:
-  * accounts
-  * transactions
-  * customers
-  * units
-  * unit_types
-  * unit_statuses (مع 3 حالات افتراضية: متاح، محجوز، مباع)
-  * employees
-
-## بعد التنفيذ:
-✅ جميع الجداول المطلوبة جاهزة للاستخدام
-✅ النظام سيعمل بشكل كامل مع Supabase
-✅ البيانات الحالية في localStorage ستبقى، لكن البيانات الجديدة ستُحفظ في Supabase
-
-## ملاحظة:
-إذا كنت تريد نقل البيانات من localStorage إلى Supabase، يمكنك استخدام أدوات التصدير/الاستيراد في النظام.
+-- You can now use all tables in your application.
