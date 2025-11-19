@@ -1167,14 +1167,6 @@ export const documentsService = {
     for (const doc of documents) {
       await this.delete(doc.id);
     }
-  },
-
-  // Function to get a public URL for a file
-  getPublicUrl(filePath: string) {
-    const { data } = supabase.storage
-      .from('documents')
-      .getPublicUrl(filePath);
-    return data.publicUrl;
   }
 };
 

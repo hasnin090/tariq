@@ -33,10 +33,18 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
         ? await documentsService.getForCustomer(entityId)
         : await documentsService.getForBooking(entityId);
       
-      const docsWithUrls = fetchedDocs.map(doc => ({
-        ...doc,
-        publicUrl: documentsService.getPublicUrl(doc.storage_path)
-      }));
+      // Generate signed URLs for each document
+      const docsWithUrls = await Promise.all(
+        fetchedDocs.map(async (doc) => {
+          try {
+            const signedUrl = await documentsService.getSignedUrl(doc.storagePath);
+            return { ...doc, publicUrl: signedUrl };
+          } catch (error) {
+            console.error('Error generating signed URL:', error);
+            return { ...doc, publicUrl: '' };
+          }
+        })
+      );
       setDocuments(docsWithUrls);
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -63,9 +71,11 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
       const linkedTo = entityType === 'customer' ? { customer_id: entityId } : { booking_id: entityId };
       const newDoc = await documentsService.upload(selectedFile, linkedTo);
       
+      // Generate signed URL for the newly uploaded document
+      const signedUrl = await documentsService.getSignedUrl(newDoc.storagePath);
       const newDocWithUrl = {
         ...newDoc,
-        publicUrl: documentsService.getPublicUrl(newDoc.storage_path)
+        publicUrl: signedUrl
       };
 
       setDocuments(prev => [newDocWithUrl, ...prev]);
