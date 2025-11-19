@@ -30,6 +30,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ isOpen, onClo
             onClose={onClose} 
             title={fileName} 
             size="xl"
+            noPadding={true}
             footer={
                 <div className="flex justify-end">
                     <a 
@@ -45,11 +46,11 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ isOpen, onClo
                 </div>
             }
         >
-            <div className="flex items-center justify-center min-h-[60vh] bg-slate-100 dark:bg-slate-900/50 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-center min-h-[60vh] bg-slate-50 dark:bg-slate-900/30">
                 {isImage ? (
-                    <img src={url} alt={fileName} className="max-w-full max-h-[70vh] object-contain" />
+                    <img src={url} alt={fileName} className="max-w-full max-h-[75vh] object-contain" />
                 ) : isPdf ? (
-                    <iframe src={url} className="w-full h-[70vh]" title={fileName}></iframe>
+                    <iframe src={url} className="w-full h-[75vh]" title={fileName}></iframe>
                 ) : (
                     <div className="text-center p-8">
                         <p className="text-slate-500 dark:text-slate-400 mb-4">لا يمكن معاينة هذا النوع من الملفات مباشرة.</p>
