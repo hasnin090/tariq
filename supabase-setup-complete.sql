@@ -188,9 +188,9 @@ GRANT ALL ON public.unit_statuses TO service_role;
 
 -- Insert default statuses
 INSERT INTO public.unit_statuses (id, name, is_system) VALUES
-    ('status-1', 'متاح', true),
-    ('status-2', 'محجوز', true),
-    ('status-3', 'مباع', true)
+    ('11111111-1111-1111-1111-111111111111', 'متاح', true),
+    ('22222222-2222-2222-2222-222222222222', 'محجوز', true),
+    ('33333333-3333-3333-3333-333333333333', 'مباع', true)
 ON CONFLICT (id) DO NOTHING;
 
 
