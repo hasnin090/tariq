@@ -209,6 +209,37 @@ CREATE TABLE IF NOT EXISTS public.units (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add missing columns if they don't exist (for existing tables)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'units' 
+        AND column_name = 'customer_id'
+    ) THEN
+        ALTER TABLE public.units ADD COLUMN customer_id TEXT;
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'units' 
+        AND column_name = 'customer_name'
+    ) THEN
+        ALTER TABLE public.units ADD COLUMN customer_name TEXT;
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'units' 
+        AND column_name = 'project_id'
+    ) THEN
+        ALTER TABLE public.units ADD COLUMN project_id TEXT;
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_units_name ON public.units(name);
 CREATE INDEX IF NOT EXISTS idx_units_type ON public.units(type);
 CREATE INDEX IF NOT EXISTS idx_units_status ON public.units(status);
