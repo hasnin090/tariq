@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Payment, Customer, Booking } from '../../types';
+import { Payment, Customer, Booking, Unit } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import logActivity from '../../utils/activityLogger';
-import { paymentsService, customersService, bookingsService } from '../../src/services/supabaseService';
+import { paymentsService, customersService, bookingsService, unitsService } from '../../src/services/supabaseService';
 import { CreditCardIcon, PrinterIcon, PlusIcon, TrashIcon } from '../shared/Icons';
 import ConfirmModal from '../shared/ConfirmModal';
 
@@ -14,6 +14,7 @@ const Payments: React.FC = () => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
+    const [units, setUnits] = useState<Unit[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
     const [customerPayments, setCustomerPayments] = useState<Payment[]>([]);
@@ -30,6 +31,7 @@ const Payments: React.FC = () => {
         loadPayments();
         loadCustomers();
         loadBookings();
+        loadUnits();
         
         const subscription = paymentsService.subscribe((data) => {
             const sortedPayments = data.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
@@ -73,6 +75,15 @@ const Payments: React.FC = () => {
         }
     };
 
+    const loadUnits = async () => {
+        try {
+            const data = await unitsService.getAll();
+            setUnits(data);
+        } catch (error) {
+            console.error('Error loading units:', error);
+        }
+    };
+
     const handleDeletePayment = (payment: Payment) => {
         if (currentUser?.role !== 'Admin') {
             addToast('هذه العملية متاحة للمدير فقط', 'error');
@@ -109,13 +120,12 @@ const Payments: React.FC = () => {
                 return;
             }
 
-            // Get unit price from bookings or calculate from previous payments
-            const previousPayments = await paymentsService.getByCustomerId(booking.customerId);
-            const bookingPayments = previousPayments.filter(p => p.bookingId === booking.id);
-            const totalPaid = bookingPayments.reduce((sum, p) => sum + p.amount, 0) + booking.amountPaid;
-            
-            // For unit price, we'll get it from the first payment or use 0
-            const unitPrice = previousPayments.length > 0 ? previousPayments[0].unitPrice : 0;
+            // Get unit to get the actual price
+            const unit = units.find(u => u.id === booking.unitId);
+            if (!unit) {
+                addToast('الوحدة غير موجودة', 'error');
+                return;
+            }
 
             const payment: Omit<Payment, 'id' | 'remainingAmount'> = {
                 bookingId: booking.id,
@@ -125,7 +135,7 @@ const Payments: React.FC = () => {
                 unitName: booking.unitName,
                 amount: newPayment.amount,
                 paymentDate: newPayment.paymentDate,
-                unitPrice: unitPrice,
+                unitPrice: unit.price,
                 accountId: 'default',
             };
 
