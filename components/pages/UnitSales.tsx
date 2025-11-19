@@ -16,6 +16,7 @@ const UnitSales: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saleDocuments, setSaleDocuments] = useState<Map<string, Document[]>>(new Map());
+    const [documentUrls, setDocumentUrls] = useState<Map<string, string>>(new Map());
 
     useEffect(() => {
         loadData();
@@ -50,13 +51,26 @@ const UnitSales: React.FC = () => {
     const loadSaleDocuments = async (sales: UnitSaleRecord[]) => {
         try {
             const docsMap = new Map<string, Document[]>();
+            const urlsMap = new Map<string, string>();
+            
             for (const sale of sales) {
                 const docs = await documentsService.getForSale(sale.id);
                 if (docs && docs.length > 0) {
                     docsMap.set(sale.id, docs);
+                    
+                    // Generate signed URLs for each document
+                    for (const doc of docs) {
+                        try {
+                            const signedUrl = await documentsService.getSignedUrl(doc.storagePath);
+                            urlsMap.set(`${sale.id}_${doc.id}`, signedUrl);
+                        } catch (error) {
+                            console.error('Error generating signed URL:', error);
+                        }
+                    }
                 }
             }
             setSaleDocuments(docsMap);
+            setDocumentUrls(urlsMap);
         } catch (error) {
             console.error('Error loading sale documents:', error);
         }
@@ -117,6 +131,18 @@ const UnitSales: React.FC = () => {
                 // Reload documents for this sale
                 const uploadedDocs = await documentsService.getForSale(saleId);
                 setSaleDocuments(prev => new Map(prev).set(saleId, uploadedDocs));
+                
+                // Generate signed URLs for uploaded documents
+                const urlsMap = new Map(documentUrls);
+                for (const doc of uploadedDocs) {
+                    try {
+                        const signedUrl = await documentsService.getSignedUrl(doc.storagePath);
+                        urlsMap.set(`${saleId}_${doc.id}`, signedUrl);
+                    } catch (error) {
+                        console.error('Error generating signed URL:', error);
+                    }
+                }
+                setDocumentUrls(urlsMap);
             }
 
             // 5. Update unit status to Sold
@@ -158,17 +184,20 @@ const UnitSales: React.FC = () => {
                                         <td className="p-4">
                                             {docs.length > 0 ? (
                                                 <div className="flex flex-col gap-2">
-                                                    {docs.map((doc, idx) => (
-                                                        <a
-                                                            key={idx}
-                                                            href={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/documents/${doc.storagePath}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-primary-600 hover:text-primary-700 hover:underline text-sm flex items-center gap-1"
-                                                        >
-                                                            📄 {doc.fileName}
-                                                        </a>
-                                                    ))}
+                                                    {docs.map((doc, idx) => {
+                                                        const signedUrl = documentUrls.get(`${sale.id}_${doc.id}`);
+                                                        return (
+                                                            <a
+                                                                key={idx}
+                                                                href={signedUrl || '#'}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`text-primary-600 hover:text-primary-700 hover:underline text-sm flex items-center gap-1 ${!signedUrl ? 'opacity-50 cursor-wait' : ''}`}
+                                                            >
+                                                                📄 {doc.fileName}
+                                                            </a>
+                                                        );
+                                                    })}
                                                 </div>
                                             ) : (
                                                 <span className="text-slate-400 text-sm">لا يوجد</span>

@@ -1037,6 +1037,16 @@ export const documentsService = {
     return data || [];
   },
 
+  // Function to get a signed URL for a document
+  async getSignedUrl(storagePath: string, expiresIn: number = 3600) {
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(storagePath, expiresIn);
+    
+    if (error) throw error;
+    return data.signedUrl;
+  },
+
   // Function to upload a file and create a document record
   async upload(file: File, linkedTo: { customer_id?: string; booking_id?: string; sale_id?: string }) {
     if (!linkedTo.customer_id && !linkedTo.booking_id && !linkedTo.sale_id) {
