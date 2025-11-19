@@ -11,8 +11,18 @@ interface DocumentViewerModalProps {
 }
 
 const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ isOpen, onClose, url, fileName, mimeType }) => {
-    const isImage = mimeType?.startsWith('image/') || url.match(/\.(jpeg|jpg|gif|png|webp)$/i);
-    const isPdf = mimeType === 'application/pdf' || url.match(/\.pdf$/i);
+    // Helper to check extension from filename or URL (ignoring query params)
+    const checkExtension = (str: string, exts: string[]) => {
+        if (!str) return false;
+        // Remove query params if present
+        const cleanStr = str.split('?')[0].toLowerCase();
+        return exts.some(ext => cleanStr.endsWith(ext));
+    };
+
+    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+    const isImage = mimeType?.startsWith('image/') || checkExtension(fileName, imageExts) || checkExtension(url, imageExts);
+    
+    const isPdf = mimeType === 'application/pdf' || checkExtension(fileName, ['.pdf']) || checkExtension(url, ['.pdf']);
 
     return (
         <Modal 
