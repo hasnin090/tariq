@@ -160,24 +160,24 @@ const Header: React.FC<{
     const MenuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>;
 
     return (
-        <header className="relative z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm no-print transition-colors duration-300">
+        <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 shadow-sm no-print transition-all duration-300">
             <div className="h-20 flex items-center justify-between px-6 mx-auto gap-6">
                 
                 <div className="flex items-center gap-4">
-                    <button onClick={onToggleSidebar} className="lg:hidden text-slate-500 dark:text-slate-400 p-2 -mr-2">
+                    <button onClick={onToggleSidebar} className="lg:hidden text-slate-500 dark:text-slate-400 p-2 -mr-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
                         <MenuIcon />
                     </button>
                     {currentUser?.role === 'Admin' && (
-                        <div className="hidden sm:flex items-center bg-slate-200 dark:bg-slate-800 p-1 rounded-full">
+                        <div className="hidden sm:flex items-center bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
                             <button 
                                 onClick={() => setInterfaceMode('projects')}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-full transition-all duration-300 ${interfaceMode === 'projects' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
+                                className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-300 ${interfaceMode === 'projects' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}
                             >
                                 إدارة المبيعات
                             </button>
                              <button 
                                 onClick={() => setInterfaceMode('expenses')}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-full transition-all duration-300 ${interfaceMode === 'expenses' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white'}`}
+                                className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-300 ${interfaceMode === 'expenses' ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}
                             >
                                 الإدارة المحاسبية
                             </button>
@@ -199,7 +199,7 @@ const Header: React.FC<{
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             onFocus={() => setIsSearchFocused(true)}
-                            className="w-full pr-10 pl-10 py-2.5 border border-slate-300 dark:border-slate-700 rounded-full bg-slate-100 dark:bg-slate-800 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 transition-colors duration-300"
+                            className="w-full pr-10 pl-10 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 transition-all duration-300 shadow-sm hover:shadow-md focus:shadow-lg"
                         />
                         {recognitionRef.current && (
                             <div className="absolute inset-y-0 left-0 flex items-center pl-3">
@@ -207,24 +207,29 @@ const Header: React.FC<{
                                     type="button"
                                     onClick={handleVoiceSearch}
                                     title="البحث الصوتي"
-                                    className={`p-1 rounded-full transition-colors ${
+                                    className={`p-1.5 rounded-full transition-all duration-300 ${
                                         isListening
-                                            ? 'text-white bg-rose-500 animate-pulse'
-                                            : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                            ? 'text-white bg-rose-500 animate-pulse shadow-lg shadow-rose-500/30'
+                                            : 'text-slate-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20'
                                     }`}
                                 >
-                                    <MicrophoneIcon className="h-5 w-5" />
+                                    <MicrophoneIcon className="h-4 w-4" />
                                 </button>
                             </div>
                         )}
                          {isSearchFocused && searchResults.length > 0 && (
-                            <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 text-right max-h-80 overflow-y-auto">
-                                <ul>
+                            <div className="absolute top-full mt-2 w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 text-right max-h-80 overflow-y-auto z-50">
+                                <ul className="py-2">
                                     {searchResults.map(result => (
                                         <li key={`${result.type}-${result.id}`}>
-                                            <button onClick={() => handleResultClick(result)} className="w-full text-right px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200">
-                                                <p className="font-semibold text-slate-800 dark:text-slate-200">{result.name}</p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{result.type}</p>
+                                            <button onClick={() => handleResultClick(result)} className="w-full text-right px-4 py-3 hover:bg-primary-50 dark:hover:bg-slate-700/50 transition-colors duration-200 flex items-center justify-between group">
+                                                <div>
+                                                    <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{result.name}</p>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{result.type}</p>
+                                                </div>
+                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity text-primary-500">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                                </div>
                                             </button>
                                         </li>
                                     ))}
@@ -233,36 +238,41 @@ const Header: React.FC<{
                         )}
                     </div>
                     
-                    <button onClick={toggleTheme} className="text-slate-500 dark:text-slate-400 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <button onClick={toggleTheme} className="text-slate-500 dark:text-slate-400 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                         {theme === 'light' ? <MoonIcon /> : <SunIcon />}
                     </button>
                     
-                    <button className="text-slate-500 dark:text-slate-400 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <button className="text-slate-500 dark:text-slate-400 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700 relative">
                         <BellIcon className="h-6 w-6"/>
+                        <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800"></span>
                     </button>
 
                     <div className="relative" ref={userMenuRef}>
-                        <button onClick={() => setIsUserMenuVisible(prev => !prev)} className="flex items-center gap-3">
-                             <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        <button onClick={() => setIsUserMenuVisible(prev => !prev)} className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
+                             <div className="w-9 h-9 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white dark:ring-slate-800">
                                 {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'A'}
                             </div>
                             <div className="hidden sm:block text-right">
-                                <span className="font-semibold text-slate-800 dark:text-slate-100 block leading-tight">{currentUser?.name}</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-100 block leading-tight text-sm">{currentUser?.name}</span>
                                 {assignedProjectName ? (
-                                     <span className="text-xs text-primary-700 dark:text-primary-400 font-medium flex items-center justify-end gap-1 leading-tight">
+                                     <span className="text-[10px] text-primary-600 dark:text-primary-400 font-medium flex items-center justify-end gap-1 leading-tight mt-0.5">
                                         <BriefcaseIcon className="h-3 w-3" />
                                         {assignedProjectName}
                                     </span>
                                 ) : (
-                                    <span className="text-xs text-slate-500 dark:text-slate-400">{currentUser?.role}</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">{currentUser?.role}</span>
                                 )}
                             </div>
                         </button>
                         {isUserMenuVisible && (
-                            <div className="absolute top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 text-right left-0 animate-fade-in-scale-up">
-                                <ul>
+                            <div className="absolute top-full mt-2 w-56 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 text-right left-0 animate-fade-in-scale-up overflow-hidden z-50">
+                                <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{currentUser?.name}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">{currentUser?.email}</p>
+                                </div>
+                                <ul className="p-2">
                                     <li>
-                                        <button onClick={logout} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors duration-200">
+                                        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors duration-200 font-medium">
                                             <LogoutIcon />
                                             <span>تسجيل الخروج</span>
                                         </button>

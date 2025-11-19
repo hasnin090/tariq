@@ -106,7 +106,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div dir="rtl" className="flex h-screen bg-slate-100 dark:bg-slate-900 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300 overflow-hidden">
+    <div dir="rtl" className="flex h-screen bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300 overflow-hidden">
       <Sidebar 
         activePage={activePage} 
         setActivePage={(page) => {
@@ -117,7 +117,10 @@ const App: React.FC = () => {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
-      <main className="flex-1 flex flex-col h-screen">
+      <main className="flex-1 flex flex-col h-screen relative z-0">
+        {/* Background Pattern Overlay */}
+        <div className="absolute inset-0 opacity-40 dark:opacity-20 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwgMCwgMCwgMC4wNSkiLz48L3N2Zz4=')]"></div>
+        
         <Header
           activePage={activePage}
           interfaceMode={interfaceMode}
@@ -125,7 +128,7 @@ const App: React.FC = () => {
           setActivePage={setActivePage}
           onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
         />
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 relative z-10 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
           {renderPage()}
         </div>
       </main>

@@ -40,6 +40,7 @@ export default {
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-in-out',
+        'scale-up': 'scaleUp 0.2s ease-out',
         'fade-in-scale-up': 'fadeInScaleUp 0.2s ease-out',
         'drawer-overlay-show': 'fadeIn 0.3s ease-out',
       },
@@ -47,6 +48,10 @@ export default {
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
+        },
+        scaleUp: {
+          '0%': { transform: 'scale(0.95)' },
+          '100%': { transform: 'scale(1)' },
         },
         fadeInScaleUp: {
           '0%': { opacity: '0', transform: 'scale(0.95)' },

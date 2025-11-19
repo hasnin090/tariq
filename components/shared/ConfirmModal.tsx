@@ -49,8 +49,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 no-print animate-drawer-overlay-show" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-800 rounded-xl p-6 sm:p-8 w-full max-w-md shadow-2xl animate-fade-in-scale-up" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex justify-center items-center p-4 no-print animate-fade-in" onClick={onClose}>
+      <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl border border-white/20 dark:border-slate-700/50 animate-scale-up" onClick={e => e.stopPropagation()}>
         <div className="sm:flex sm:items-start">
           <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full ${iconColorClasses[variant]} sm:mx-0 sm:h-10 sm:w-10`}>
             <Icon />
@@ -62,17 +62,17 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             </div>
           </div>
         </div>
-        <div className="mt-6 sm:mt-5 sm:flex sm:flex-row-reverse gap-3">
+        <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse gap-3">
           <button
             type="button"
-            className={`w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-6 py-2.5 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:w-auto sm:text-sm transition-colors duration-200 ${confirmButtonColorClasses[variant]}`}
+            className={`w-full inline-flex justify-center rounded-xl border border-transparent shadow-lg shadow-rose-500/20 px-6 py-2.5 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:w-auto sm:text-sm transition-all duration-200 ${confirmButtonColorClasses[variant]}`}
             onClick={onConfirm}
           >
             {confirmText}
           </button>
           <button
             type="button"
-            className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-300 dark:border-slate-600 shadow-sm px-6 py-2.5 bg-white dark:bg-slate-800 text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors duration-200"
+            className="mt-3 w-full inline-flex justify-center rounded-xl border border-slate-300 dark:border-slate-600 shadow-sm px-6 py-2.5 bg-white dark:bg-slate-700 text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm transition-all duration-200"
             onClick={onClose}
           >
             {cancelText}

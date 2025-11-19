@@ -16,22 +16,29 @@ interface NavLinkProps {
     onClick: (page: string) => void;
 }
 
-const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClick }) => (
-    <li>
-        <button
-            onClick={() => onClick(page)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-colors duration-200 ${
-                activePage === page 
-                ? 'bg-primary-600 text-white' 
-                : 'text-slate-300 hover:bg-primary-800 hover:text-white'
-            }`}
-        >
-            {/* FIX: Corrected React.cloneElement call by providing a generic type argument to resolve a TypeScript error where the `className` prop was not recognized. */}
-            {React.cloneElement<{ className: string }>(icon, { className: 'h-5 w-5' })}
-            <span>{label}</span>
-        </button>
-    </li>
-);
+const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClick }) => {
+    const isActive = activePage === page;
+    return (
+        <li className="mb-1">
+            <button
+                onClick={() => onClick(page)}
+                className={`w-full flex items-center gap-4 px-4 py-3.5 mx-auto rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${
+                    isActive 
+                    ? 'bg-gradient-to-l from-primary-600 to-primary-500 text-white shadow-lg shadow-primary-500/25 translate-x-[-4px]' 
+                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-100 hover:translate-x-[-4px]'
+                }`}
+            >
+                <div className={`p-2 rounded-lg transition-colors duration-300 ${isActive ? 'bg-white/20' : 'bg-white/5 group-hover:bg-white/10'}`}>
+                    {React.cloneElement<{ className: string }>(icon, { className: `h-5 w-5 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}` })}
+                </div>
+                <span className="relative z-10">{label}</span>
+                {isActive && (
+                    <div className="absolute inset-y-0 right-0 w-1 bg-white/50 rounded-l-full"></div>
+                )}
+            </button>
+        </li>
+    );
+};
 
 interface SidebarProps {
     activePage: string;
@@ -100,32 +107,64 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         <>
             {/* Overlay for mobile */}
             <div
-                className={`fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity lg:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 transition-opacity lg:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
                 aria-hidden="true"
             ></div>
-            <aside className={`fixed lg:relative inset-y-0 right-0 w-64 bg-slate-900 text-white flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-in-out no-print ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
-                <div className="h-20 flex items-center justify-center border-b border-slate-800">
-                    <h1 className="text-2xl font-bold text-white">{systemTitle}</h1>
+            
+            {/* Sidebar Container */}
+            <aside className={`fixed lg:relative inset-y-0 right-0 w-72 bg-slate-900/95 backdrop-blur-2xl border-l border-white/5 flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-out shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
+                
+                {/* Logo Area */}
+                <div className="h-24 flex items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary-600/20 to-transparent opacity-50"></div>
+                    <div className="relative z-10 text-center">
+                        <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 tracking-tight">{systemTitle}</h1>
+                        <p className="text-xs text-primary-400 font-medium mt-1 tracking-widest uppercase opacity-80">لوحة التحكم المتطورة</p>
+                    </div>
                 </div>
-                <nav className="flex-1 overflow-y-auto p-4">
-                    <h2 className="px-4 pb-2 text-sm font-bold text-slate-400 uppercase tracking-wider">
-                        {sectionTitle}
-                    </h2>
-                    <ul className="space-y-2">
-                        {linksToShow.filter(link => !link.adminOnly || isAdmin).map(link => (
-                             <NavLink key={link.page} {...link} activePage={activePage} onClick={setActivePage} />
-                        ))}
-                         {isAdmin && (
-                            <>
-                             <li className="pt-4 pb-2 px-4 text-xs text-slate-500 font-semibold uppercase">النظام</li>
+
+                {/* Navigation */}
+                <nav className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                    <div className="mb-6">
+                        <h2 className="px-4 pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary-500"></span>
+                            {sectionTitle}
+                        </h2>
+                        <ul className="space-y-1">
+                            {linksToShow.filter(link => !link.adminOnly || isAdmin).map(link => (
+                                <NavLink key={link.page} {...link} activePage={activePage} onClick={setActivePage} />
+                            ))}
+                        </ul>
+                    </div>
+
+                    {isAdmin && (
+                        <div>
+                            <h2 className="px-4 pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                النظام
+                            </h2>
+                            <ul className="space-y-1">
                                 {systemLinks.filter(link => !link.adminOnly || isAdmin).map(link => (
                                     <NavLink key={link.page} {...link} activePage={activePage} onClick={setActivePage} />
                                 ))}
-                            </>
-                        )}
-                    </ul>
+                            </ul>
+                        </div>
+                    )}
                 </nav>
+
+                {/* User Profile Summary (Optional Footer) */}
+                <div className="p-4 border-t border-white/5 bg-black/20">
+                    <div className="flex items-center gap-3 px-2">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg">
+                            {currentUser?.username?.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{currentUser?.username}</p>
+                            <p className="text-xs text-slate-400 truncate">{currentUser?.role === 'Admin' ? 'مدير النظام' : currentUser?.role}</p>
+                        </div>
+                    </div>
+                </div>
             </aside>
         </>
     );

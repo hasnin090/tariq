@@ -46,3 +46,26 @@
     @apply p-4;
   }
 }
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-track-transparent::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thumb-slate-300::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+
+  .dark .scrollbar-thumb-slate-600::-webkit-scrollbar-thumb {
+    @apply bg-slate-600 rounded-full;
+  }
+  
+  .scrollbar-thumb-slate-700::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded-full;
+  }
+}
