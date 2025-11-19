@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UnitSaleRecord, Unit, Customer, Account, Transaction, SaleDocument } from '../../types';
+import { UnitSaleRecord, Unit, Customer, Account, Transaction, SaleDocument, Document } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
@@ -15,6 +15,7 @@ const UnitSales: React.FC = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [saleDocuments, setSaleDocuments] = useState<Map<string, Document[]>>(new Map());
 
     useEffect(() => {
         loadData();
@@ -35,11 +36,29 @@ const UnitSales: React.FC = () => {
             setUnits(unitsData);
             setCustomers(customersData);
             setAccounts(accountsData);
+
+            // Load documents for each sale from Supabase
+            await loadSaleDocuments(salesData);
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات.', 'error');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadSaleDocuments = async (sales: UnitSaleRecord[]) => {
+        try {
+            const docsMap = new Map<string, Document[]>();
+            for (const sale of sales) {
+                const docs = await documentsService.getForSale(sale.id);
+                if (docs && docs.length > 0) {
+                    docsMap.set(sale.id, docs);
+                }
+            }
+            setSaleDocuments(docsMap);
+        } catch (error) {
+            console.error('Error loading sale documents:', error);
         }
     };
 
@@ -94,6 +113,10 @@ const UnitSales: React.FC = () => {
                     await documentsService.upload(doc, { sale_id: saleId });
                 }
                 addToast(`تم رفع ${documents.length} مستندات بنجاح.`, 'success');
+                
+                // Reload documents for this sale
+                const uploadedDocs = await documentsService.getForSale(saleId);
+                setSaleDocuments(prev => new Map(prev).set(saleId, uploadedDocs));
             }
 
             // 5. Update unit status to Sold
@@ -122,16 +145,38 @@ const UnitSales: React.FC = () => {
             {loading ? <p>جاري تحميل البيانات...</p> : (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                     <table className="w-full text-right">
-                        <thead><tr className="border-b-2 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm">الوحدة</th><th className="p-4 font-bold text-sm">العميل</th><th className="p-4 font-bold text-sm">تاريخ البيع</th><th className="p-4 font-bold text-sm">سعر البيع النهائي</th></tr></thead>
+                        <thead><tr className="border-b-2 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm">الوحدة</th><th className="p-4 font-bold text-sm">العميل</th><th className="p-4 font-bold text-sm">تاريخ البيع</th><th className="p-4 font-bold text-sm">سعر البيع النهائي</th><th className="p-4 font-bold text-sm">المستندات</th></tr></thead>
                         <tbody>
-                            {sales.map(sale => (
-                                <tr key={sale.id} className="border-b border-slate-200 dark:border-slate-700">
-                                    <td className="p-4 font-medium">{sale.unitName}</td>
-                                    <td className="p-4">{sale.customerName}</td>
-                                    <td className="p-4">{sale.saleDate}</td>
-                                    <td className="p-4 font-semibold text-emerald-600">{formatCurrency(sale.finalSalePrice)}</td>
-                                </tr>
-                            ))}
+                            {sales.map(sale => {
+                                const docs = saleDocuments.get(sale.id) || [];
+                                return (
+                                    <tr key={sale.id} className="border-b border-slate-200 dark:border-slate-700">
+                                        <td className="p-4 font-medium">{sale.unitName}</td>
+                                        <td className="p-4">{sale.customerName}</td>
+                                        <td className="p-4">{sale.saleDate}</td>
+                                        <td className="p-4 font-semibold text-emerald-600">{formatCurrency(sale.finalSalePrice)}</td>
+                                        <td className="p-4">
+                                            {docs.length > 0 ? (
+                                                <div className="flex flex-col gap-2">
+                                                    {docs.map((doc, idx) => (
+                                                        <a
+                                                            key={idx}
+                                                            href={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/documents/${doc.storagePath}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-primary-600 hover:text-primary-700 hover:underline text-sm flex items-center gap-1"
+                                                        >
+                                                            📄 {doc.fileName}
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-slate-400 text-sm">لا يوجد</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                     {sales.length === 0 && <p className="text-center p-8 text-slate-500 dark:text-slate-400">لا توجد عمليات بيع مسجلة.</p>}
