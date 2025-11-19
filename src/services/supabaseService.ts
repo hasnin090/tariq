@@ -1012,7 +1012,18 @@ export const documentsService = {
       .eq('customer_id', customerId)
       .order('uploaded_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Map snake_case to camelCase
+    return (data || []).map(doc => ({
+      id: doc.id,
+      customerId: doc.customer_id,
+      bookingId: doc.booking_id,
+      saleId: doc.sale_id,
+      fileName: doc.file_name,
+      storagePath: doc.storage_path,
+      fileType: doc.file_type,
+      uploadedAt: doc.uploaded_at,
+    }));
   },
 
   // Function to get documents for a specific booking
@@ -1023,7 +1034,18 @@ export const documentsService = {
       .eq('booking_id', bookingId)
       .order('uploaded_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Map snake_case to camelCase
+    return (data || []).map(doc => ({
+      id: doc.id,
+      customerId: doc.customer_id,
+      bookingId: doc.booking_id,
+      saleId: doc.sale_id,
+      fileName: doc.file_name,
+      storagePath: doc.storage_path,
+      fileType: doc.file_type,
+      uploadedAt: doc.uploaded_at,
+    }));
   },
 
   // Function to get documents for a specific sale
@@ -1034,11 +1056,26 @@ export const documentsService = {
       .eq('sale_id', saleId)
       .order('uploaded_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Map snake_case to camelCase
+    return (data || []).map(doc => ({
+      id: doc.id,
+      customerId: doc.customer_id,
+      bookingId: doc.booking_id,
+      saleId: doc.sale_id,
+      fileName: doc.file_name,
+      storagePath: doc.storage_path,
+      fileType: doc.file_type,
+      uploadedAt: doc.uploaded_at,
+    }));
   },
 
   // Function to get a signed URL for a document
   async getSignedUrl(storagePath: string, expiresIn: number = 3600) {
+    if (!storagePath) {
+      throw new Error('Storage path is required');
+    }
+    
     const { data, error } = await supabase.storage
       .from('documents')
       .createSignedUrl(storagePath, expiresIn);
