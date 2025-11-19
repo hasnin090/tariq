@@ -545,7 +545,9 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
                     <div className="p-6 space-y-4">
                         <select name="unitId" value={formData.unitId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
                             <option value="">اختر وحدة</option>
-                            {units.map(u => <option key={u.id} value={u.id}>{`${u.name} (${formatCurrency(u.price)})`}</option>)}
+                            {units
+                                .filter(u => booking ? u.id === booking.unitId : u.status === 'Available')
+                                .map(u => <option key={u.id} value={u.id}>{`${u.name} (${formatCurrency(u.price)})`}</option>)}
                         </select>
                         <select name="customerId" value={formData.customerId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
                             <option value="">اختر عميل</option>

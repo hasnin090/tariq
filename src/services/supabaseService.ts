@@ -25,22 +25,40 @@ export const usersService = {
   },
 
   async create(user: Omit<User, 'id'>) {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('users')
-      .insert([user])
-      .select();
+      .insert(user);
     if (error) throw error;
-    return data?.[0];
+    
+    // Fetch the created record
+    const { data: fetchedData, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('name', user.name)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (fetchError) throw fetchError;
+    
+    return fetchedData;
   },
 
   async update(id: string, user: Partial<User>) {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('users')
       .update(user)
-      .eq('id', id)
-      .select();
+      .eq('id', id);
     if (error) throw error;
-    return data?.[0];
+    
+    // Fetch the updated record
+    const { data: fetchedData, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (fetchError) throw fetchError;
+    
+    return fetchedData;
   },
 
   async delete(id: string) {
