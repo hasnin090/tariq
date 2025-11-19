@@ -40,9 +40,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
 
     return (
         <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fade-in" onClick={handleBackdrop} role="dialog" aria-modal="true">
-            <div className={`${containerSize} bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-white/20 dark:border-slate-700/50 ${size === 'full' ? 'h-full' : 'rounded-2xl'} flex flex-col transform transition-all animate-scale-up`} onClick={e => e.stopPropagation()}>
+            <div className={`${containerSize} bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-white/20 dark:border-slate-700/50 ${size === 'full' ? 'h-full' : 'rounded-2xl max-h-[90vh]'} flex flex-col transform transition-all animate-scale-up`} onClick={e => e.stopPropagation()}>
                 {title && (
-                    <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50 rounded-t-2xl">
+                    <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50 rounded-t-2xl flex-shrink-0">
                         <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2>
                         <button type="button" onClick={onClose} className="p-2 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
                             <span className="sr-only">Close</span>
@@ -50,11 +50,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
                         </button>
                     </div>
                 )}
-                <div className={`px-4 sm:px-6 py-4 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent ${size === 'full' ? 'flex-1 overflow-y-auto' : 'max-h-[78vh] overflow-y-auto'}`}>
+                <div className="px-4 sm:px-6 py-4 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent flex-1 overflow-y-auto">
                     {children}
                 </div>
                 {footer && (
-                    <div className="px-4 sm:px-6 py-4 border-t border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-2xl">
+                    <div className="px-4 sm:px-6 py-4 border-t border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-2xl flex-shrink-0">
                         {footer}
                     </div>
                 )}
