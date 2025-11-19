@@ -23,6 +23,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS accounts_updated_at_trigger ON public.accounts;
 CREATE TRIGGER accounts_updated_at_trigger
     BEFORE UPDATE ON public.accounts
     FOR EACH ROW
@@ -69,6 +70,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS transactions_updated_at_trigger ON public.transactions;
 CREATE TRIGGER transactions_updated_at_trigger
     BEFORE UPDATE ON public.transactions
     FOR EACH ROW
@@ -109,6 +111,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS customers_updated_at_trigger ON public.customers;
 CREATE TRIGGER customers_updated_at_trigger
     BEFORE UPDATE ON public.customers
     FOR EACH ROW
@@ -207,6 +210,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS units_updated_at_trigger ON public.units;
 CREATE TRIGGER units_updated_at_trigger
     BEFORE UPDATE ON public.units
     FOR EACH ROW
@@ -245,6 +249,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS employees_updated_at_trigger ON public.employees;
 CREATE TRIGGER employees_updated_at_trigger
     BEFORE UPDATE ON public.employees
     FOR EACH ROW
