@@ -415,7 +415,13 @@ export const Bookings: React.FC = () => {
                                                                 formatCurrency(selectedBookingForPayments.amountPaid)
                                                             )}
                                                         </td>
-                                                        <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(unitPrice - selectedBookingForPayments.amountPaid)}</td>
+                                                        <td className="p-3 font-semibold">
+                                                            {unitPrice - selectedBookingForPayments.amountPaid === 0 ? (
+                                                                <span className="text-emerald-600 dark:text-emerald-400">لا يوجد</span>
+                                                            ) : (
+                                                                <span className="text-amber-600 dark:text-amber-400">{formatCurrency(unitPrice - selectedBookingForPayments.amountPaid)}</span>
+                                                            )}
+                                                        </td>
                                                         {currentUser?.role === 'Admin' && (
                                                             <td className="p-3">
                                                                 {!(editingPayment?.id === selectedBookingForPayments.id && editingPayment?.isBooking) && (
@@ -471,7 +477,13 @@ export const Bookings: React.FC = () => {
                                                                         formatCurrency(payment.amount)
                                                                     )}
                                                                 </td>
-                                                                <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(remainingAfterThis)}</td>
+                                                                <td className="p-3 font-semibold">
+                                                                    {remainingAfterThis === 0 ? (
+                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">لا يوجد</span>
+                                                                    ) : (
+                                                                        <span className="text-amber-600 dark:text-amber-400">{formatCurrency(remainingAfterThis)}</span>
+                                                                    )}
+                                                                </td>
                                                                 {currentUser?.role === 'Admin' && (
                                                                     <td className="p-3">
                                                                         {!(editingPayment?.id === payment.id && !editingPayment?.isBooking) && (
