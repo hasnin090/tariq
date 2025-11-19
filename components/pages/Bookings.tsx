@@ -57,10 +57,25 @@ export const Bookings: React.FC = () => {
             setCustomers(data);
         });
 
+        const paymentsSubscription = paymentsService.subscribe((paymentsData) => {
+            setAllPayments(paymentsData);
+            // Recalculate total payments per booking
+            const paymentsMap = new Map<string, { totalPaid: number, paymentCount: number }>();
+            paymentsData.forEach(payment => {
+                const existing = paymentsMap.get(payment.bookingId) || { totalPaid: 0, paymentCount: 0 };
+                paymentsMap.set(payment.bookingId, {
+                    totalPaid: existing.totalPaid + payment.amount,
+                    paymentCount: existing.paymentCount + 1
+                });
+            });
+            setBookingPayments(paymentsMap);
+        });
+
         return () => {
             bookingsSubscription?.unsubscribe();
             unitsSubscription?.unsubscribe();
             customersSubscription?.unsubscribe();
+            paymentsSubscription?.unsubscribe();
         };
     }, []);
 
