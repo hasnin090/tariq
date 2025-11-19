@@ -49,12 +49,31 @@ const Payments: React.FC = () => {
     }, []);
 
     const loadAllData = async () => {
-        await Promise.all([
-            loadPayments(),
-            loadCustomers(),
-            loadBookings(),
-            loadUnits()
-        ]);
+        try {
+            setLoading(true);
+            const [paymentsData, customersData, bookingsData, unitsData] = await Promise.all([
+                paymentsService.getAll(),
+                customersService.getAll(),
+                bookingsService.getAll(),
+                unitsService.getAll()
+            ]);
+            
+            const sortedPayments = paymentsData.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+            const activeBookings = bookingsData.filter(b => b.status === 'Active');
+            
+            setPayments(sortedPayments);
+            setCustomers(customersData);
+            setBookings(activeBookings);
+            setUnits(unitsData);
+            
+            // Now merge after all data is loaded
+            mergePaymentsWithBookings(sortedPayments, activeBookings, unitsData);
+        } catch (error) {
+            console.error('Error loading data:', error);
+            addToast('خطأ في تحميل البيانات', 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const mergePaymentsWithBookings = (paymentsData: Payment[], bookingsData: Booking[], unitsData: Unit[]) => {
@@ -90,50 +109,7 @@ const Payments: React.FC = () => {
         setAllPaymentsWithBooking(combined);
     };
 
-    const loadPayments = async () => {
-        try {
-            setLoading(true);
-            const data = await paymentsService.getAll();
-            const sortedPayments = data.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
-            setPayments(sortedPayments);
-            mergePaymentsWithBookings(sortedPayments, bookings, units);
-        } catch (error) {
-            console.error('Error loading payments:', error);
-            addToast('خطأ في تحميل الدفعات', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
 
-    const loadCustomers = async () => {
-        try {
-            const data = await customersService.getAll();
-            setCustomers(data);
-        } catch (error) {
-            console.error('Error loading customers:', error);
-        }
-    };
-
-    const loadBookings = async () => {
-        try {
-            const data = await bookingsService.getAll();
-            const activeBookings = data.filter(b => b.status === 'Active');
-            setBookings(activeBookings);
-            mergePaymentsWithBookings(payments, activeBookings, units);
-        } catch (error) {
-            console.error('Error loading bookings:', error);
-        }
-    };
-
-    const loadUnits = async () => {
-        try {
-            const data = await unitsService.getAll();
-            setUnits(data);
-            mergePaymentsWithBookings(payments, bookings, data);
-        } catch (error) {
-            console.error('Error loading units:', error);
-        }
-    };
 
     const handleDeletePayment = (payment: Payment) => {
         if (currentUser?.role !== 'Admin') {
@@ -151,7 +127,7 @@ const Payments: React.FC = () => {
             logActivity('Delete Payment', `Deleted payment of ${formatCurrency(paymentToDelete.amount)} for ${paymentToDelete.customerName}`);
             addToast('تم حذف الدفعة بنجاح', 'success');
             setPaymentToDelete(null);
-            await loadPayments();
+            await loadAllData();
         } catch (error) {
             console.error('Error deleting payment:', error);
             addToast('خطأ في حذف الدفعة', 'error');
@@ -198,7 +174,7 @@ const Payments: React.FC = () => {
                 amount: 0,
                 paymentDate: new Date().toISOString().split('T')[0],
             });
-            await loadPayments();
+            await loadAllData();
         } catch (error) {
             console.error('Error saving payment:', error);
             addToast('خطأ في حفظ الدفعة', 'error');
