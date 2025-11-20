@@ -92,6 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
 
     const projectsLinks = [
         { icon: <HomeIcon />, label: 'لوحة التحكم', page: 'dashboard', adminOnly: false },
+        { icon: <BriefcaseIcon />, label: 'إدارة المشاريع', page: 'projects-management', adminOnly: true },
         { icon: <BuildingIcon />, label: 'الوحدات', page: 'units', adminOnly: false },
         { icon: <UsersIcon />, label: 'العملاء', page: 'customers', adminOnly: false },
         { icon: <DocumentTextIcon />, label: 'الحجوزات', page: 'bookings', adminOnly: false },

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
+import { ProjectProvider } from './contexts/ProjectContext';
 import { InterfaceMode } from './types';
 import Sidebar from './components/Sidebar';
 // FIX: Corrected import paths for components.
@@ -20,6 +21,7 @@ import FinancialSummary from './components/pages/FinancialSummary';
 import Customization from './components/pages/Customization';
 import Users from './components/pages/Users';
 import ProjectUserManagement from './components/pages/ProjectUserManagement';
+import ProjectsManagement from './components/pages/ProjectsManagement';
 import BookingsArchive from './components/pages/BookingsArchive';
 import GeneralArchive from './components/pages/GeneralArchive';
 
@@ -96,6 +98,7 @@ const App: React.FC = () => {
       case 'customization': return <Customization />;
       case 'users': return <Users />;
       case 'project-user-management': return <ProjectUserManagement />;
+      case 'projects-management': return <ProjectsManagement />;
       
       // Archive
       case 'bookings-archive': return <BookingsArchive />;
@@ -110,9 +113,10 @@ const App: React.FC = () => {
   }
 
   return (
-    <div dir="rtl" className="flex h-screen bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300 overflow-hidden">
-      {/* Scroll Progress Bar */}
-      <div 
+    <ProjectProvider>
+      <div dir="rtl" className="flex h-screen bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300 overflow-hidden">
+        {/* Scroll Progress Bar */}
+        <div 
         className="scroll-progress" 
         style={{ 
           width: `${scrollProgress}%`,
@@ -146,6 +150,7 @@ const App: React.FC = () => {
         </div>
       </main>
     </div>
+    </ProjectProvider>
   );
 };
 

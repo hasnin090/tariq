@@ -3,6 +3,8 @@ import { Unit, Customer, UnitSaleRecord, Payment, UnitStatus, Booking } from '..
 import { formatCurrency } from '../../utils/currencyFormatter.ts';
 import { BuildingIcon, UsersIcon, TrendingUpIcon, CreditCardIcon } from '../shared/Icons.tsx';
 import { unitsService, customersService, unitStatusesService, paymentsService, bookingsService } from '../../src/services/supabaseService';
+import { useProject } from '../../contexts/ProjectContext.tsx';
+import ProjectSelector from '../shared/ProjectSelector.tsx';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex items-center border border-slate-200 dark:border-slate-700 min-w-0">
@@ -134,6 +136,7 @@ const DonutChart: React.FC<{ data: { label: string; value: number; color: string
 };
 
 const Dashboard: React.FC = () => {
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     const [stats, setStats] = useState({
         totalUnits: 0,
         totalCustomers: 0,
@@ -149,7 +152,7 @@ const Dashboard: React.FC = () => {
     
     useEffect(() => {
         loadData();
-    }, []);
+    }, [activeProject]);
 
     const loadData = async () => {
         try {
@@ -162,21 +165,46 @@ const Dashboard: React.FC = () => {
                 bookingsService.getAll(),
             ]);
 
-            setUnits(unitsData);
-            setCustomers(customersData);
-            setPayments(paymentsData);
-            setBookings(bookingsData);
+            // Filter data by active project
+            const filteredUnits = activeProject 
+                ? unitsData.filter(u => u.projectId === activeProject.id) 
+                : unitsData;
+            const filteredCustomers = customersData; // Customers are not project-specific
+            const filteredPayments = activeProject
+                ? paymentsData.filter(p => {
+                    const booking = bookingsData.find(b => b.id === p.bookingId);
+                    const unit = unitsData.find(u => u.id === booking?.unitId);
+                    return unit?.projectId === activeProject.id;
+                })
+                : paymentsData;
+            const filteredBookings = activeProject
+                ? bookingsData.filter(b => {
+                    const unit = unitsData.find(u => u.id === b.unitId);
+                    return unit?.projectId === activeProject.id;
+                })
+                : bookingsData;
+
+            setUnits(filteredUnits);
+            setCustomers(filteredCustomers);
+            setPayments(filteredPayments);
+            setBookings(filteredBookings);
 
             // Get unitSales from localStorage (not in Supabase yet)
             const unitSales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
+            const filteredUnitSales = activeProject
+                ? unitSales.filter(s => {
+                    const unit = unitsData.find(u => u.id === s.unitId);
+                    return unit?.projectId === activeProject.id;
+                })
+                : unitSales;
 
             // Calculate total revenue from payments + bookings amountPaid + unitSales
-            const paymentsRevenue = paymentsData.reduce((sum, payment) => sum + payment.amount, 0);
-            const bookingsRevenue = bookingsData.reduce((sum, booking) => sum + (booking.amountPaid || 0), 0);
-            const salesRevenue = unitSales.reduce((sum, sale) => sum + sale.finalSalePrice, 0);
+            const paymentsRevenue = filteredPayments.reduce((sum, payment) => sum + payment.amount, 0);
+            const bookingsRevenue = filteredBookings.reduce((sum, booking) => sum + (booking.amountPaid || 0), 0);
+            const salesRevenue = filteredUnitSales.reduce((sum, sale) => sum + sale.finalSalePrice, 0);
             const totalRevenue = paymentsRevenue + bookingsRevenue + salesRevenue;
             
-            const statusCounts = unitsData.reduce((acc, unit) => {
+            const statusCounts = filteredUnits.reduce((acc, unit) => {
                 acc[unit.status] = (acc[unit.status] || 0) + 1;
                 return acc;
             }, {} as { [key: string]: number });
@@ -194,8 +222,8 @@ const Dashboard: React.FC = () => {
             })).filter(item => item.value > 0);
 
             setStats({
-                totalUnits: unitsData.length,
-                totalCustomers: customersData.length,
+                totalUnits: filteredUnits.length,
+                totalCustomers: filteredCustomers.length,
                 totalRevenue: totalRevenue,
                 unitsAvailable: statusCounts['Available'] || 0,
             });
@@ -272,6 +300,14 @@ const Dashboard: React.FC = () => {
     return (
         <div className="container mx-auto">
             <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">لوحة التحكم الرئيسية</h2>
+            
+            {/* Project Selector */}
+            <ProjectSelector 
+                projects={availableProjects}
+                activeProject={activeProject}
+                onSelectProject={setActiveProject}
+            />
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <StatCard title="إجمالي الوحدات" value={stats.totalUnits} icon={<BuildingIcon className="h-8 w-8 text-white"/>} color="bg-blue-500" />
                 <StatCard title="إجمالي العملاء" value={stats.totalCustomers} icon={<UsersIcon className="h-8 w-8 text-white"/>} color="bg-primary-500" />

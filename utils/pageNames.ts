@@ -1,5 +1,6 @@
 export const pageNames: { [key: string]: string } = {
     'dashboard': 'لوحة التحكم',
+    'projects-management': 'إدارة المشاريع',
     'units': 'الوحدات',
     'customers': 'العملاء',
     'bookings': 'الحجوزات',
