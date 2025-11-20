@@ -11,6 +11,14 @@ export interface User {
     canEdit: boolean;
     canDelete: boolean;
   };
+  projectAssignments?: ProjectAssignment[];
+}
+
+export interface ProjectAssignment {
+  projectId: string;
+  projectName?: string;
+  interfaceMode: 'projects' | 'expenses'; // sales or accounting
+  assignedAt?: string;
 }
 
 export interface UnitType {
@@ -128,7 +136,10 @@ export interface Project {
     id: string;
     name: string;
     description: string;
-    assignedUserId?: string;
+    assignedUserId?: string; // deprecated - for backward compatibility
+    salesUserId?: string; // user assigned to sales interface
+    accountingUserId?: string; // user assigned to accounting interface
+    assignedUsers?: ProjectAssignment[]; // new multi-user support
 }
 
 export interface Employee {
@@ -201,7 +212,8 @@ export type AuthContextType = {
     id: string; 
     name: string; 
     role: 'Admin' | 'Sales' | 'Accounting';
-    assignedProjectId?: string;
+    assignedProjectId?: string; // deprecated
+    projectAssignments?: ProjectAssignment[]; // new multi-project support
     permissions?: {
         canView: boolean;
         canEdit: boolean;

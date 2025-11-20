@@ -10,6 +10,7 @@ export const pageNames: { [key: string]: string } = {
     'reports': 'التقارير',
     'customization': 'تخصيص',
     'users': 'المستخدمون',
+    'project-user-management': 'ربط المشاريع والمستخدمين',
     'expense_dashboard': 'لوحة التحكم',
     'expenses': 'الحركات المالية',
     'treasury': 'إدارة الصندوق و حساب البنك',

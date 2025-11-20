@@ -121,6 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     const systemLinks = [
         { icon: <CogIcon />, label: 'تخصيص', page: 'customization', adminOnly: true },
         { icon: <UserGroupIcon />, label: 'المستخدمون', page: 'users', adminOnly: true },
+        { icon: <BriefcaseIcon />, label: 'ربط المشاريع والمستخدمين', page: 'project-user-management', adminOnly: true },
     ];
     
     let linksToShow: typeof projectsLinks = [];

@@ -19,6 +19,7 @@ import Reports from './components/pages/Reports';
 import FinancialSummary from './components/pages/FinancialSummary';
 import Customization from './components/pages/Customization';
 import Users from './components/pages/Users';
+import ProjectUserManagement from './components/pages/ProjectUserManagement';
 import BookingsArchive from './components/pages/BookingsArchive';
 import GeneralArchive from './components/pages/GeneralArchive';
 
@@ -94,6 +95,7 @@ const App: React.FC = () => {
       // System
       case 'customization': return <Customization />;
       case 'users': return <Users />;
+      case 'project-user-management': return <ProjectUserManagement />;
       
       // Archive
       case 'bookings-archive': return <BookingsArchive />;
