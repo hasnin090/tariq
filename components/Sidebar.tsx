@@ -154,36 +154,44 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
 
     // Load saved order from localStorage
     const getStorageKey = (type: 'projects' | 'expenses' | 'system') => {
-        return `sidebar_order_${currentUser?.username}_${type}`;
+        return `sidebar_order_${currentUser?.username || 'default'}_${type}`;
     };
 
-    const [projectsLinks, setProjectsLinks] = useState(() => {
-        const saved = localStorage.getItem(getStorageKey('projects'));
-        return saved ? JSON.parse(saved) : defaultProjectsLinks;
-    });
+    const [projectsLinks, setProjectsLinks] = useState<typeof defaultProjectsLinks>(defaultProjectsLinks);
+    const [expensesLinks, setExpensesLinks] = useState<typeof defaultExpensesLinks>(defaultExpensesLinks);
+    const [systemLinks, setSystemLinks] = useState<typeof defaultSystemLinks>(defaultSystemLinks);
 
-    const [expensesLinks, setExpensesLinks] = useState(() => {
-        const saved = localStorage.getItem(getStorageKey('expenses'));
-        return saved ? JSON.parse(saved) : defaultExpensesLinks;
-    });
-
-    const [systemLinks, setSystemLinks] = useState(() => {
-        const saved = localStorage.getItem(getStorageKey('system'));
-        return saved ? JSON.parse(saved) : defaultSystemLinks;
-    });
-
-    // Save order to localStorage
+    // Load saved order from localStorage when user is available
     useEffect(() => {
-        localStorage.setItem(getStorageKey('projects'), JSON.stringify(projectsLinks));
-    }, [projectsLinks, currentUser]);
+        if (currentUser?.username) {
+            const savedProjects = localStorage.getItem(getStorageKey('projects'));
+            const savedExpenses = localStorage.getItem(getStorageKey('expenses'));
+            const savedSystem = localStorage.getItem(getStorageKey('system'));
+            
+            if (savedProjects) setProjectsLinks(JSON.parse(savedProjects));
+            if (savedExpenses) setExpensesLinks(JSON.parse(savedExpenses));
+            if (savedSystem) setSystemLinks(JSON.parse(savedSystem));
+        }
+    }, [currentUser?.username]);
+
+    // Save order to localStorage when links change
+    useEffect(() => {
+        if (currentUser?.username) {
+            localStorage.setItem(getStorageKey('projects'), JSON.stringify(projectsLinks));
+        }
+    }, [projectsLinks, currentUser?.username]);
 
     useEffect(() => {
-        localStorage.setItem(getStorageKey('expenses'), JSON.stringify(expensesLinks));
-    }, [expensesLinks, currentUser]);
+        if (currentUser?.username) {
+            localStorage.setItem(getStorageKey('expenses'), JSON.stringify(expensesLinks));
+        }
+    }, [expensesLinks, currentUser?.username]);
 
     useEffect(() => {
-        localStorage.setItem(getStorageKey('system'), JSON.stringify(systemLinks));
-    }, [systemLinks, currentUser]);
+        if (currentUser?.username) {
+            localStorage.setItem(getStorageKey('system'), JSON.stringify(systemLinks));
+        }
+    }, [systemLinks, currentUser?.username]);
 
     // Drag and drop handlers
     const handleDragStart = (index: number, section: 'projects' | 'expenses' | 'system') => (e: React.DragEvent) => {
