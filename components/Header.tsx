@@ -242,9 +242,17 @@ const Header: React.FC<{
                         {theme === 'light' ? <MoonIcon /> : <SunIcon />}
                     </button>
                     
-                    <button className="text-slate-500 dark:text-slate-400 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700 relative">
-                        <BellIcon className="h-6 w-6"/>
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800"></span>
+                    <button 
+                        className="text-slate-500 dark:text-slate-400 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 relative group hover:scale-110 active:scale-95"
+                        onMouseEnter={(e) => {
+                            const bell = e.currentTarget.querySelector('.bell-icon');
+                            bell?.classList.add('animate-bell-ring');
+                            setTimeout(() => bell?.classList.remove('animate-bell-ring'), 1000);
+                        }}
+                    >
+                        <BellIcon className="h-6 w-6 bell-icon transition-transform duration-300 group-hover:rotate-12"/>
+                        <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800 animate-pulse"></span>
+                        <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
                     </button>
 
                     <div className="relative" ref={userMenuRef}>

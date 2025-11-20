@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 // FIX: Corrected import paths for components.
 import Header from './components/Header';
 import Login from './components/pages/Login';
+import { useScrollProgress } from './utils/scrollAnimations';
 
 // Projects Interface Pages
 import Dashboard from './components/pages/Dashboard';
@@ -36,6 +37,7 @@ import ActivityLog from './components/pages/expenses/ActivityLog';
 
 const App: React.FC = () => {
   const { currentUser } = useAuth();
+  const scrollProgress = useScrollProgress();
   
   const [interfaceMode, setInterfaceMode] = useState<InterfaceMode>(() => {
     if (currentUser?.role === 'Sales') return 'projects';
@@ -107,6 +109,15 @@ const App: React.FC = () => {
 
   return (
     <div dir="rtl" className="flex h-screen bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300 overflow-hidden">
+      {/* Scroll Progress Bar */}
+      <div 
+        className="scroll-progress" 
+        style={{ 
+          width: `${scrollProgress}%`,
+          transition: 'width 0.1s ease-out'
+        }}
+      />
+      
       <Sidebar 
         activePage={activePage} 
         setActivePage={(page) => {
