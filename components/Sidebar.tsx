@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { InterfaceMode } from '../types.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { 
@@ -14,20 +14,35 @@ interface NavLinkProps {
     page: string;
     activePage: string;
     onClick: (page: string) => void;
+    isEditMode?: boolean;
+    onDragStart?: (e: React.DragEvent) => void;
+    onDragOver?: (e: React.DragEvent) => void;
+    onDrop?: (e: React.DragEvent) => void;
+    isDragging?: boolean;
 }
 
-const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClick }) => {
+const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClick, isEditMode, onDragStart, onDragOver, onDrop, isDragging }) => {
     const isActive = activePage === page;
     const [isHovered, setIsHovered] = React.useState(false);
     
     return (
-        <li className="mb-1">
+        <li 
+            className="mb-1"
+            draggable={isEditMode}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+        >
             <button
-                onClick={() => onClick(page)}
+                onClick={() => !isEditMode && onClick(page)}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 className={`w-full flex items-center gap-4 px-4 py-3.5 mx-auto rounded-xl text-sm font-medium transition-all duration-500 group relative overflow-hidden ${
-                    isActive 
+                    isDragging ? 'opacity-30 scale-95' : ''
+                } ${
+                    isEditMode ? 'cursor-move border-2 border-dashed border-amber-500/50' : 'cursor-pointer'
+                } ${
+                    isActive && !isEditMode
                     ? 'bg-gradient-to-l from-primary-600 via-primary-500 to-primary-600 text-white shadow-xl shadow-primary-500/30 translate-x-[-4px] scale-[1.02]' 
                     : 'text-slate-400 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-slate-100 hover:translate-x-[-6px] hover:scale-[1.01]'
                 }`}
@@ -64,6 +79,15 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                     {label}
                 </span>
                 
+                {/* Drag Indicator */}
+                {isEditMode && (
+                    <div className="mr-auto flex gap-0.5">
+                        <div className="w-1 h-1 rounded-full bg-amber-400"></div>
+                        <div className="w-1 h-1 rounded-full bg-amber-400"></div>
+                        <div className="w-1 h-1 rounded-full bg-amber-400"></div>
+                    </div>
+                )}
+                
                 {/* Active Indicator */}
                 {isActive && (
                     <div className="absolute inset-y-0 right-0 w-1.5 bg-gradient-to-b from-white/60 via-white/80 to-white/60 rounded-l-full shadow-lg shadow-white/50 animate-pulse"></div>
@@ -89,8 +113,11 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceMode, isOpen, onClose }) => {
     const { currentUser } = useAuth();
     const isAdmin = currentUser?.role === 'Admin';
+    
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-    const projectsLinks = [
+    const defaultProjectsLinks = [
         { icon: <HomeIcon />, label: 'لوحة التحكم', page: 'dashboard', adminOnly: false },
         { icon: <BriefcaseIcon />, label: 'إدارة المشاريع', page: 'projects-management', adminOnly: true },
         { icon: <BuildingIcon />, label: 'الوحدات', page: 'units', adminOnly: false },
@@ -105,7 +132,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <ArchiveIcon />, label: 'الأرشيف العام', page: 'general-archive', adminOnly: false },
     ];
 
-    const expensesLinks = [
+    const defaultExpensesLinks = [
         { icon: <HomeIcon />, label: 'لوحة التحكم', page: 'expense_dashboard', adminOnly: false },
         { icon: <ReceiptIcon />, label: 'الحركات المالية', page: 'expenses', adminOnly: false },
         { icon: <BanknotesIcon />, label: 'الصندوق وحساب البنك', page: 'treasury', adminOnly: true },
@@ -119,28 +146,102 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <ArchiveIcon />, label: 'الأرشيف العام', page: 'general-archive', adminOnly: false },
     ];
     
-    const systemLinks = [
+    const defaultSystemLinks = [
         { icon: <CogIcon />, label: 'تخصيص', page: 'customization', adminOnly: true },
         { icon: <UserGroupIcon />, label: 'المستخدمون', page: 'users', adminOnly: true },
         { icon: <BriefcaseIcon />, label: 'ربط المشاريع والمستخدمين', page: 'project-user-management', adminOnly: true },
     ];
+
+    // Load saved order from localStorage
+    const getStorageKey = (type: 'projects' | 'expenses' | 'system') => {
+        return `sidebar_order_${currentUser?.username}_${type}`;
+    };
+
+    const [projectsLinks, setProjectsLinks] = useState(() => {
+        const saved = localStorage.getItem(getStorageKey('projects'));
+        return saved ? JSON.parse(saved) : defaultProjectsLinks;
+    });
+
+    const [expensesLinks, setExpensesLinks] = useState(() => {
+        const saved = localStorage.getItem(getStorageKey('expenses'));
+        return saved ? JSON.parse(saved) : defaultExpensesLinks;
+    });
+
+    const [systemLinks, setSystemLinks] = useState(() => {
+        const saved = localStorage.getItem(getStorageKey('system'));
+        return saved ? JSON.parse(saved) : defaultSystemLinks;
+    });
+
+    // Save order to localStorage
+    useEffect(() => {
+        localStorage.setItem(getStorageKey('projects'), JSON.stringify(projectsLinks));
+    }, [projectsLinks, currentUser]);
+
+    useEffect(() => {
+        localStorage.setItem(getStorageKey('expenses'), JSON.stringify(expensesLinks));
+    }, [expensesLinks, currentUser]);
+
+    useEffect(() => {
+        localStorage.setItem(getStorageKey('system'), JSON.stringify(systemLinks));
+    }, [systemLinks, currentUser]);
+
+    // Drag and drop handlers
+    const handleDragStart = (index: number, section: 'projects' | 'expenses' | 'system') => (e: React.DragEvent) => {
+        setDraggedIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('section', section);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (dropIndex: number, section: 'projects' | 'expenses' | 'system') => (e: React.DragEvent) => {
+        e.preventDefault();
+        const dragSection = e.dataTransfer.getData('section');
+        
+        if (dragSection !== section || draggedIndex === null) return;
+
+        const links = section === 'projects' ? projectsLinks : section === 'expenses' ? expensesLinks : systemLinks;
+        const setLinks = section === 'projects' ? setProjectsLinks : section === 'expenses' ? setExpensesLinks : setSystemLinks;
+
+        const newLinks = [...links];
+        const draggedItem = newLinks[draggedIndex];
+        newLinks.splice(draggedIndex, 1);
+        newLinks.splice(dropIndex, 0, draggedItem);
+
+        setLinks(newLinks);
+        setDraggedIndex(null);
+    };
+
+    const resetOrder = () => {
+        setProjectsLinks(defaultProjectsLinks);
+        setExpensesLinks(defaultExpensesLinks);
+        setSystemLinks(defaultSystemLinks);
+        setIsEditMode(false);
+    };
     
-    let linksToShow: typeof projectsLinks = [];
+    let linksToShow: typeof defaultProjectsLinks = [];
     let sectionTitle = '';
     let systemTitle = '';
+    let currentSection: 'projects' | 'expenses' = 'projects';
 
     if (currentUser?.role === 'Sales') {
         linksToShow = projectsLinks;
         sectionTitle = 'إدارة المبيعات';
         systemTitle = 'نظام عقاري';
+        currentSection = 'projects';
     } else if (currentUser?.role === 'Accounting') {
         linksToShow = expensesLinks;
         sectionTitle = 'الإدارة المحاسبية';
         systemTitle = 'نظام محاسبي';
+        currentSection = 'expenses';
     } else if (isAdmin) {
         linksToShow = interfaceMode === 'projects' ? projectsLinks : expensesLinks;
         sectionTitle = interfaceMode === 'projects' ? 'إدارة المبيعات' : 'الإدارة المحاسبية';
         systemTitle = interfaceMode === 'projects' ? 'نظام عقاري' : 'نظام محاسبي';
+        currentSection = interfaceMode === 'projects' ? 'projects' : 'expenses';
     }
 
     return (
@@ -164,6 +265,38 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                     </div>
                 </div>
 
+                {/* Edit Mode Toggle */}
+                {isAdmin && (
+                    <div className="px-4 pb-3">
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setIsEditMode(!isEditMode)}
+                                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                                    isEditMode 
+                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' 
+                                    : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                                }`}
+                            >
+                                {isEditMode ? '✓ حفظ الترتيب' : '⚙ تعديل الترتيب'}
+                            </button>
+                            {isEditMode && (
+                                <button
+                                    onClick={resetOrder}
+                                    className="px-3 py-2 rounded-lg text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/50 hover:bg-rose-500/30 transition-all duration-300"
+                                    title="إعادة تعيين الترتيب الافتراضي"
+                                >
+                                    ↺
+                                </button>
+                            )}
+                        </div>
+                        {isEditMode && (
+                            <p className="text-[10px] text-amber-400/70 text-center mt-2 animate-pulse">
+                                اسحب العناصر لإعادة ترتيبها
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                     <div className="mb-6">
@@ -172,8 +305,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                             {sectionTitle}
                         </h2>
                         <ul className="space-y-1">
-                            {linksToShow.filter(link => !link.adminOnly || isAdmin).map(link => (
-                                <NavLink key={link.page} {...link} activePage={activePage} onClick={setActivePage} />
+                            {linksToShow.filter(link => !link.adminOnly || isAdmin).map((link, index) => (
+                                <NavLink 
+                                    key={link.page} 
+                                    {...link} 
+                                    activePage={activePage} 
+                                    onClick={setActivePage}
+                                    isEditMode={isEditMode}
+                                    onDragStart={handleDragStart(index, currentSection)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={handleDrop(index, currentSection)}
+                                    isDragging={draggedIndex === index}
+                                />
                             ))}
                         </ul>
                     </div>
@@ -185,8 +328,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                                 النظام
                             </h2>
                             <ul className="space-y-1">
-                                {systemLinks.filter(link => !link.adminOnly || isAdmin).map(link => (
-                                    <NavLink key={link.page} {...link} activePage={activePage} onClick={setActivePage} />
+                                {systemLinks.filter(link => !link.adminOnly || isAdmin).map((link, index) => (
+                                    <NavLink 
+                                        key={link.page} 
+                                        {...link} 
+                                        activePage={activePage} 
+                                        onClick={setActivePage}
+                                        isEditMode={isEditMode}
+                                        onDragStart={handleDragStart(index, 'system')}
+                                        onDragOver={handleDragOver}
+                                        onDrop={handleDrop(index, 'system')}
+                                        isDragging={draggedIndex === index}
+                                    />
                                 ))}
                             </ul>
                         </div>
