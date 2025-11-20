@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Customer, Unit } from '../../types';
+import { Customer, Unit, Payment, Booking } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import logActivity from '../../utils/activityLogger';
-import { customersService, unitsService, documentsService } from '../../src/services/supabaseService';
+import { customersService, unitsService, documentsService, paymentsService, bookingsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import { CloseIcon, UsersIcon, CustomersEmptyIcon, DocumentTextIcon, PaperClipIcon } from '../shared/Icons';
 import EmptyState from '../shared/EmptyState';
 import DocumentManager from '../shared/DocumentManager';
+import Modal from '../shared/Modal';
+import { formatCurrency } from '../../utils/currencyFormatter';
 
 const Customers: React.FC = () => {
     const { currentUser } = useAuth();
@@ -20,6 +22,11 @@ const Customers: React.FC = () => {
     const [isDocManagerOpen, setIsDocManagerOpen] = useState(false);
     const [selectedCustomerForDocs, setSelectedCustomerForDocs] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(true);
+    const [selectedCustomerForPayments, setSelectedCustomerForPayments] = useState<Customer | null>(null);
+    const [customerPayments, setCustomerPayments] = useState<Payment[]>([]);
+    const [customerBookings, setCustomerBookings] = useState<Booking[]>([]);
+    const [isPaymentsModalOpen, setIsPaymentsModalOpen] = useState(false);
+    const [loadingPayments, setLoadingPayments] = useState(false);
 
     const canEdit = currentUser?.role === 'Admin';
     const canDelete = currentUser?.role === 'Admin';
@@ -73,6 +80,37 @@ const Customers: React.FC = () => {
     const handleCloseDocManager = () => {
         setSelectedCustomerForDocs(null);
         setIsDocManagerOpen(false);
+    };
+
+    const handleViewCustomerPayments = async (customer: Customer) => {
+        setSelectedCustomerForPayments(customer);
+        setIsPaymentsModalOpen(true);
+        setLoadingPayments(true);
+        
+        try {
+            const [paymentsData, bookingsData] = await Promise.all([
+                paymentsService.getAll(),
+                bookingsService.getAll()
+            ]);
+            
+            const customerPaymentsFiltered = paymentsData.filter(p => p.customerId === customer.id);
+            const customerBookingsFiltered = bookingsData.filter(b => b.customerId === customer.id);
+            
+            setCustomerPayments(customerPaymentsFiltered);
+            setCustomerBookings(customerBookingsFiltered);
+        } catch (error) {
+            console.error('Error loading customer payments:', error);
+            addToast('خطأ في تحميل بيانات الدفعات', 'error');
+        } finally {
+            setLoadingPayments(false);
+        }
+    };
+
+    const handleClosePaymentsModal = () => {
+        setIsPaymentsModalOpen(false);
+        setSelectedCustomerForPayments(null);
+        setCustomerPayments([]);
+        setCustomerBookings([]);
     };
 
     const handleSave = async (customerData: Omit<Customer, 'id'>, documents?: File[]) => {
@@ -153,7 +191,14 @@ const Customers: React.FC = () => {
                         <tbody>
                             {customers.map(customer => (
                                 <tr key={customer.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
-                                    <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{customer.name}</td>
+                                    <td className="p-4 font-medium text-slate-800 dark:text-slate-100">
+                                        <button 
+                                            onClick={() => handleViewCustomerPayments(customer)}
+                                            className="text-primary-600 dark:text-primary-400 hover:underline font-semibold transition-colors duration-200 hover:text-primary-700 dark:hover:text-primary-300"
+                                        >
+                                            {customer.name}
+                                        </button>
+                                    </td>
                                     <td className="p-4 text-slate-600 dark:text-slate-300">{customer.phone}</td>
                                      <td className="p-4 text-slate-600 dark:text-slate-300">{customer.email}</td>
                                     {(canEdit || canDelete || canManageDocs) && (
@@ -182,6 +227,113 @@ const Customers: React.FC = () => {
                 />
             )}
             <ConfirmModal isOpen={!!customerToDelete} onClose={() => setCustomerToDelete(null)} onConfirm={confirmDelete} title="تأكيد الحذف" message={`هل أنت متأكد من حذف العميل "${customerToDelete?.name}"؟`} />
+            
+            {/* Modal for Customer Payments and Bookings */}
+            <Modal 
+                isOpen={isPaymentsModalOpen} 
+                onClose={handleClosePaymentsModal}
+                title={`دفعات وحجوزات العميل: ${selectedCustomerForPayments?.name || ''}`}
+                size="xl"
+            >
+                {loadingPayments ? (
+                    <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Bookings Section */}
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                حجوزات العميل
+                            </h3>
+                            {customerBookings.length > 0 ? (
+                                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                                    <table className="w-full text-right">
+                                        <thead>
+                                            <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                                                <th className="p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">الوحدة</th>
+                                                <th className="p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">تاريخ الحجز</th>
+                                                <th className="p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">مبلغ الحجز</th>
+                                                <th className="p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">الحالة</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {customerBookings.map(booking => (
+                                                <tr key={booking.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                                    <td className="p-3 text-slate-800 dark:text-slate-200 font-medium">{booking.unitName}</td>
+                                                    <td className="p-3 text-slate-600 dark:text-slate-400">{new Date(booking.bookingDate).toLocaleDateString('ar-EG')}</td>
+                                                    <td className="p-3 text-slate-800 dark:text-slate-200 font-semibold">{formatCurrency(booking.amountPaid)}</td>
+                                                    <td className="p-3">
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                                            booking.status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                                                            booking.status === 'Completed' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                            'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400'
+                                                        }`}>
+                                                            {booking.status === 'Active' ? 'نشط' : booking.status === 'Completed' ? 'مكتمل' : 'ملغى'}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                    لا توجد حجوزات لهذا العميل
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Payments Section */}
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                دفعات العميل
+                            </h3>
+                            {customerPayments.length > 0 ? (
+                                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                                    <table className="w-full text-right">
+                                        <thead>
+                                            <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                                                <th className="p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">الوحدة</th>
+                                                <th className="p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">تاريخ الدفعة</th>
+                                                <th className="p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">مبلغ الدفعة</th>
+                                                <th className="p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">المتبقي</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {customerPayments.map(payment => (
+                                                <tr key={payment.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                                    <td className="p-3 text-slate-800 dark:text-slate-200 font-medium">{payment.unitName}</td>
+                                                    <td className="p-3 text-slate-600 dark:text-slate-400">{new Date(payment.paymentDate).toLocaleDateString('ar-EG')}</td>
+                                                    <td className="p-3 text-green-600 dark:text-green-400 font-semibold">{formatCurrency(payment.amount)}</td>
+                                                    <td className="p-3 text-slate-800 dark:text-slate-200 font-semibold">{formatCurrency(payment.remainingAmount)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600">
+                                                <td colSpan={2} className="p-3 text-sm font-bold text-slate-700 dark:text-slate-300">إجمالي الدفعات:</td>
+                                                <td className="p-3 text-green-600 dark:text-green-400 font-bold text-lg">
+                                                    {formatCurrency(customerPayments.reduce((sum, p) => sum + p.amount, 0))}
+                                                </td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                    لا توجد دفعات لهذا العميل
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };interface PanelProps { customer: Customer | null; units: Unit[]; onClose: () => void; onSave: (data: Omit<Customer, 'id'>, documents?: File[]) => void; }
