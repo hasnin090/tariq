@@ -812,9 +812,10 @@ export const projectsService = {
   },
 
   async create(project: Omit<Project, 'id'>) {
+    const id = `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { data, error } = await supabase
       .from('projects')
-      .insert([project])
+      .insert([{ ...project, id }])
       .select();
     if (error) throw error;
     return data?.[0];
