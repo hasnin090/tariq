@@ -40,8 +40,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
     const containerSize = size === 'full' ? sizeClasses.full : `w-full ${sizeClasses[size]}`;
 
     return (
-        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fade-in" onClick={handleBackdrop} role="dialog" aria-modal="true">
-            <div className={`${containerSize} bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-white/20 dark:border-slate-700/50 ${size === 'full' ? 'h-full' : 'rounded-2xl max-h-[90vh]'} flex flex-col transform transition-all animate-scale-up`} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fade-in pt-24" onClick={handleBackdrop} role="dialog" aria-modal="true">
+            <div className={`${containerSize} bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-white/20 dark:border-slate-700/50 ${size === 'full' ? 'h-[calc(100vh-6rem)] mt-24' : 'rounded-2xl max-h-[calc(90vh-6rem)]'} flex flex-col transform transition-all animate-scale-up`} onClick={e => e.stopPropagation()}>
                 {title && (
                     <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50 rounded-t-2xl flex-shrink-0">
                         <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2>
