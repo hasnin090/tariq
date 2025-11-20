@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Customer, Unit, Payment, Booking } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProject } from '../../contexts/ProjectContext';
+import ProjectSelector from '../shared/ProjectSelector';
+import { filterCustomersByProject } from '../../utils/projectFilters';
 import logActivity from '../../utils/activityLogger';
 import { customersService, unitsService, documentsService, paymentsService, bookingsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
@@ -14,9 +17,16 @@ import { formatCurrency } from '../../utils/currencyFormatter';
 const Customers: React.FC = () => {
     const { currentUser } = useAuth();
     const { addToast } = useToast();
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
+    const [bookings, setBookings] = useState<Booking[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // Filter customers by active project
+    const filteredCustomers = useMemo(() => {
+        return filterCustomersByProject(customers, bookings, units, activeProject?.id || null);
+    }, [customers, bookings, units, activeProject]);
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
     const [isDocManagerOpen, setIsDocManagerOpen] = useState(false);
@@ -48,12 +58,14 @@ const Customers: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [customersData, unitsData] = await Promise.all([
+            const [customersData, unitsData, bookingsData] = await Promise.all([
                 customersService.getAll(),
-                unitsService.getAll()
+                unitsService.getAll(),
+                bookingsService.getAll()
             ]);
             setCustomers(customersData);
             setUnits(unitsData);
+            setBookings(bookingsData);
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات', 'error');
@@ -179,7 +191,14 @@ const Customers: React.FC = () => {
                     إضافة عميل
                 </button>
             </div>
-             {customers.length > 0 ? (
+            
+            <ProjectSelector 
+                projects={availableProjects} 
+                activeProject={activeProject} 
+                onSelectProject={setActiveProject} 
+            />
+            
+             {filteredCustomers.length > 0 ? (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                     <table className="w-full text-right">
                         <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
@@ -189,7 +208,7 @@ const Customers: React.FC = () => {
                             {(canEdit || canDelete) && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>}
                         </tr></thead>
                         <tbody>
-                            {customers.map(customer => (
+                            {filteredCustomers.map(customer => (
                                 <tr key={customer.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-100">
                                         <button 

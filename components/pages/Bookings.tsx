@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Booking, Unit, Customer, Payment, Account, Transaction } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProject } from '../../contexts/ProjectContext';
+import ProjectSelector from '../shared/ProjectSelector';
+import { filterBookingsByProject } from '../../utils/projectFilters';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { bookingsService, unitsService, customersService, paymentsService, accountsService } from '../../src/services/supabaseService';
@@ -12,9 +15,15 @@ import { CloseIcon, DocumentTextIcon, EditIcon } from '../shared/Icons';
 export const Bookings: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
+
+    // Filter bookings by active project
+    const filteredBookings = useMemo(() => {
+        return filterBookingsByProject(bookings, units, activeProject?.id || null);
+    }, [bookings, units, activeProject]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [bookingPayments, setBookingPayments] = useState<Map<string, { totalPaid: number, paymentCount: number }>>(new Map());
     const [allPayments, setAllPayments] = useState<Payment[]>([]);
@@ -265,11 +274,18 @@ export const Bookings: React.FC = () => {
                     حجز جديد
                 </button>
             </div>
+            
+            <ProjectSelector 
+                projects={availableProjects} 
+                activeProject={activeProject} 
+                onSelectProject={setActiveProject} 
+            />
+            
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                 <table className="w-full text-right">
                     <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الحجز</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">سعر الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجمالي المدفوع</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">عدد الدفعات</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المتبقي</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th></tr></thead>
                     <tbody>
-                        {bookings.filter(booking => booking.status !== 'Cancelled').map(booking => {
+                        {filteredBookings.filter(booking => booking.status !== 'Cancelled').map(booking => {
                             const unit = units.find(u => u.id === booking.unitId);
                             const unitPrice = unit?.price || 0;
                             const bookingPaymentInfo = bookingPayments.get(booking.id);

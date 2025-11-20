@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DeferredPayment, Project, Account, Expense, Transaction, ExpenseCategory, DeferredPaymentInstallment } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
+import { useProject } from '../../../contexts/ProjectContext';
+import ProjectSelector from '../../shared/ProjectSelector';
 import { useAuth } from '../../../contexts/AuthContext';
 import logActivity from '../../../utils/activityLogger';
 import { formatCurrency } from '../../../utils/currencyFormatter';
@@ -192,7 +194,14 @@ const InstallmentsHistory: React.FC<{
 const DeferredPayments: React.FC = () => {
     const { currentUser } = useAuth();
     const { addToast } = useToast();
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     const [deferredPayments, setDeferredPayments] = useState<DeferredPayment[]>([]);
+
+    // Filter deferred payments by active project
+    const filteredDeferredPayments = useMemo(() => {
+        if (!activeProject) return deferredPayments;
+        return deferredPayments.filter(p => p.projectId === activeProject.id);
+    }, [deferredPayments, activeProject]);
     const [installments, setInstallments] = useState<DeferredPaymentInstallment[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -397,8 +406,14 @@ const DeferredPayments: React.FC = () => {
                     </button>
                 )}
             </div>
+            
+            <ProjectSelector 
+                projects={availableProjects} 
+                activeProject={activeProject} 
+                onSelectProject={setActiveProject} 
+            />
 
-            {deferredPayments.length > 0 ? (
+            {filteredDeferredPayments.length > 0 ? (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                     <table className="w-full text-right">
                         <thead>
@@ -414,7 +429,7 @@ const DeferredPayments: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {deferredPayments.map(p => {
+                            {filteredDeferredPayments.map(p => {
                                 const remaining = p.totalAmount - p.amountPaid;
                                 const isExpanded = expandedRowId === p.id;
                                 return (

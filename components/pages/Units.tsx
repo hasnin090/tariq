@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Unit, UnitType, UnitStatus, Customer } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProject } from '../../contexts/ProjectContext';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { unitsService, customersService, unitTypesService, unitStatusesService, bookingsService, documentsService, paymentsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import { CloseIcon, BuildingIcon, EditIcon, TrashIcon, UnitsEmptyIcon } from '../shared/Icons';
 import EmptyState from '../shared/EmptyState';
+import ProjectSelector from '../shared/ProjectSelector';
 
 const Units: React.FC = () => {
     const { currentUser } = useAuth();
     const { addToast } = useToast();
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     const [units, setUnits] = useState<Unit[]>([]);
     const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
     const [unitStatuses, setUnitStatuses] = useState<UnitStatus[]>([]);
@@ -23,6 +26,12 @@ const Units: React.FC = () => {
 
     const canEdit = currentUser?.role === 'Admin';
     const canDelete = currentUser?.role === 'Admin';
+
+    // Filter units by active project
+    const filteredUnits = useMemo(() => {
+        if (!activeProject) return units;
+        return units.filter(unit => unit.projectId === activeProject.id);
+    }, [units, activeProject]);
 
     useEffect(() => {
         loadData();
@@ -156,14 +165,21 @@ const Units: React.FC = () => {
                 </button>
             </div>
 
-            {units.length > 0 ? (
+            {/* Project Selector */}
+            <ProjectSelector 
+                projects={availableProjects}
+                activeProject={activeProject}
+                onSelectProject={setActiveProject}
+            />
+
+            {filteredUnits.length > 0 ? (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                     <table className="w-full text-right">
                          <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">رقم الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المساحة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">السعر</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th>
                          {(canEdit || canDelete) && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>}
                          </tr></thead>
                         <tbody>
-                            {units.map(unit => (
+                            {filteredUnits.map(unit => (
                                 <tr key={unit.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{unit.name}</td>
                                     <td className="p-4 text-slate-600 dark:text-slate-300">{unit.type}</td>

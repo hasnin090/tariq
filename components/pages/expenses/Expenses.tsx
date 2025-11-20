@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Expense, ExpenseCategory, Project, Account, Transaction, SaleDocument } from '../../../types.ts';
 import { useAuth } from '../../../contexts/AuthContext.tsx';
 import { useToast } from '../../../contexts/ToastContext.tsx';
+import { useProject } from '../../../contexts/ProjectContext';
+import ProjectSelector from '../../shared/ProjectSelector';
 import logActivity from '../../../utils/activityLogger.ts';
 import { formatCurrency } from '../../../utils/currencyFormatter.ts';
 import { expensesService, expenseCategoriesService, projectsService, transactionsService } from '../../../src/services/supabaseService.ts';
@@ -103,6 +105,7 @@ const ColumnToggler: React.FC<{
 export const Expenses: React.FC = () => {
     const { currentUser } = useAuth();
     const { addToast } = useToast();
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     
     const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
     const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
@@ -371,6 +374,13 @@ export const Expenses: React.FC = () => {
                     )}
                 </div>
             </div>
+            
+            <ProjectSelector 
+                projects={availableProjects} 
+                activeProject={activeProject} 
+                onSelectProject={setActiveProject} 
+            />
+            
             {showFilters && <FilterBar />}
              {filteredExpenses.length > 0 ? (
                 <>

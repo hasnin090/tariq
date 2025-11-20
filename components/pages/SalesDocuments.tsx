@@ -1,20 +1,62 @@
-import React, { useState, useEffect } from 'react';
-import { UnitSaleRecord, SaleDocument } from '../../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { UnitSaleRecord, SaleDocument, Unit } from '../../types';
 import { FileIcon, UploadIcon, DownloadIcon, TrashIcon } from '../shared/Icons';
+import { useProject } from '../../contexts/ProjectContext';
+import ProjectSelector from '../shared/ProjectSelector';
+import { unitsService } from '../../src/services/supabaseService';
 
 const SalesDocuments: React.FC = () => {
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     const [sales, setSales] = useState<UnitSaleRecord[]>([]);
+    const [units, setUnits] = useState<Unit[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const allSales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
-        setSales(allSales.filter(s => s.documents && s.documents.length > 0));
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const allSales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
+            const unitsData = await unitsService.getAll();
+            
+            setSales(allSales.filter(s => s.documents && s.documents.length > 0));
+            setUnits(unitsData);
+        } catch (error) {
+            console.error('Error loading data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Filter sales by active project
+    const filteredSales = useMemo(() => {
+        if (!activeProject) return sales;
+        
+        return sales.filter(sale => {
+            const unit = units.find(u => u.id === sale.unitId);
+            return unit?.projectId === activeProject.id;
+        });
+    }, [sales, units, activeProject]);
 
     return (
         <div className="container mx-auto">
             <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">مستندات البيع</h2>
+            
+            <ProjectSelector 
+                projects={availableProjects} 
+                activeProject={activeProject} 
+                onSelectProject={setActiveProject} 
+            />
+            
+            {loading ? (
+                <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+                </div>
+            ) : (
             <div className="space-y-6">
-                {sales.map(sale => (
+                {filteredSales.map(sale => (
                     <div key={sale.id} className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                         <h3 className="font-bold text-lg text-primary-700 dark:text-primary-400">{`عملية بيع: ${sale.unitName} - ${sale.customerName}`}</h3>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{`تاريخ البيع: ${sale.saleDate}`}</p>
@@ -36,14 +78,15 @@ const SalesDocuments: React.FC = () => {
                             ))}
                         </ul>
                     </div>
-                ))}
-                 {sales.length === 0 && (
+                ))})
+                 {filteredSales.length === 0 && (
                      <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600">
                         <h3 className="text-lg font-medium">لا توجد مستندات</h3>
                         <p className="mt-1 text-sm text-slate-500">لم يتم رفع أي مستندات لعمليات البيع بعد.</p>
                     </div>
                 )}
             </div>
+            )}
         </div>
     );
 };

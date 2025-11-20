@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Payment, Customer, Booking, Unit } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProject } from '../../contexts/ProjectContext';
+import ProjectSelector from '../shared/ProjectSelector';
+import { filterPaymentsByProject } from '../../utils/projectFilters';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import logActivity from '../../utils/activityLogger';
 import { paymentsService, customersService, bookingsService, unitsService } from '../../src/services/supabaseService';
@@ -11,6 +14,7 @@ import ConfirmModal from '../shared/ConfirmModal';
 const Payments: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
@@ -27,6 +31,17 @@ const Payments: React.FC = () => {
         amount: 0,
         paymentDate: new Date().toISOString().split('T')[0],
     });
+
+    // Filter all combined payments (regular + booking payments) by active project
+    const filteredAllPayments = useMemo(() => {
+        if (!activeProject) return allPaymentsWithBooking;
+        
+        // Filter based on unit's project
+        return allPaymentsWithBooking.filter(payment => {
+            const unit = units.find(u => u.id === payment.unitId);
+            return unit?.projectId === activeProject.id;
+        });
+    }, [allPaymentsWithBooking, units, activeProject]);
 
     useEffect(() => {
         loadAllData();
@@ -366,6 +381,12 @@ const Payments: React.FC = () => {
                     </button>
                 </div>
             </div>
+            
+            <ProjectSelector 
+                projects={availableProjects} 
+                activeProject={activeProject} 
+                onSelectProject={setActiveProject} 
+            />
 
             {/* Add Payment Modal */}
             {showAddPayment && (
@@ -503,7 +524,7 @@ const Payments: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {allPaymentsWithBooking.map(payment => {
+                                    {filteredAllPayments.map(payment => {
                                         const isBookingPayment = payment.id.startsWith('booking_');
                                         return (
                                             <tr key={payment.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">

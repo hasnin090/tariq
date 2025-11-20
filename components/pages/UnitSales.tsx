@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { UnitSaleRecord, Unit, Customer, Account, Transaction, SaleDocument, Document } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
+import { useProject } from '../../contexts/ProjectContext';
+import ProjectSelector from '../shared/ProjectSelector';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { CloseIcon, TrendingUpIcon, PaperClipIcon } from '../shared/Icons';
@@ -10,8 +12,19 @@ import { unitSalesService, unitsService, customersService, transactionsService, 
 
 const UnitSales: React.FC = () => {
     const { addToast } = useToast();
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     const [sales, setSales] = useState<UnitSaleRecord[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
+
+    // Filter sales by active project (through unit relationship)
+    const filteredSales = useMemo(() => {
+        if (!activeProject) return sales;
+        
+        return sales.filter(sale => {
+            const unit = units.find(u => u.id === sale.unitId);
+            return unit?.projectId === activeProject.id;
+        });
+    }, [sales, units, activeProject]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -170,12 +183,19 @@ const UnitSales: React.FC = () => {
                     تسجيل عملية بيع
                 </button>
             </div>
+            
+            <ProjectSelector 
+                projects={availableProjects} 
+                activeProject={activeProject} 
+                onSelectProject={setActiveProject} 
+            />
+            
             {loading ? <p>جاري تحميل البيانات...</p> : (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                     <table className="w-full text-right">
                         <thead><tr className="border-b-2 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm">الوحدة</th><th className="p-4 font-bold text-sm">العميل</th><th className="p-4 font-bold text-sm">تاريخ البيع</th><th className="p-4 font-bold text-sm">سعر البيع النهائي</th><th className="p-4 font-bold text-sm">المستندات</th></tr></thead>
                         <tbody>
-                            {sales.map(sale => {
+                            {filteredSales.map(sale => {
                                 const docs = saleDocuments.get(sale.id) || [];
                                 return (
                                     <tr key={sale.id} className="border-b border-slate-200 dark:border-slate-700">

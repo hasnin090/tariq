@@ -1,12 +1,21 @@
 import React from 'react';
+import { useProject } from '../../contexts/ProjectContext';
+import ProjectSelector from '../shared/ProjectSelector';
 
 const Reports: React.FC = () => {
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     // In a real application, this would fetch data and render charts.
-    // For now, it's a placeholder page.
+    // For now, it's a placeholder page with project filtering UI.
 
     return (
         <div className="container mx-auto">
             <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">التقارير</h2>
+            
+            <ProjectSelector 
+                projects={availableProjects} 
+                activeProject={activeProject} 
+                onSelectProject={setActiveProject} 
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Sales Performance Report */}
