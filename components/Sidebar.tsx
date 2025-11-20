@@ -18,22 +18,60 @@ interface NavLinkProps {
 
 const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClick }) => {
     const isActive = activePage === page;
+    const [isHovered, setIsHovered] = React.useState(false);
+    
     return (
         <li className="mb-1">
             <button
                 onClick={() => onClick(page)}
-                className={`w-full flex items-center gap-4 px-4 py-3.5 mx-auto rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                className={`w-full flex items-center gap-4 px-4 py-3.5 mx-auto rounded-xl text-sm font-medium transition-all duration-500 group relative overflow-hidden ${
                     isActive 
-                    ? 'bg-gradient-to-l from-primary-600 to-primary-500 text-white shadow-lg shadow-primary-500/25 translate-x-[-4px]' 
-                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-100 hover:translate-x-[-4px]'
+                    ? 'bg-gradient-to-l from-primary-600 via-primary-500 to-primary-600 text-white shadow-xl shadow-primary-500/30 translate-x-[-4px] scale-[1.02]' 
+                    : 'text-slate-400 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-slate-100 hover:translate-x-[-6px] hover:scale-[1.01]'
                 }`}
             >
-                <div className={`p-2 rounded-lg transition-colors duration-300 ${isActive ? 'bg-white/20' : 'bg-white/5 group-hover:bg-white/10'}`}>
-                    {React.cloneElement<{ className: string }>(icon, { className: `h-5 w-5 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}` })}
-                </div>
-                <span className="relative z-10">{label}</span>
+                {/* Animated Background Particles */}
+                {(isActive || isHovered) && (
+                    <>
+                        <div className={`absolute top-0 left-0 w-2 h-2 bg-white/40 rounded-full blur-sm transition-all duration-700 ${isActive ? 'animate-ping' : ''}`} style={{ animationDelay: '0ms' }}></div>
+                        <div className={`absolute bottom-2 right-4 w-1.5 h-1.5 bg-white/30 rounded-full blur-sm transition-all duration-700 ${isActive ? 'animate-ping' : ''}`} style={{ animationDelay: '200ms' }}></div>
+                        <div className={`absolute top-3 right-12 w-1 h-1 bg-white/20 rounded-full blur-sm transition-all duration-700 ${isActive ? 'animate-ping' : ''}`} style={{ animationDelay: '400ms' }}></div>
+                    </>
+                )}
+                
+                {/* Gradient Glow Effect */}
                 {isActive && (
-                    <div className="absolute inset-y-0 right-0 w-1 bg-white/50 rounded-l-full"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
+                )}
+                
+                <div className={`p-2 rounded-lg transition-all duration-500 transform ${
+                    isActive 
+                    ? 'bg-white/25 shadow-lg rotate-0 scale-110' 
+                    : 'bg-white/5 group-hover:bg-white/15 group-hover:scale-110 group-hover:rotate-6'
+                }`}>
+                    {React.cloneElement<{ className: string }>(icon, { 
+                        className: `h-5 w-5 transition-all duration-500 ${
+                            isActive 
+                            ? 'text-white drop-shadow-lg' 
+                            : 'text-slate-400 group-hover:text-white group-hover:drop-shadow-md'
+                        }` 
+                    })}
+                </div>
+                
+                <span className={`relative z-10 transition-all duration-300 ${isActive ? 'font-bold' : 'font-medium'}`}>
+                    {label}
+                </span>
+                
+                {/* Active Indicator */}
+                {isActive && (
+                    <div className="absolute inset-y-0 right-0 w-1.5 bg-gradient-to-b from-white/60 via-white/80 to-white/60 rounded-l-full shadow-lg shadow-white/50 animate-pulse"></div>
+                )}
+                
+                {/* Hover Indicator */}
+                {!isActive && isHovered && (
+                    <div className="absolute inset-y-0 right-0 w-0.5 bg-gradient-to-b from-transparent via-primary-400/50 to-transparent rounded-l-full"></div>
                 )}
             </button>
         </li>
