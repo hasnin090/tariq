@@ -1178,7 +1178,8 @@ export const accountsService = {
   async getAll() {
     const { data, error } = await supabase
       .from('accounts')
-      .select('*');
+      .select('*')
+      .order('created_at', { ascending: false });
     // If table doesn't exist, return empty array
     if (error && error.code === 'PGRST205') {
       console.warn('Accounts table does not exist, returning empty array');
@@ -1187,6 +1188,42 @@ export const accountsService = {
     if (error) throw error;
     return data || [];
   },
+
+  async create(account: Omit<Account, 'id'>) {
+    // Generate unique ID
+    const id = `account_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const { data, error } = await supabase
+      .from('accounts')
+      .insert([{ ...account, id }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id: string, updates: Partial<Account>) {
+    const { data, error } = await supabase
+      .from('accounts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('accounts')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  },
+
   subscribe(callback: (accounts: Account[]) => void) {
     const subscription = supabase
       .channel('accounts')
