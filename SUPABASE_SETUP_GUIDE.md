@@ -4,10 +4,11 @@
 
 يحتاج النظام إلى الجداول التالية في Supabase:
 
-### 1. جدول المستخدمين (users)
+### 1. جدول المستخدمين (users) - **مطلوب أولاً**
 ```bash
-نفذ: supabase-setup.sql
+نفذ: supabase-users-setup.sql
 ```
+⚠️ **مهم جداً**: يجب تنفيذ هذا الجدول أولاً لأن الجداول الأخرى تعتمد عليه في RLS policies
 
 ### 2. جدول المشاريع (projects)
 ```bash
@@ -45,26 +46,48 @@
 
 ### 3. نفذ الملفات بالترتيب
 
-#### الخطوة 1: جدول الحسابات
+#### الخطوة 1: جدول المستخدمين (الأهم)
+```sql
+-- انسخ محتوى ملف supabase-users-setup.sql
+-- والصقه في SQL Editor
+-- ثم اضغط RUN
+```
+**المستخدمون الافتراضيون:**
+- Username: `admin` / Password: `admin123` (Admin)
+- Username: `sales` / Password: `sales123` (Sales)
+- Username: `accounting` / Password: `accounting123` (Accounting)
+
+⚠️ **غيّر كلمات المرور فوراً في الإنتاج!**
+
+#### الخطوة 2: جدول الحسابات
 ```sql
 -- انسخ محتوى ملف supabase-accounts-setup.sql
 -- والصقه في SQL Editor
 -- ثم اضغط RUN
 ```
 
-#### الخطوة 2: جدول المعاملات
+#### الخطوة 3: جدول المعاملات
 ```sql
 -- انسخ محتوى ملف supabase-transactions-setup.sql
 -- والصقه في SQL Editor
 -- ثم اضغط RUN
 ```
 
-#### الخطوة 3: جدول المشاريع (إذا لم ينفذ بعد)
+#### الخطوة 4: جدول المشاريع (إذا لم ينفذ بعد)
 ```sql
 -- انسخ محتوى ملف supabase-projects-setup.sql
 -- والصقه في SQL Editor
 -- ثم اضغط RUN
 ```
+
+## الترتيب الصحيح للتنفيذ
+
+**📋 الترتيب الموصى به:**
+1. ✅ `supabase-users-setup.sql` (أولاً - مطلوب للـ RLS)
+2. ✅ `supabase-projects-setup.sql` (ثانياً)
+3. ✅ `supabase-accounts-setup.sql` (ثالثاً)
+4. ✅ `supabase-transactions-setup.sql` (رابعاً)
+5. ✅ باقي الجداول (units, customers, bookings, etc.)
 
 ## التحقق من الإعداد
 
@@ -78,13 +101,27 @@ WHERE table_schema = 'public';
 ```
 
 يجب أن ترى:
+- ✅ users (الأهم)
+- ✅ projects
 - ✅ accounts
 - ✅ transactions
-- ✅ projects
-- ✅ users
+- ✅ customers
+- ✅ units
+- ✅ bookings
+- ✅ payments
 - وغيرها...
 
-### 2. تحقق من الحسابات الافتراضية
+### 2. تحقق من المستخدمين الافتراضيين
+```sql
+SELECT id, username, role, is_active FROM public.users;
+```
+
+يجب أن ترى 3 مستخدمين:
+- admin (Admin)
+- sales (Sales)
+- accounting (Accounting)
+
+### 3. تحقق من الحسابات الافتراضية
 ```sql
 SELECT * FROM public.accounts;
 ```
@@ -93,12 +130,12 @@ SELECT * FROM public.accounts;
 - الصندوق النقدي
 - الحساب البنكي الرئيسي
 
-### 3. تحقق من Row Level Security
+### 4. تحقق من Row Level Security
 ```sql
 SELECT tablename, policyname 
 FROM pg_policies 
 WHERE schemaname = 'public' 
-AND tablename IN ('accounts', 'transactions');
+AND tablename IN ('users', 'accounts', 'transactions', 'projects');
 ```
 
 ## الأخطاء الشائعة وحلولها
