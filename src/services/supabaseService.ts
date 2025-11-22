@@ -25,8 +25,8 @@ export const usersService = {
   },
 
   async create(user: Omit<User, 'id'>) {
-    // Generate UUID for user ID
-    const id = crypto.randomUUID();
+    // Generate unique ID for user
+    const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     const { data, error } = await supabase
       .from('users')
