@@ -151,6 +151,7 @@ export const unitsService = {
     const dbUnit: any = {
       id,
       name: unit.name,
+      unit_number: unit.name,
       type: unit.type,
       status: unit.status,
       price: unit.price,
@@ -181,7 +182,10 @@ export const unitsService = {
   async update(id: string, unit: Partial<Unit>) {
     // Transform camelCase to snake_case for database
     const dbUnit: any = {};
-    if (unit.name !== undefined) dbUnit.name = unit.name;
+    if (unit.name !== undefined) {
+      dbUnit.name = unit.name;
+      dbUnit.unit_number = unit.name;
+    }
     if (unit.type !== undefined) dbUnit.type = unit.type;
     if (unit.status !== undefined) dbUnit.status = unit.status;
     if (unit.price !== undefined) dbUnit.price = unit.price;
