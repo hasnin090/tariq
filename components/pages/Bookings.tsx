@@ -591,7 +591,12 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
                         <select name="unitId" value={formData.unitId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
                             <option value="">اختر وحدة</option>
                             {units
-                                .filter(u => booking ? u.id === booking.unitId : u.status === 'Available')
+                                .filter(u => {
+                                    // عند التعديل، اسمح بالوحدة الحالية فقط
+                                    if (booking) return u.id === booking.unitId;
+                                    // عند الإضافة، اعرض فقط الوحدات المتاحة (Available)
+                                    return u.status === 'Available';
+                                })
                                 .map(u => <option key={u.id} value={u.id}>{`${u.name} (${formatCurrency(u.price)})`}</option>)}
                         </select>
                         <select name="customerId" value={formData.customerId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
