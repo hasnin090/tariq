@@ -237,7 +237,7 @@ export const bookingsService = {
   async getAll() {
     const { data, error } = await supabase
       .from('bookings')
-      .select('*, customers(name), units(name)')
+      .select('*, customers(name), units(unit_number)')
       .order('created_at', { ascending: false });
     if (error) throw error;
     
@@ -245,7 +245,7 @@ export const bookingsService = {
     return (data || []).map((booking: any) => ({
       id: booking.id,
       unitId: booking.unit_id,
-      unitName: booking.units?.name || '',
+      unitName: booking.units?.unit_number || '',
       customerId: booking.customer_id,
       customerName: booking.customers?.name || '',
       bookingDate: booking.booking_date,
@@ -270,7 +270,7 @@ export const bookingsService = {
     const { data, error } = await supabase
       .from('bookings')
       .insert([dbData])
-      .select('*, customers(name), units(name)');
+      .select('*, customers(name), units(unit_number)');
     if (error) throw error;
     
     // Transform response back to camelCase
@@ -278,7 +278,7 @@ export const bookingsService = {
       return {
         id: data[0].id,
         unitId: data[0].unit_id,
-        unitName: data[0].units?.name || '',
+        unitName: data[0].units?.unit_number || '',
         customerId: data[0].customer_id,
         customerName: data[0].customers?.name || '',
         bookingDate: data[0].booking_date,
@@ -303,7 +303,7 @@ export const bookingsService = {
       .from('bookings')
       .update(dbData)
       .eq('id', id)
-      .select('*, customers(name), units(name)');
+      .select('*, customers(name), units(unit_number)');
     if (error) throw error;
     
     // Transform response back to camelCase
@@ -311,7 +311,7 @@ export const bookingsService = {
       return {
         id: data[0].id,
         unitId: data[0].unit_id,
-        unitName: data[0].units?.name || '',
+        unitName: data[0].units?.unit_number || '',
         customerId: data[0].customer_id,
         customerName: data[0].customers?.name || '',
         bookingDate: data[0].booking_date,
@@ -332,7 +332,7 @@ export const bookingsService = {
   async getByUnitId(unitId: string) {
     const { data, error } = await supabase
       .from('bookings')
-      .select('*, customers(name), units(name)')
+      .select('*, customers(name), units(unit_number)')
       .eq('unit_id', unitId);
     if (error) throw error;
     
@@ -340,7 +340,7 @@ export const bookingsService = {
     return (data || []).map((booking: any) => ({
       id: booking.id,
       unitId: booking.unit_id,
-      unitName: booking.units?.name || '',
+      unitName: booking.units?.unit_number || '',
       customerId: booking.customer_id,
       customerName: booking.customers?.name || '',
       bookingDate: booking.booking_date,
@@ -376,7 +376,7 @@ export const paymentsService = {
     // Get all bookings to map customer data
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('id, customer_id, unit_id, customers(name), units(name)');
+      .select('id, customer_id, unit_id, customers(name), units(unit_number)');
     if (bookingsError) throw bookingsError;
     
     // Get all units to map unit_price
@@ -434,7 +434,7 @@ export const paymentsService = {
     // Get all bookings to map customer_id
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('id, customer_id, unit_id, customers(name), units(name)');
+      .select('id, customer_id, unit_id, customers(name), units(unit_number)');
     if (bookingsError) throw bookingsError;
     
     // Get all units to map unit_price
@@ -506,7 +506,7 @@ export const paymentsService = {
     // Get booking info to enrich the response
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('customer_id, unit_id, customers(name), units(name)')
+      .select('customer_id, unit_id, customers(name), units(unit_number)')
       .eq('id', payment.bookingId)
       .single();
     
@@ -527,7 +527,7 @@ export const paymentsService = {
         customerId: booking?.customer_id,
         customerName: (booking as any)?.customers?.name,
         unitId: booking?.unit_id,
-        unitName: (booking as any)?.units?.name,
+        unitName: (booking as any)?.units?.unit_number,
         amount: data[0].amount,
         paymentDate: data[0].payment_date,
         unitPrice: unitPrice,
@@ -555,7 +555,7 @@ export const paymentsService = {
     // Get booking info to enrich the response
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('customer_id, unit_id, customers(name), units(name)')
+      .select('customer_id, unit_id, customers(name), units(unit_number)')
       .eq('id', data?.[0]?.booking_id)
       .single();
     
@@ -576,7 +576,7 @@ export const paymentsService = {
         customerId: booking?.customer_id,
         customerName: (booking as any)?.customers?.name,
         unitId: booking?.unit_id,
-        unitName: (booking as any)?.units?.name,
+        unitName: (booking as any)?.units?.unit_number,
         amount: data[0].amount,
         paymentDate: data[0].payment_date,
         unitPrice: unitPrice,
