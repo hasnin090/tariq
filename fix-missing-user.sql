@@ -1,5 +1,7 @@
--- إضافة مستخدم افتراضي يدوياً
--- استبدل USER_ID_HERE بالمعرف الفعلي للمستخدم من auth.users
+-- ============================================================================
+-- مزامنة وإضافة المستخدمين
+-- Insert or Sync Users
+-- ============================================================================
 
 -- طريقة 1: إضافة مستخدم محدد (استبدل المعرف والبريد الإلكتروني)
 INSERT INTO public.users (id, email, name, role)
@@ -28,3 +30,24 @@ SET
     email = EXCLUDED.email,
     name = EXCLUDED.name,
     updated_at = CURRENT_TIMESTAMP;
+
+-- ============================================================================
+-- تسمية الجداول بالعربية في Supabase SQL Editor
+-- ============================================================================
+
+-- تعليق على الجداول لإظهار الأسماء العربية
+COMMENT ON TABLE public.users IS 'المستخدمين';
+COMMENT ON TABLE public.projects IS 'المشاريع';
+COMMENT ON TABLE public.accounts IS 'الحسابات';
+COMMENT ON TABLE public.transactions IS 'المعاملات';
+COMMENT ON TABLE public.customers IS 'العملاء';
+COMMENT ON TABLE public.unit_types IS 'أنواع المساحات';
+COMMENT ON TABLE public.unit_statuses IS 'حالات الوحدات';
+COMMENT ON TABLE public.units IS 'الوحدات السكنية';
+COMMENT ON TABLE public.bookings IS 'الحجوزات';
+COMMENT ON TABLE public.payments IS 'المدفوعات';
+COMMENT ON TABLE public.documents IS 'المستندات';
+COMMENT ON TABLE public.expense_categories IS 'تصنيفات المصاريف';
+COMMENT ON TABLE public.vendors IS 'الموردين';
+COMMENT ON TABLE public.expenses IS 'المصاريف';
+COMMENT ON TABLE public.budgets IS 'الميزانيات';
