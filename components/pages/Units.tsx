@@ -255,10 +255,8 @@ const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, custom
                         <input type="text" name="name" placeholder="اسم الوحدة (مثال: شقة A-101)" value={formData.name} onChange={handleChange} className={inputStyle} required />
                         <div className="grid grid-cols-2 gap-4">
                              <select name="type" value={formData.type} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
-                                <option value="">اختر المساحة</option>
-                                <option value="150">150 متر مربع</option>
-                                <option value="250">250 متر مربع</option>
-                                <option value="300">300 متر مربع</option>
+                                <option value="">اختر النوع</option>
+                                {unitTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                              </select>
                              <input type="number" name="price" placeholder="السعر" value={formData.price} onChange={handleChange} className={inputStyle} required min="1" />
                         </div>
