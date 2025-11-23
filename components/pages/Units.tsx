@@ -252,13 +252,13 @@ const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, custom
                 <form onSubmit={handleSubmit} className="flex flex-col h-full">
                     <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start"><h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{unit ? 'تعديل وحدة' : 'إضافة وحدة جديدة'}</h2><button type="button" onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"><CloseIcon className="h-6 w-6"/></button></div>
                     <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                        <input type="text" name="name" placeholder="اسم الوحدة (مثال: شقة A-101)" value={formData.name} onChange={handleChange} className={inputStyle} required />
+                        <input type="text" name="name" placeholder="رقم الوحدة (مثال: A-101)" value={formData.name} onChange={handleChange} className={inputStyle} required />
                         <div className="grid grid-cols-2 gap-4">
                              <select name="type" value={formData.type} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
-                                <option value="">اختر النوع</option>
+                                <option value="">اختر المساحة</option>
                                 {unitTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                              </select>
-                             <input type="number" name="price" placeholder="السعر" value={formData.price} onChange={handleChange} className={inputStyle} required min="1" />
+                             <input type="number" name="price" placeholder="سعر الوحدة" value={formData.price} onChange={handleChange} className={inputStyle} required min="1" />
                         </div>
                          <select name="status" value={formData.status} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required><option value="">اختر الحالة</option>{unitStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}</select>
                          <select name="customerId" value={formData.customerId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}><option value="">ربط بعميل (اختياري)</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>

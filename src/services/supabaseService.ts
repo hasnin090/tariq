@@ -135,8 +135,8 @@ export const unitsService = {
     // Transform snake_case to camelCase
     return (data || []).map((unit: any) => ({
       id: unit.id,
-      name: unit.name,
-      type: unit.unit_type,
+      name: unit.unit_number,
+      type: unit.type,
       status: unit.status,
       price: unit.price,
       customerId: unit.customer_id,
@@ -151,9 +151,8 @@ export const unitsService = {
     // Transform camelCase to snake_case for database
     const dbUnit: any = {
       id,
-      name: unit.name,
       unit_number: unit.name,
-      unit_type: unit.type,
+      type: unit.type,
       status: unit.status,
       price: unit.price,
       customer_id: (unit as any).customerId || null,
@@ -169,8 +168,8 @@ export const unitsService = {
     if (data?.[0]) {
       return {
         id: data[0].id,
-        name: data[0].name,
-        type: data[0].unit_type,
+        name: data[0].unit_number,
+        type: data[0].type,
         status: data[0].status,
         price: data[0].price,
         customerId: data[0].customer_id,
@@ -183,11 +182,8 @@ export const unitsService = {
   async update(id: string, unit: Partial<Unit>) {
     // Transform camelCase to snake_case for database
     const dbUnit: any = {};
-    if (unit.name !== undefined) {
-      dbUnit.name = unit.name;
-      dbUnit.unit_number = unit.name;
-    }
-    if (unit.type !== undefined) dbUnit.unit_type = unit.type;
+    if (unit.name !== undefined) dbUnit.unit_number = unit.name;
+    if (unit.type !== undefined) dbUnit.type = unit.type;
     if (unit.status !== undefined) dbUnit.status = unit.status;
     if (unit.price !== undefined) dbUnit.price = unit.price;
     if ((unit as any).customerId !== undefined) dbUnit.customer_id = (unit as any).customerId;
@@ -203,8 +199,8 @@ export const unitsService = {
     if (data?.[0]) {
       return {
         id: data[0].id,
-        name: data[0].name,
-        type: data[0].unit_type,
+        name: data[0].unit_number,
+        type: data[0].type,
         status: data[0].status,
         price: data[0].price,
         customerId: data[0].customer_id,
