@@ -5,7 +5,7 @@ import { formatCurrency } from '../../../utils/currencyFormatter';
 import { TrendingUpIcon, ScaleIcon, BanknotesIcon, ChartBarIcon } from '../../shared/Icons';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex items-start border border-slate-200 dark:border-slate-700">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-start border border-slate-200 dark:border-slate-700">
         <div className={`p-3 rounded-full ${color}`}>
             {/* FIX: Corrected React.cloneElement call by providing a generic type argument `<{ className: string }>` to resolve a TypeScript error where the `className` prop was not recognized on the cloned icon element. */}
             {React.cloneElement<{ className: string }>(icon, { className: "h-7 w-7 text-white"})}

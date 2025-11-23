@@ -448,10 +448,12 @@ const Payments: React.FC = () => {
                                     </label>
                                     <input
                                         type="number"
-                                        value={newPayment.amount}
+                                        value={newPayment.amount || ''}
                                         onChange={(e) => setNewPayment({ ...newPayment, amount: parseFloat(e.target.value) || 0 })}
                                         className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg"
                                         placeholder="أدخل المبلغ"
+                                        step="0.01"
+                                        min="0"
                                     />
                                 </div>
 
@@ -524,19 +526,6 @@ const Payments: React.FC = () => {
                 </div>
             ) : (
                 <>
-                    <div className="mb-6 bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 border border-slate-200 dark:border-slate-700">
-                        <label className="block mb-4">
-                            <span className="text-slate-700 dark:text-slate-200 font-medium mb-2 block">البحث عن دفعات العميل</span>
-                            <select 
-                                onChange={(e) => e.target.value && handleViewCustomerPayments(e.target.value)}
-                                className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg"
-                            >
-                                <option value="">اختر عميل</option>
-                                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                        </label>
-                    </div>
-
                     {allPaymentsWithBooking.length > 0 ? (
                         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-right">

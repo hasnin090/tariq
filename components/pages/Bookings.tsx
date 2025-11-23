@@ -412,6 +412,7 @@ export const Bookings: React.FC = () => {
                                                                         type="number"
                                                                         value={editingPayment.amount}
                                                                         onChange={(e) => setEditingPayment({ ...editingPayment, amount: parseFloat(e.target.value) || 0 })}
+                                                                        step="0.01"
                                                                         className="w-32 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                                                                     />
                                                                     <button
@@ -474,6 +475,7 @@ export const Bookings: React.FC = () => {
                                                                                 type="number"
                                                                                 value={editingPayment.amount}
                                                                                 onChange={(e) => setEditingPayment({ ...editingPayment, amount: parseFloat(e.target.value) || 0 })}
+                                                                                step="0.01"
                                                                                 className="w-32 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                                                                             />
                                                                             <button
@@ -597,7 +599,7 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
                             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                         <input type="date" name="bookingDate" value={formData.bookingDate} onChange={handleChange} className={inputStyle} required />
-                        <input type="number" name="amountPaid" placeholder="المبلغ المدفوع مقدمًا" value={formData.amountPaid} onChange={handleChange} className={inputStyle} min="0" />
+                        <input type="number" name="amountPaid" placeholder="المبلغ المدفوع مقدمًا" value={formData.amountPaid || ''} onChange={handleChange} className={inputStyle} min="0" step="0.01" />
                         {accounts.length > 0 && (
                             <select name="accountId" value={formData.accountId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}>
                                 <option value="">اختر حساب الدفع (اختياري)</option>

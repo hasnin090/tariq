@@ -21,7 +21,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({ Icon, title, message, actionBut
       {actionButton && (
         <button
           onClick={actionButton.onClick}
-          className="mt-6 bg-gradient-to-r from-primary-600 to-primary-500 text-white px-6 py-2.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-primary-500/30 transition-all duration-300 transform hover:-translate-y-0.5"
+          className="mt-6 bg-gradient-to-r from-primary-600 to-primary-500 text-white px-6 py-2.5 rounded-xl font-semibold hover:shadow-md hover:shadow-primary-500/20 transition-all duration-200"
         >
           {actionButton.text}
         </button>

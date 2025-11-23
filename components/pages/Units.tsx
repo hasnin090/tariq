@@ -258,7 +258,7 @@ const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, custom
                                 <option value="">اختر المساحة</option>
                                 {unitTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                              </select>
-                             <input type="number" name="price" placeholder="سعر الوحدة" value={formData.price} onChange={handleChange} className={inputStyle} required min="1" />
+                             <input type="number" name="price" placeholder="سعر الوحدة" value={formData.price || ''} onChange={handleChange} className={inputStyle} required min="1" step="0.01" />
                         </div>
                          <select name="status" value={formData.status} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required><option value="">اختر الحالة</option>{unitStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}</select>
                          <select name="customerId" value={formData.customerId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}><option value="">ربط بعميل (اختياري)</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>

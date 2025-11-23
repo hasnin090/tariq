@@ -113,7 +113,7 @@ const ProjectsManagement: React.FC = () => {
                     {projects.map(project => (
                         <div 
                             key={project.id} 
-                            className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                            className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-all duration-200"
                         >
                             <div className="bg-gradient-to-r from-primary-500 to-blue-600 p-4">
                                 <div className="flex items-center gap-3">

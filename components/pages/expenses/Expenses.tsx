@@ -526,7 +526,7 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, onC
                         <input type="text" name="description" placeholder="الوصف" value={formData.description} onChange={handleChange} className={inputStyle} required />
                         <div className="grid grid-cols-2 gap-4">
                             <input type="date" name="date" value={formData.date} onChange={handleChange} className={inputStyle} required />
-                            <input type="number" name="amount" placeholder="المبلغ" value={formData.amount} onChange={handleChange} className={inputStyle} required min="0.01" step="0.01" />
+                            <input type="number" name="amount" placeholder="المبلغ" value={formData.amount || ''} onChange={handleChange} className={inputStyle} required min="0.01" step="0.01" />
                         </div>
                         <input type="text" name="accountId" placeholder="معرف الحساب" value={formData.accountId} onChange={handleChange} className={inputStyle} required />
                         <select name="categoryId" value={formData.categoryId} onChange={handleChange} className={selectStyle} required><option value="">اختر فئة</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>

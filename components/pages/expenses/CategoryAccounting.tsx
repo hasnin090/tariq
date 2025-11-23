@@ -140,7 +140,7 @@ const CategoryAccounting: React.FC = () => {
                     <button 
                         key={cat.categoryId} 
                         onClick={() => handleSelectCategory(cat.categoryId)}
-                        className="text-right p-4 rounded-xl border-2 transition-all duration-200 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-500 dark:hover:border-primary-500 hover:shadow-lg transform hover:-translate-y-1"
+                        className="text-right p-4 rounded-xl border-2 transition-all duration-200 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-500 dark:hover:border-primary-500 hover:shadow-md"
                     >
                         <div className="flex items-start gap-4">
                             <div className="flex-shrink-0 p-3 rounded-full bg-slate-100 dark:bg-slate-700">

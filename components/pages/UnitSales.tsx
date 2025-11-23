@@ -310,7 +310,7 @@ const SalePanel: React.FC<PanelProps> = ({ units, customers, accounts, onClose, 
             footer={
                 <div className="flex justify-end gap-4 w-full">
                     <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">إلغاء</button>
-                    <button type="submit" form="sale-form" className="bg-gradient-to-r from-primary-600 to-primary-500 text-white px-8 py-2.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-primary-500/30 transition-all transform hover:-translate-y-0.5">حفظ</button>
+                    <button type="submit" form="sale-form" className="bg-gradient-to-r from-primary-600 to-primary-500 text-white px-8 py-2.5 rounded-xl font-semibold hover:shadow-md hover:shadow-primary-500/20 transition-all">حفظ</button>
                 </div>
             }
         >

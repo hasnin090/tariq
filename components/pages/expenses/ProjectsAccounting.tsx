@@ -235,7 +235,7 @@ const ProjectsAccounting: React.FC = () => {
                             <button 
                                 key={project.id} 
                                 onClick={() => handleProjectClick(project.id)}
-                                className="w-full text-right p-6 rounded-xl border-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-lg transition-all duration-200"
+                                className="w-full text-right p-6 rounded-xl border-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-md transition-all duration-200"
                             >
                                 <div className="flex items-start gap-4 mb-4">
                                     <div className="flex-shrink-0 p-3 rounded-full bg-primary-100 dark:bg-primary-500/20">
@@ -277,7 +277,7 @@ const ProjectsAccounting: React.FC = () => {
                         {/* Revenues Card */}
                         <button
                             onClick={handleShowRevenues}
-                            className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl shadow-md border-2 border-emerald-200 dark:border-emerald-700 p-6 hover:shadow-lg hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-200 text-right"
+                            className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl shadow-md border-2 border-emerald-200 dark:border-emerald-700 p-6 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-200 text-right"
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <div className="p-3 bg-emerald-200 dark:bg-emerald-700 rounded-full">
@@ -299,7 +299,7 @@ const ProjectsAccounting: React.FC = () => {
                         {/* Expenses Card */}
                         <button
                             onClick={handleShowExpenses}
-                            className="bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/20 dark:to-rose-800/20 rounded-xl shadow-md border-2 border-rose-200 dark:border-rose-700 p-6 hover:shadow-lg hover:border-rose-300 dark:hover:border-rose-600 transition-all duration-200 text-right"
+                            className="bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/20 dark:to-rose-800/20 rounded-xl shadow-md border-2 border-rose-200 dark:border-rose-700 p-6 hover:border-rose-300 dark:hover:border-rose-600 transition-all duration-200 text-right"
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <div className="p-3 bg-rose-200 dark:bg-rose-700 rounded-full">

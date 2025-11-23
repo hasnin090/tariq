@@ -201,7 +201,7 @@ const ProjectUserManagement: React.FC = () => {
                         const accountingUser = getAccountingUser(project);
 
                         return (
-                            <div key={project.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                            <div key={project.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-shadow duration-200">
                                 <div className="p-6">
                                     <div className="flex items-start justify-between mb-4">
                                         <div>

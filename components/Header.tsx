@@ -334,7 +334,7 @@ const Header: React.FC<{
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             onFocus={() => setIsSearchFocused(true)}
-                            className="w-full pr-10 pl-10 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 transition-all duration-300 shadow-sm hover:shadow-md focus:shadow-lg"
+                            className="w-full pr-10 pl-10 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
                         />
                         {recognitionRef.current && (
                             <div className="absolute inset-y-0 left-0 flex items-center pl-3">
@@ -375,10 +375,10 @@ const Header: React.FC<{
                     
                     <button 
                         onClick={handleThemeToggle} 
-                        className={`text-slate-500 dark:text-slate-400 p-2.5 rounded-xl transition-all duration-300 border relative overflow-hidden group hover:scale-110 active:scale-95 ${
+                        className={`text-slate-500 dark:text-slate-400 p-2.5 rounded-xl transition-all duration-200 border relative overflow-hidden group hover:scale-105 active:scale-95 ${
                             theme === 'light' 
-                                ? 'hover:bg-slate-800 hover:text-amber-300 hover:border-slate-700 hover:shadow-lg hover:shadow-slate-800/30' 
-                                : 'hover:bg-amber-100 hover:text-amber-600 hover:border-amber-200 hover:shadow-lg hover:shadow-amber-500/30'
+                                ? 'hover:bg-slate-800 hover:text-amber-300 hover:border-slate-700 hover:shadow-md hover:shadow-slate-800/20' 
+                                : 'hover:bg-amber-100 hover:text-amber-600 hover:border-amber-200 hover:shadow-md hover:shadow-amber-500/20'
                         } ${isThemeAnimating ? 'animate-theme-pulse' : 'border-transparent'}`}
                         title={theme === 'light' ? 'التبديل إلى الوضع المظلم' : 'التبديل إلى الوضع الفاتح'}
                     >

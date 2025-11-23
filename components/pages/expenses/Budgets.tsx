@@ -77,7 +77,7 @@ const Budgets: React.FC = () => {
                             <option value="">اختر فئة</option>
                             {availableCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <input type="number" placeholder="مبلغ الميزانية" value={newBudget.amount} onChange={e => setNewBudget({ ...newBudget, amount: Number(e.target.value) })} className="w-full p-2.5 border rounded-lg dark:bg-slate-700" min="1" />
+                        <input type="number" placeholder="مبلغ الميزانية" value={newBudget.amount || ''} onChange={e => setNewBudget({ ...newBudget, amount: Number(e.target.value) })} className="w-full p-2.5 border rounded-lg dark:bg-slate-700" min="1" step="0.01" />
                         <button onClick={handleAddBudget} className="w-full bg-primary-600 text-white p-2.5 rounded-lg font-semibold hover:bg-primary-700">
                             حفظ الميزانية
                         </button>
