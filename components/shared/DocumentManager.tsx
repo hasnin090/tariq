@@ -113,8 +113,8 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
           <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200">إدارة مستندات: {entityName}</h3>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
-            <CloseIcon />
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+            <CloseIcon className="h-5 w-5" />
           </button>
         </div>
 
@@ -141,12 +141,13 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
 
           <div>
             <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-3">المستندات المرفقة</h4>
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center p-8 gap-3">
-                <SpinnerIcon className="text-primary-600" />
-                <p className="text-slate-600 dark:text-slate-400 text-sm">جاري تحميل المستندات...</p>
-              </div>
-            ) : documents.length > 0 ? (
+            <div className="min-h-[200px]">
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center p-8 gap-3">
+                  <SpinnerIcon className="text-primary-600" />
+                  <p className="text-slate-600 dark:text-slate-400 text-sm">جاري تحميل المستندات...</p>
+                </div>
+              ) : documents.length > 0 ? (
               <ul className="space-y-2">
                 {documents.map(doc => (
                   <li key={doc.id} className="flex justify-between items-center bg-slate-100 dark:bg-slate-700 p-3 rounded-lg">
@@ -165,7 +166,8 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
               </ul>
             ) : (
               <p className="text-center text-slate-500 dark:text-slate-400 py-8">لا توجد مستندات مرفقة لهذا العنصر.</p>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
