@@ -1144,9 +1144,11 @@ export const documentsService = {
     }
 
     // 2. Create a record in the 'documents' table
+    const id = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { data, error: dbError } = await supabase
       .from('documents')
       .insert({
+        id,
         ...linkedTo,
         file_name: file.name,
         storage_path: filePath,
