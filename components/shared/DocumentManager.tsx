@@ -18,6 +18,7 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -141,21 +142,22 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
           <div>
             <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-3">المستندات المرفقة</h4>
             {isLoading ? (
-              <div className="text-center p-8"><SpinnerIcon /></div>
+              <div className="flex flex-col items-center justify-center p-8 gap-3">
+                <SpinnerIcon className="text-primary-600" />
+                <p className="text-slate-600 dark:text-slate-400 text-sm">جاري تحميل المستندات...</p>
+              </div>
             ) : documents.length > 0 ? (
               <ul className="space-y-2">
                 {documents.map(doc => (
                   <li key={doc.id} className="flex justify-between items-center bg-slate-100 dark:bg-slate-700 p-3 rounded-lg">
-                    <a
-                      href={doc.publicUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 font-medium text-primary-600 hover:underline"
+                    <button
+                      onClick={() => setPreviewDocument(doc)}
+                      className="flex items-center gap-3 font-medium text-primary-600 hover:underline flex-1 text-right"
                     >
                       <FileIcon />
                       <span>{doc.file_name}</span>
-                    </a>
-                    <button onClick={() => handleDelete(doc)} className="text-rose-500 hover:text-rose-700 p-2 rounded-full">
+                    </button>
+                    <button onClick={() => handleDelete(doc)} className="text-rose-500 hover:text-rose-700 p-2 rounded-full hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors">
                       <TrashIcon />
                     </button>
                   </li>
@@ -167,6 +169,51 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
           </div>
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {previewDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-[60] flex justify-center items-center p-4" onClick={() => setPreviewDocument(null)}>
+          <div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200">{previewDocument.file_name}</h3>
+              <button 
+                onClick={() => setPreviewDocument(null)} 
+                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                title="إغلاق"
+              >
+                <CloseIcon className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden p-4">
+              {previewDocument.file_type?.startsWith('image/') ? (
+                <img 
+                  src={previewDocument.publicUrl} 
+                  alt={previewDocument.file_name}
+                  className="max-w-full max-h-full mx-auto object-contain"
+                />
+              ) : previewDocument.file_type === 'application/pdf' ? (
+                <iframe 
+                  src={previewDocument.publicUrl} 
+                  className="w-full h-full min-h-[60vh] rounded-lg"
+                  title={previewDocument.file_name}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                  <FileIcon className="h-16 w-16 text-slate-400" />
+                  <p className="text-slate-600 dark:text-slate-400">لا يمكن معاينة هذا النوع من الملفات</p>
+                  <a 
+                    href={previewDocument.publicUrl}
+                    download={previewDocument.file_name}
+                    className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                  >
+                    تحميل الملف
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
