@@ -21,17 +21,15 @@ DROP TABLE IF EXISTS public.projects CASCADE;
 DROP TABLE IF EXISTS public.users CASCADE;
 
 -- ============================================================================
--- 2. إنشاء جدول Users
+-- 2. إنشاء جدول Users (متوافق مع Supabase Auth)
 -- ============================================================================
 
 CREATE TABLE public.users (
-    id TEXT PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    full_name TEXT NOT NULL,
-    email TEXT UNIQUE,
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
     phone TEXT,
-    role TEXT NOT NULL CHECK (role IN ('Admin', 'Manager', 'Sales', 'Accountant', 'Viewer')),
+    role TEXT NOT NULL DEFAULT 'Viewer' CHECK (role IN ('Admin', 'Manager', 'Sales', 'Accountant', 'Viewer')),
     department TEXT,
     assigned_project_id TEXT,
     is_active BOOLEAN DEFAULT true,
@@ -40,14 +38,14 @@ CREATE TABLE public.users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_users_username ON public.users(username);
+CREATE INDEX idx_users_email ON public.users(email);
 CREATE INDEX idx_users_role ON public.users(role);
 
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Enable read access for all users" ON public.users FOR SELECT USING (true);
-CREATE POLICY "Enable insert for admins only" ON public.users FOR INSERT WITH CHECK (true);
-CREATE POLICY "Enable update for admins only" ON public.users FOR UPDATE USING (true);
+CREATE POLICY "Enable insert for authenticated users" ON public.users FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Enable update for users" ON public.users FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Enable delete for admins only" ON public.users FOR DELETE USING (true);
 
 -- ============================================================================
@@ -141,41 +139,7 @@ CREATE POLICY "Allow update for authenticated users" ON public.transactions FOR 
 CREATE POLICY "Allow delete for authenticated users" ON public.transactions FOR DELETE TO authenticated USING (true);
 
 -- ============================================================================
--- 6. إنشاء جدول Units
--- ============================================================================
-
-CREATE TABLE public.units (
-    id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-    unit_number TEXT NOT NULL,
-    floor INTEGER,
-    area DECIMAL(10, 2),
-    bedrooms INTEGER,
-    bathrooms INTEGER,
-    unit_type TEXT CHECK (unit_type IN ('Apartment', 'Villa', 'Townhouse', 'Office', 'Shop', 'Land')),
-    price DECIMAL(15, 2) NOT NULL,
-    status TEXT DEFAULT 'Available' CHECK (status IN ('Available', 'Reserved', 'Sold', 'Maintenance')),
-    features TEXT,
-    notes TEXT,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(project_id, unit_number)
-);
-
-CREATE INDEX idx_units_project ON public.units(project_id);
-CREATE INDEX idx_units_status ON public.units(status);
-CREATE INDEX idx_units_type ON public.units(unit_type);
-
-ALTER TABLE public.units ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow read access to all authenticated users" ON public.units FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow insert for authenticated users" ON public.units FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "Allow update for authenticated users" ON public.units FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow delete for authenticated users" ON public.units FOR DELETE TO authenticated USING (true);
-
--- ============================================================================
--- 7. إنشاء جدول Customers
+-- 6. إنشاء جدول Customers (يجب إنشاؤه قبل Units)
 -- ============================================================================
 
 CREATE TABLE public.customers (
@@ -205,6 +169,44 @@ CREATE POLICY "Allow read access to all authenticated users" ON public.customers
 CREATE POLICY "Allow insert for authenticated users" ON public.customers FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "Allow update for authenticated users" ON public.customers FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow delete for authenticated users" ON public.customers FOR DELETE TO authenticated USING (true);
+
+-- ============================================================================
+-- 7. إنشاء جدول Units
+-- ============================================================================
+
+CREATE TABLE public.units (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    unit_number TEXT NOT NULL,
+    floor INTEGER,
+    area DECIMAL(10, 2),
+    bedrooms INTEGER,
+    bathrooms INTEGER,
+    type TEXT CHECK (type IN ('Apartment', 'Villa', 'Townhouse', 'Office', 'Shop', 'Land')),
+    unit_type TEXT CHECK (unit_type IN ('Apartment', 'Villa', 'Townhouse', 'Office', 'Shop', 'Land')),
+    price DECIMAL(15, 2) NOT NULL,
+    status TEXT DEFAULT 'Available' CHECK (status IN ('Available', 'Reserved', 'Sold', 'Maintenance')),
+    customer_id TEXT REFERENCES public.customers(id),
+    customer_name TEXT,
+    features TEXT,
+    notes TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(project_id, unit_number)
+);
+
+CREATE INDEX idx_units_project ON public.units(project_id);
+CREATE INDEX idx_units_status ON public.units(status);
+CREATE INDEX idx_units_type ON public.units(unit_type);
+
+ALTER TABLE public.units ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow read access to all authenticated users" ON public.units FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow insert for authenticated users" ON public.units FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Allow update for authenticated users" ON public.units FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow delete for authenticated users" ON public.units FOR DELETE TO authenticated USING (true);
 
 -- ============================================================================
 -- 8. إنشاء جدول Bookings
@@ -403,6 +405,48 @@ CREATE POLICY "Allow delete for authenticated users" ON public.budgets FOR DELET
 ALTER TABLE public.users 
 ADD CONSTRAINT fk_users_project 
 FOREIGN KEY (assigned_project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
+
+-- ============================================================================
+-- 12. إنشاء Trigger لإضافة المستخدمين تلقائياً من Auth
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.users (id, name, email, role)
+    VALUES (
+        NEW.id,
+        COALESCE(NEW.raw_user_meta_data->>'name', NEW.email),
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'role', 'Viewer')
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================================================
+-- 13. إضافة المستخدم الحالي (إذا كان موجوداً في Auth)
+-- ============================================================================
+
+-- Insert current user if exists in auth.users (update UUID with your actual user ID)
+INSERT INTO public.users (id, name, email, role)
+SELECT 
+    id,
+    COALESCE(raw_user_meta_data->>'name', email) as name,
+    email,
+    'Admin' as role
+FROM auth.users
+WHERE id = '59abe09b-7baa-4619-93b8-23c03361bbed'
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    email = EXCLUDED.email,
+    role = 'Admin',
+    updated_at = CURRENT_TIMESTAMP;
 
 -- ============================================================================
 -- التحقق النهائي

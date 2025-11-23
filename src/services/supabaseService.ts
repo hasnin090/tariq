@@ -146,18 +146,39 @@ export const unitsService = {
 
   async create(unit: Omit<Unit, 'id'>) {
     const id = `unit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Transform camelCase to snake_case for database
+    const dbUnit: any = {
+      id,
+      name: unit.name,
+      type: unit.type,
+      status: unit.status,
+      price: unit.price,
+      customer_id: (unit as any).customerId || null,
+      customer_name: (unit as any).customerName || null,
+    };
+    
     const { data, error } = await supabase
       .from('units')
-      .insert([{ ...unit, id }])
+      .insert([dbUnit])
       .select();
     if (error) throw error;
     return data?.[0];
   },
 
   async update(id: string, unit: Partial<Unit>) {
+    // Transform camelCase to snake_case for database
+    const dbUnit: any = {};
+    if (unit.name !== undefined) dbUnit.name = unit.name;
+    if (unit.type !== undefined) dbUnit.type = unit.type;
+    if (unit.status !== undefined) dbUnit.status = unit.status;
+    if (unit.price !== undefined) dbUnit.price = unit.price;
+    if ((unit as any).customerId !== undefined) dbUnit.customer_id = (unit as any).customerId;
+    if ((unit as any).customerName !== undefined) dbUnit.customer_name = (unit as any).customerName;
+    
     const { data, error } = await supabase
       .from('units')
-      .update(unit)
+      .update(dbUnit)
       .eq('id', id)
       .select();
     if (error) throw error;
