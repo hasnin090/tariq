@@ -128,7 +128,7 @@ export const unitsService = {
   async getAll() {
     const { data, error } = await supabase
       .from('units')
-      .select('*')
+      .select('*, customers(name)')
       .order('created_at', { ascending: false });
     if (error) throw error;
     
@@ -140,7 +140,7 @@ export const unitsService = {
       status: unit.status,
       price: unit.price,
       customerId: unit.customer_id,
-      customerName: unit.customer_name,
+      customerName: unit.customers?.name || '',
     }));
   },
 
@@ -155,15 +155,25 @@ export const unitsService = {
       status: unit.status,
       price: unit.price,
       customer_id: (unit as any).customerId || null,
-      customer_name: (unit as any).customerName || null,
     };
     
     const { data, error } = await supabase
       .from('units')
       .insert([dbUnit])
-      .select();
+      .select('*, customers(name)');
     if (error) throw error;
-    return data?.[0];
+    
+    if (data?.[0]) {
+      return {
+        id: data[0].id,
+        name: data[0].name,
+        type: data[0].type,
+        status: data[0].status,
+        price: data[0].price,
+        customerId: data[0].customer_id,
+        customerName: data[0].customers?.name || '',
+      };
+    }
   },
 
   async update(id: string, unit: Partial<Unit>) {
@@ -174,15 +184,25 @@ export const unitsService = {
     if (unit.status !== undefined) dbUnit.status = unit.status;
     if (unit.price !== undefined) dbUnit.price = unit.price;
     if ((unit as any).customerId !== undefined) dbUnit.customer_id = (unit as any).customerId;
-    if ((unit as any).customerName !== undefined) dbUnit.customer_name = (unit as any).customerName;
     
     const { data, error } = await supabase
       .from('units')
       .update(dbUnit)
       .eq('id', id)
-      .select();
+      .select('*, customers(name)');
     if (error) throw error;
-    return data?.[0];
+    
+    if (data?.[0]) {
+      return {
+        id: data[0].id,
+        name: data[0].name,
+        type: data[0].type,
+        status: data[0].status,
+        price: data[0].price,
+        customerId: data[0].customer_id,
+        customerName: data[0].customers?.name || '',
+      };
+    }
   },
 
   async delete(id: string) {
@@ -212,7 +232,7 @@ export const bookingsService = {
   async getAll() {
     const { data, error } = await supabase
       .from('bookings')
-      .select('*')
+      .select('*, customers(name), units(name)')
       .order('created_at', { ascending: false });
     if (error) throw error;
     
@@ -220,9 +240,9 @@ export const bookingsService = {
     return (data || []).map((booking: any) => ({
       id: booking.id,
       unitId: booking.unit_id,
-      unitName: booking.unit_name,
+      unitName: booking.units?.name || '',
       customerId: booking.customer_id,
-      customerName: booking.customer_name,
+      customerName: booking.customers?.name || '',
       bookingDate: booking.booking_date,
       amountPaid: booking.amount_paid,
       status: booking.status,
@@ -239,15 +259,13 @@ export const bookingsService = {
       customer_id: (booking as any).customer_id || booking.customerId,
       booking_date: (booking as any).booking_date || booking.bookingDate,
       amount_paid: (booking as any).amount_paid || booking.amountPaid,
-      unit_name: (booking as any).unit_name || booking.unitName,
-      customer_name: (booking as any).customer_name || booking.customerName,
       status: booking.status || 'Active',
     };
     
     const { data, error } = await supabase
       .from('bookings')
       .insert([dbData])
-      .select();
+      .select('*, customers(name), units(name)');
     if (error) throw error;
     
     // Transform response back to camelCase
@@ -255,9 +273,9 @@ export const bookingsService = {
       return {
         id: data[0].id,
         unitId: data[0].unit_id,
-        unitName: data[0].unit_name,
+        unitName: data[0].units?.name || '',
         customerId: data[0].customer_id,
-        customerName: data[0].customer_name,
+        customerName: data[0].customers?.name || '',
         bookingDate: data[0].booking_date,
         amountPaid: data[0].amount_paid,
         status: data[0].status,
@@ -273,16 +291,14 @@ export const bookingsService = {
       else if (key === 'customerId') dbData.customer_id = value;
       else if (key === 'bookingDate') dbData.booking_date = value;
       else if (key === 'amountPaid') dbData.amount_paid = value;
-      else if (key === 'unitName') dbData.unit_name = value;
-      else if (key === 'customerName') dbData.customer_name = value;
-      else if (key !== 'id') dbData[key] = value;
+      else if (key !== 'id' && key !== 'unitName' && key !== 'customerName') dbData[key] = value;
     });
     
     const { data, error } = await supabase
       .from('bookings')
       .update(dbData)
       .eq('id', id)
-      .select();
+      .select('*, customers(name), units(name)');
     if (error) throw error;
     
     // Transform response back to camelCase
@@ -290,9 +306,9 @@ export const bookingsService = {
       return {
         id: data[0].id,
         unitId: data[0].unit_id,
-        unitName: data[0].unit_name,
+        unitName: data[0].units?.name || '',
         customerId: data[0].customer_id,
-        customerName: data[0].customer_name,
+        customerName: data[0].customers?.name || '',
         bookingDate: data[0].booking_date,
         amountPaid: data[0].amount_paid,
         status: data[0].status,
@@ -311,7 +327,7 @@ export const bookingsService = {
   async getByUnitId(unitId: string) {
     const { data, error } = await supabase
       .from('bookings')
-      .select('*')
+      .select('*, customers(name), units(name)')
       .eq('unit_id', unitId);
     if (error) throw error;
     
@@ -319,9 +335,9 @@ export const bookingsService = {
     return (data || []).map((booking: any) => ({
       id: booking.id,
       unitId: booking.unit_id,
-      unitName: booking.unit_name,
+      unitName: booking.units?.name || '',
       customerId: booking.customer_id,
-      customerName: booking.customer_name,
+      customerName: booking.customers?.name || '',
       bookingDate: booking.booking_date,
       amountPaid: booking.amount_paid,
       status: booking.status,
@@ -355,7 +371,7 @@ export const paymentsService = {
     // Get all bookings to map customer data
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('id, customer_id, customer_name, unit_id, unit_name');
+      .select('id, customer_id, unit_id, customers(name), units(name)');
     if (bookingsError) throw bookingsError;
     
     // Get all units to map unit_price
@@ -366,8 +382,12 @@ export const paymentsService = {
     
     // Create maps for efficient lookup
     const bookingMap = new Map();
-    (bookings || []).forEach(booking => {
-      bookingMap.set(booking.id, booking);
+    (bookings || []).forEach((booking: any) => {
+      bookingMap.set(booking.id, {
+        ...booking,
+        customer_name: booking.customers?.name,
+        unit_name: booking.units?.name
+      });
     });
     
     const unitMap = new Map();
@@ -409,7 +429,7 @@ export const paymentsService = {
     // Get all bookings to map customer_id
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('id, customer_id, customer_name, unit_id, unit_name');
+      .select('id, customer_id, unit_id, customers(name), units(name)');
     if (bookingsError) throw bookingsError;
     
     // Get all units to map unit_price
@@ -420,8 +440,12 @@ export const paymentsService = {
     
     // Create maps for efficient lookup
     const bookingMap = new Map();
-    (bookings || []).forEach(booking => {
-      bookingMap.set(booking.id, booking);
+    (bookings || []).forEach((booking: any) => {
+      bookingMap.set(booking.id, {
+        ...booking,
+        customer_name: booking.customers?.name,
+        unit_name: booking.units?.name
+      });
     });
     
     const unitMap = new Map();
@@ -477,7 +501,7 @@ export const paymentsService = {
     // Get booking info to enrich the response
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('customer_id, customer_name, unit_id, unit_name')
+      .select('customer_id, unit_id, customers(name), units(name)')
       .eq('id', payment.bookingId)
       .single();
     
@@ -496,9 +520,9 @@ export const paymentsService = {
         id: data[0].id,
         bookingId: data[0].booking_id,
         customerId: booking?.customer_id,
-        customerName: booking?.customer_name,
+        customerName: (booking as any)?.customers?.name,
         unitId: booking?.unit_id,
-        unitName: booking?.unit_name,
+        unitName: (booking as any)?.units?.name,
         amount: data[0].amount,
         paymentDate: data[0].payment_date,
         unitPrice: unitPrice,
@@ -526,7 +550,7 @@ export const paymentsService = {
     // Get booking info to enrich the response
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('customer_id, customer_name, unit_id, unit_name')
+      .select('customer_id, unit_id, customers(name), units(name)')
       .eq('id', data?.[0]?.booking_id)
       .single();
     
@@ -545,9 +569,9 @@ export const paymentsService = {
         id: data[0].id,
         bookingId: data[0].booking_id,
         customerId: booking?.customer_id,
-        customerName: booking?.customer_name,
+        customerName: (booking as any)?.customers?.name,
         unitId: booking?.unit_id,
-        unitName: booking?.unit_name,
+        unitName: (booking as any)?.units?.name,
         amount: data[0].amount,
         paymentDate: data[0].payment_date,
         unitPrice: unitPrice,
