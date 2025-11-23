@@ -70,15 +70,7 @@ export const customersService = {
       .order('created_at', { ascending: false });
     if (error) throw error;
     
-    // Transform snake_case to camelCase
-    return (data || []).map((customer: any) => ({
-      id: customer.id,
-      name: customer.name,
-      phone: customer.phone,
-      email: customer.email,
-      unitId: customer.unit_id,
-      documents: customer.documents,
-    }));
+    return data || [];
   },
 
   async create(customer: Omit<Customer, 'id'>) {

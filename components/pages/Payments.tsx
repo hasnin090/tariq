@@ -31,17 +31,31 @@ const Payments: React.FC = () => {
         amount: 0,
         paymentDate: new Date().toISOString().split('T')[0],
     });
+    const [searchTerm, setSearchTerm] = useState('');
 
-    // Filter all combined payments (regular + booking payments) by active project
+    // Filter all combined payments (regular + booking payments) by active project and search term
     const filteredAllPayments = useMemo(() => {
-        if (!activeProject) return allPaymentsWithBooking;
+        let filtered = allPaymentsWithBooking;
         
-        // Filter based on unit's project
-        return allPaymentsWithBooking.filter(payment => {
-            const unit = units.find(u => u.id === payment.unitId);
-            return unit?.projectId === activeProject.id;
-        });
-    }, [allPaymentsWithBooking, units, activeProject]);
+        // Filter by project
+        if (activeProject) {
+            filtered = filtered.filter(payment => {
+                const unit = units.find(u => u.id === payment.unitId);
+                return unit?.projectId === activeProject.id;
+            });
+        }
+        
+        // Filter by search term (customer name or unit name)
+        if (searchTerm.trim()) {
+            const search = searchTerm.toLowerCase().trim();
+            filtered = filtered.filter(payment => 
+                payment.customerName?.toLowerCase().includes(search) ||
+                payment.unitName?.toLowerCase().includes(search)
+            );
+        }
+        
+        return filtered;
+    }, [allPaymentsWithBooking, units, activeProject, searchTerm]);
 
     useEffect(() => {
         loadAllData();
@@ -387,6 +401,20 @@ const Payments: React.FC = () => {
                 activeProject={activeProject} 
                 onSelectProject={setActiveProject} 
             />
+
+            {/* Search Box */}
+            <div className="mb-6 bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 border border-slate-200 dark:border-slate-700">
+                <label className="block">
+                    <span className="text-slate-700 dark:text-slate-200 font-medium mb-2 block">البحث عن اسم العميل أو رقم الوحدة</span>
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="ابحث باسم العميل أو رقم الوحدة..."
+                        className="w-full p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                </label>
+            </div>
 
             {/* Add Payment Modal */}
             {showAddPayment && (
