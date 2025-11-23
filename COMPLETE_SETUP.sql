@@ -9,29 +9,75 @@
 -- Skip users table updates for now - will be handled separately if needed
 
 -- ============================================================================
--- 2. إنشاء جدول Projects (إذا لم يكن موجوداً)
+-- 2. تحديث جدول Projects (إضافة أعمدة إذا لزم الأمر)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.projects (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    description TEXT,
-    location TEXT,
-    start_date DATE,
-    end_date DATE,
-    status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Completed', 'On Hold', 'Cancelled')),
-    budget DECIMAL(15, 2),
-    total_units INTEGER DEFAULT 0,
-    sold_units INTEGER DEFAULT 0,
-    available_units INTEGER DEFAULT 0,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- Add missing columns to existing projects table
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'projects' AND column_name = 'location') THEN
+        ALTER TABLE public.projects ADD COLUMN location TEXT;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'projects' AND column_name = 'start_date') THEN
+        ALTER TABLE public.projects ADD COLUMN start_date DATE;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'projects' AND column_name = 'end_date') THEN
+        ALTER TABLE public.projects ADD COLUMN end_date DATE;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'projects' AND column_name = 'status') THEN
+        ALTER TABLE public.projects ADD COLUMN status TEXT DEFAULT 'Active';
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'projects' AND column_name = 'budget') THEN
+        ALTER TABLE public.projects ADD COLUMN budget DECIMAL(15, 2);
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'projects' AND column_name = 'total_units') THEN
+        ALTER TABLE public.projects ADD COLUMN total_units INTEGER DEFAULT 0;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'projects' AND column_name = 'sold_units') THEN
+        ALTER TABLE public.projects ADD COLUMN sold_units INTEGER DEFAULT 0;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'projects' AND column_name = 'available_units') THEN
+        ALTER TABLE public.projects ADD COLUMN available_units INTEGER DEFAULT 0;
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_projects_name ON public.projects(name);
-CREATE INDEX IF NOT EXISTS idx_projects_status ON public.projects(status);
-CREATE INDEX IF NOT EXISTS idx_projects_active ON public.projects(is_active);
 
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 
@@ -48,23 +94,27 @@ DROP POLICY IF EXISTS "Enable delete for admins only" ON public.projects;
 CREATE POLICY "Enable delete for admins only" ON public.projects FOR DELETE USING (true);
 
 -- ============================================================================
--- 3. إنشاء جدول Accounts
+-- 3. تحديث جدول Accounts (إضافة أعمدة إذا لزم الأمر)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.accounts (
-    id TEXT PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,
-    account_type TEXT NOT NULL CHECK (account_type IN ('Bank', 'Cash', 'Other')),
-    balance DECIMAL(15, 2) DEFAULT 0.00,
-    description TEXT,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- Add missing columns to existing accounts table
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'accounts' AND column_name = 'balance') THEN
+        ALTER TABLE public.accounts ADD COLUMN balance DECIMAL(15, 2) DEFAULT 0.00;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'accounts' AND column_name = 'description') THEN
+        ALTER TABLE public.accounts ADD COLUMN description TEXT;
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_accounts_name ON public.accounts(name);
-CREATE INDEX IF NOT EXISTS idx_accounts_type ON public.accounts(account_type);
-CREATE INDEX IF NOT EXISTS idx_accounts_active ON public.accounts(is_active);
 
 ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
 
@@ -80,33 +130,38 @@ CREATE POLICY "Allow update for authenticated users" ON public.accounts FOR UPDA
 DROP POLICY IF EXISTS "Allow delete for authenticated users" ON public.accounts;
 CREATE POLICY "Allow delete for authenticated users" ON public.accounts FOR DELETE TO authenticated USING (true);
 
--- Insert default accounts
-INSERT INTO public.accounts (id, name, account_type, balance, description) 
-VALUES 
-    ('acc_cash_default', 'الصندوق', 'Cash', 0.00, 'الصندوق النقدي الرئيسي'),
-    ('acc_bank_default', 'البنك الأهلي', 'Bank', 0.00, 'الحساب البنكي الرئيسي')
-ON CONFLICT (name) DO NOTHING;
+-- Insert default accounts using existing column name 'type' instead of 'account_type'
+INSERT INTO public.accounts (id, name, type, balance, description) 
+SELECT 'acc_cash_default', 'الصندوق', 'Cash', 0.00, 'الصندوق النقدي الرئيسي'
+WHERE NOT EXISTS (SELECT 1 FROM public.accounts WHERE id = 'acc_cash_default');
+
+INSERT INTO public.accounts (id, name, type, balance, description) 
+SELECT 'acc_bank_default', 'البنك الأهلي', 'Bank', 0.00, 'الحساب البنكي الرئيسي'
+WHERE NOT EXISTS (SELECT 1 FROM public.accounts WHERE id = 'acc_bank_default');
 
 -- ============================================================================
--- 4. إنشاء جدول Transactions
+-- 4. تحديث جدول Transactions (إضافة أعمدة إذا لزم الأمر)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.transactions (
-    id TEXT PRIMARY KEY,
-    account_id TEXT NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
-    transaction_type TEXT NOT NULL CHECK (transaction_type IN ('Income', 'Expense', 'Transfer')),
-    amount DECIMAL(15, 2) NOT NULL,
-    transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    description TEXT,
-    reference_type TEXT,
-    reference_id TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- Add missing columns if transactions table exists
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transactions') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                       WHERE table_name = 'transactions' AND column_name = 'reference_type') THEN
+            ALTER TABLE public.transactions ADD COLUMN reference_type TEXT;
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                       WHERE table_name = 'transactions' AND column_name = 'reference_id') THEN
+            ALTER TABLE public.transactions ADD COLUMN reference_id TEXT;
+        END IF;
+    END IF;
+END $$;
 
+-- Create indexes on existing columns
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_account ON public.transactions(account_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_type ON public.transactions(transaction_type);
-CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions(transaction_date);
 
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
@@ -123,31 +178,11 @@ DROP POLICY IF EXISTS "Allow delete for authenticated users" ON public.transacti
 CREATE POLICY "Allow delete for authenticated users" ON public.transactions FOR DELETE TO authenticated USING (true);
 
 -- ============================================================================
--- 5. إنشاء جدول Units
+-- 5. تحديث جدول Units (إضافة أعمدة إذا لزم الأمر)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.units (
-    id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-    unit_number TEXT NOT NULL,
-    floor INTEGER,
-    area DECIMAL(10, 2),
-    bedrooms INTEGER,
-    bathrooms INTEGER,
-    unit_type TEXT CHECK (unit_type IN ('Apartment', 'Villa', 'Townhouse', 'Office', 'Shop', 'Land')),
-    price DECIMAL(15, 2) NOT NULL,
-    status TEXT DEFAULT 'Available' CHECK (status IN ('Available', 'Reserved', 'Sold', 'Maintenance')),
-    features TEXT,
-    notes TEXT,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(project_id, unit_number)
-);
-
+-- Skip units table - will use existing structure
 CREATE INDEX IF NOT EXISTS idx_units_project ON public.units(project_id);
-CREATE INDEX IF NOT EXISTS idx_units_status ON public.units(status);
-CREATE INDEX IF NOT EXISTS idx_units_type ON public.units(unit_type);
 
 ALTER TABLE public.units ENABLE ROW LEVEL SECURITY;
 
@@ -164,28 +199,11 @@ DROP POLICY IF EXISTS "Allow delete for authenticated users" ON public.units;
 CREATE POLICY "Allow delete for authenticated users" ON public.units FOR DELETE TO authenticated USING (true);
 
 -- ============================================================================
--- 6. إنشاء جدول Customers
+-- 6. تحديث جدول Customers (إضافة أعمدة إذا لزم الأمر)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.customers (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT,
-    phone TEXT NOT NULL,
-    national_id TEXT UNIQUE,
-    address TEXT,
-    city TEXT,
-    customer_type TEXT DEFAULT 'Individual' CHECK (customer_type IN ('Individual', 'Company')),
-    company_name TEXT,
-    tax_number TEXT,
-    notes TEXT,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
+-- Skip customers table - will use existing structure  
 CREATE INDEX IF NOT EXISTS idx_customers_name ON public.customers(name);
-CREATE INDEX IF NOT EXISTS idx_customers_phone ON public.customers(phone);
 
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 
@@ -202,32 +220,13 @@ DROP POLICY IF EXISTS "Allow delete for authenticated users" ON public.customers
 CREATE POLICY "Allow delete for authenticated users" ON public.customers FOR DELETE TO authenticated USING (true);
 
 -- ============================================================================
--- 7. إنشاء جدول Bookings
+-- 7. تحديث جدول Bookings (إضافة أعمدة إذا لزم الأمر)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.bookings (
-    id TEXT PRIMARY KEY,
-    unit_id TEXT NOT NULL REFERENCES public.units(id) ON DELETE CASCADE,
-    customer_id TEXT NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
-    project_id TEXT NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-    booking_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    total_price DECIMAL(15, 2) NOT NULL,
-    down_payment DECIMAL(15, 2) NOT NULL,
-    remaining_amount DECIMAL(15, 2) NOT NULL,
-    payment_plan TEXT,
-    installments INTEGER,
-    status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Completed', 'Cancelled')),
-    contract_number TEXT UNIQUE,
-    notes TEXT,
-    created_by TEXT,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_bookings_unit ON public.bookings(unit_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_customer ON public.bookings(customer_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_project ON public.bookings(project_id);
+-- Skip bookings table - will use existing structure
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'bookings') THEN
+    CREATE INDEX IF NOT EXISTS idx_bookings_project ON public.bookings(project_id);
+END IF; END $$;
 
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 
@@ -244,30 +243,13 @@ DROP POLICY IF EXISTS "Allow delete for authenticated users" ON public.bookings;
 CREATE POLICY "Allow delete for authenticated users" ON public.bookings FOR DELETE TO authenticated USING (true);
 
 -- ============================================================================
--- 8. إنشاء جدول Payments
+-- 8. تحديث جدول Payments (إضافة أعمدة إذا لزم الأمر)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.payments (
-    id TEXT PRIMARY KEY,
-    booking_id TEXT REFERENCES public.bookings(id) ON DELETE CASCADE,
-    customer_id TEXT NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
-    project_id TEXT NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-    payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    amount DECIMAL(15, 2) NOT NULL,
-    payment_method TEXT CHECK (payment_method IN ('Cash', 'Bank Transfer', 'Check', 'Credit Card')),
-    payment_type TEXT CHECK (payment_type IN ('Down Payment', 'Installment', 'Full Payment', 'Other')),
-    reference_number TEXT,
-    account_id TEXT REFERENCES public.accounts(id),
-    notes TEXT,
-    created_by TEXT,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_payments_booking ON public.payments(booking_id);
-CREATE INDEX IF NOT EXISTS idx_payments_customer ON public.payments(customer_id);
-CREATE INDEX IF NOT EXISTS idx_payments_project ON public.payments(project_id);
+-- Skip payments table - will use existing structure
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'payments') THEN
+    CREATE INDEX IF NOT EXISTS idx_payments_project ON public.payments(project_id);
+END IF; END $$;
 
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 
@@ -314,14 +296,26 @@ CREATE POLICY "Allow update for authenticated users" ON public.expense_categorie
 DROP POLICY IF EXISTS "Allow delete for authenticated users" ON public.expense_categories;
 CREATE POLICY "Allow delete for authenticated users" ON public.expense_categories FOR DELETE TO authenticated USING (true);
 
--- Insert default categories
-INSERT INTO public.expense_categories (id, name, description) VALUES
-    ('cat_' || gen_random_uuid()::text, 'رواتب وأجور', 'مصاريف الموظفين والرواتب'),
-    ('cat_' || gen_random_uuid()::text, 'صيانة', 'مصاريف الصيانة والإصلاحات'),
-    ('cat_' || gen_random_uuid()::text, 'مواد بناء', 'شراء مواد البناء'),
-    ('cat_' || gen_random_uuid()::text, 'مقاولات', 'أعمال المقاولين'),
-    ('cat_' || gen_random_uuid()::text, 'مصاريف إدارية', 'المصاريف الإدارية والعامة')
-ON CONFLICT (name) DO NOTHING;
+-- Insert default categories (skip if already exist)
+INSERT INTO public.expense_categories (id, name, description)
+SELECT 'cat_salaries', 'رواتب وأجور', 'مصاريف الموظفين والرواتب'
+WHERE NOT EXISTS (SELECT 1 FROM public.expense_categories WHERE name = 'رواتب وأجور');
+
+INSERT INTO public.expense_categories (id, name, description)
+SELECT 'cat_maintenance', 'صيانة', 'مصاريف الصيانة والإصلاحات'
+WHERE NOT EXISTS (SELECT 1 FROM public.expense_categories WHERE name = 'صيانة');
+
+INSERT INTO public.expense_categories (id, name, description)
+SELECT 'cat_materials', 'مواد بناء', 'شراء مواد البناء'
+WHERE NOT EXISTS (SELECT 1 FROM public.expense_categories WHERE name = 'مواد بناء');
+
+INSERT INTO public.expense_categories (id, name, description)
+SELECT 'cat_contractors', 'مقاولات', 'أعمال المقاولين'
+WHERE NOT EXISTS (SELECT 1 FROM public.expense_categories WHERE name = 'مقاولات');
+
+INSERT INTO public.expense_categories (id, name, description)
+SELECT 'cat_admin', 'مصاريف إدارية', 'المصاريف الإدارية والعامة'
+WHERE NOT EXISTS (SELECT 1 FROM public.expense_categories WHERE name = 'مصاريف إدارية');
 
 -- Vendors
 CREATE TABLE IF NOT EXISTS public.vendors (

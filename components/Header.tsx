@@ -5,6 +5,7 @@ import { InterfaceMode, Unit, Customer, Booking, Expense, Payment, SearchResult,
 import { pageNames } from '../utils/pageNames';
 import { unitsService, customersService, bookingsService, expensesService, paymentsService, projectsService } from '../src/services/supabaseService';
 import { CalendarIcon, BriefcaseIcon, BellIcon, MicrophoneIcon } from './shared/Icons';
+import { supabase } from '../src/lib/supabase';
 
 const Header: React.FC<{
     activePage: string;
@@ -25,6 +26,10 @@ const Header: React.FC<{
     const searchRef = useRef<HTMLDivElement>(null);
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef<any | null>(null);
+    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+    const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
+    const [showConnectionTooltip, setShowConnectionTooltip] = useState(false);
+    const connectionCheckInterval = useRef<NodeJS.Timeout | null>(null);
     
     const pageName = useMemo(() => {
         let modeName = interfaceMode === 'projects' ? 'إدارة المبيعات' : 'الإدارة المحاسبية';
@@ -55,6 +60,37 @@ const Header: React.FC<{
             }
         };
         fetchProjects();
+    }, []);
+
+    // Database connection check
+    useEffect(() => {
+        const checkConnection = async () => {
+            const startTime = Date.now();
+            try {
+                const { error } = await supabase.from('projects').select('id').limit(1);
+                const latency = Date.now() - startTime;
+                
+                if (error) {
+                    setConnectionStatus('disconnected');
+                    setConnectionLatency(null);
+                } else {
+                    setConnectionStatus('connected');
+                    setConnectionLatency(latency);
+                }
+            } catch (error) {
+                setConnectionStatus('disconnected');
+                setConnectionLatency(null);
+            }
+        };
+
+        checkConnection();
+        connectionCheckInterval.current = setInterval(checkConnection, 10000);
+
+        return () => {
+            if (connectionCheckInterval.current) {
+                clearInterval(connectionCheckInterval.current);
+            }
+        };
     }, []);
 
     useEffect(() => {
@@ -209,6 +245,85 @@ const Header: React.FC<{
                 </div>
 
                 <div className="flex items-center gap-4">
+                    {/* Connection Status Indicator */}
+                    <div className="relative">
+                        <button
+                            onClick={async () => {
+                                setConnectionStatus('checking');
+                                const startTime = Date.now();
+                                try {
+                                    const { error } = await supabase.from('projects').select('id').limit(1);
+                                    const latency = Date.now() - startTime;
+                                    if (error) {
+                                        setConnectionStatus('disconnected');
+                                        setConnectionLatency(null);
+                                    } else {
+                                        setConnectionStatus('connected');
+                                        setConnectionLatency(latency);
+                                    }
+                                } catch (error) {
+                                    setConnectionStatus('disconnected');
+                                    setConnectionLatency(null);
+                                }
+                            }}
+                            onMouseEnter={() => setShowConnectionTooltip(true)}
+                            onMouseLeave={() => setShowConnectionTooltip(false)}
+                            className="p-2.5 rounded-xl transition-all duration-300 border hover:scale-110 active:scale-95 relative group border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                            title="التحقق من الاتصال"
+                        >
+                            {connectionStatus === 'connected' && (
+                                <div className="relative">
+                                    <svg className="h-6 w-6 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+                                    </svg>
+                                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                                </div>
+                            )}
+                            {connectionStatus === 'disconnected' && (
+                                <div className="relative">
+                                    <svg className="h-6 w-6 text-rose-500" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+                                        <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                    </svg>
+                                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-400 rounded-full animate-pulse"></span>
+                                </div>
+                            )}
+                            {connectionStatus === 'checking' && (
+                                <svg className="h-6 w-6 text-amber-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            )}
+                        </button>
+                        {showConnectionTooltip && (
+                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-56 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 p-4 z-50 animate-fade-in-scale-up">
+                                <div className="text-center">
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">حالة الاتصال</p>
+                                    <div className="flex items-center justify-center gap-2 mb-2">
+                                        <div className={`w-3 h-3 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'disconnected' ? 'bg-rose-500' : 'bg-amber-500'} animate-pulse`}></div>
+                                        <span className={`text-sm font-semibold ${connectionStatus === 'connected' ? 'text-emerald-600 dark:text-emerald-400' : connectionStatus === 'disconnected' ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                            {connectionStatus === 'connected' ? 'متصل' : connectionStatus === 'disconnected' ? 'غير متصل' : 'جاري الفحص...'}
+                                        </span>
+                                    </div>
+                                    {connectionLatency !== null && (
+                                        <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                                            <p className="text-xs text-slate-600 dark:text-slate-300">زمن الاستجابة</p>
+                                            <p className={`text-lg font-bold ${connectionLatency < 100 ? 'text-emerald-600 dark:text-emerald-400' : connectionLatency < 300 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                                {connectionLatency} ms
+                                            </p>
+                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                                                {connectionLatency < 100 ? 'ممتاز' : connectionLatency < 300 ? 'جيد' : 'بطيء'}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {connectionStatus === 'disconnected' && (
+                                        <p className="text-xs text-rose-600 dark:text-rose-400 mt-2">⚠️ تحقق من اتصال الإنترنت</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="relative w-full max-w-xs" ref={searchRef}>
                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                            <SearchIcon />
