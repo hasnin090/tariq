@@ -155,6 +155,7 @@ export const unitsService = {
       status: unit.status,
       price: unit.price,
       customer_id: (unit as any).customerId || null,
+      project_id: (unit as any).projectId || null,
     };
     
     const { data, error } = await supabase
@@ -172,6 +173,7 @@ export const unitsService = {
         price: data[0].price,
         customerId: data[0].customer_id,
         customerName: data[0].customers?.name || '',
+        projectId: data[0].project_id,
       };
     }
   },
@@ -184,6 +186,7 @@ export const unitsService = {
     if (unit.status !== undefined) dbUnit.status = unit.status;
     if (unit.price !== undefined) dbUnit.price = unit.price;
     if ((unit as any).customerId !== undefined) dbUnit.customer_id = (unit as any).customerId;
+    if ((unit as any).projectId !== undefined) dbUnit.project_id = (unit as any).projectId;
     
     const { data, error } = await supabase
       .from('units')
@@ -201,6 +204,7 @@ export const unitsService = {
         price: data[0].price,
         customerId: data[0].customer_id,
         customerName: data[0].customers?.name || '',
+        projectId: data[0].project_id,
       };
     }
   },

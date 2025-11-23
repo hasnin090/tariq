@@ -201,15 +201,15 @@ const Units: React.FC = () => {
                 <EmptyState Icon={UnitsEmptyIcon} title="لا توجد وحدات" message="ابدأ بإضافة الوحدات العقارية الخاصة بك." actionButton={{ text: 'إضافة وحدة', onClick: () => handleOpenModal(null)}} />
             )}
             
-            {isModalOpen && <UnitPanel unit={editingUnit} unitTypes={unitTypes} unitStatuses={unitStatuses} customers={customers} onClose={handleCloseModal} onSave={handleSave} />}
+            {isModalOpen && <UnitPanel unit={editingUnit} unitTypes={unitTypes} unitStatuses={unitStatuses} customers={customers} activeProjectId={activeProject?.id} onClose={handleCloseModal} onSave={handleSave} />}
             <ConfirmModal isOpen={!!unitToDelete} onClose={() => setUnitToDelete(null)} onConfirm={confirmDelete} title="تأكيد الحذف" message={`هل أنت متأكد من حذف الوحدة "${unitToDelete?.name}"؟`} />
         </div>
     );
 };
 
-interface PanelProps { unit: Unit | null; unitTypes: UnitType[]; unitStatuses: UnitStatus[]; customers: Customer[]; onClose: () => void; onSave: (data: Omit<Unit, 'id'>) => void; }
+interface PanelProps { unit: Unit | null; unitTypes: UnitType[]; unitStatuses: UnitStatus[]; customers: Customer[]; activeProjectId?: string; onClose: () => void; onSave: (data: Omit<Unit, 'id'>) => void; }
 
-const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, customers, onClose, onSave }) => {
+const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, customers, activeProjectId, onClose, onSave }) => {
     const { addToast } = useToast();
     const [formData, setFormData] = useState({
         name: unit?.name || '',
@@ -225,8 +225,18 @@ const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, custom
             addToast('يرجى ملء جميع الحقول الإلزامية.', 'error');
             return;
         }
+        
+        if (!unit && !activeProjectId) {
+             addToast('يرجى اختيار مشروع أولاً', 'error');
+             return;
+        }
+
         const customerName = customers.find(c => c.id === formData.customerId)?.name;
-        onSave({ ...formData, customerName });
+        onSave({ 
+            ...formData, 
+            customerName,
+            projectId: unit?.projectId || activeProjectId 
+        });
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
