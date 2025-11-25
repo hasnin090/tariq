@@ -304,9 +304,9 @@ const DataImport: React.FC = () => {
                 date: record.expense_date || new Date().toISOString().split('T')[0],
                 description: record.description || '',
                 amount: record.amount || 0,
-                categoryId: record.category_id || null,
-                projectId: record.project_id || null,
-                accountId: record.account_id || null,
+                categoryId: null, // Ignore category from CSV for now
+                projectId: null,  // Ignore project from CSV for now
+                accountId: null,  // Ignore account from CSV for now
               });
               break;
             case 'customers':
