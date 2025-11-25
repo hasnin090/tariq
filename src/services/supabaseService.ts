@@ -653,7 +653,11 @@ export const expensesService = {
       .from('expenses')
       .insert([dbExpense])
       .select();
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error creating expense:', error);
+      console.error('Attempted to insert:', dbExpense);
+      throw error;
+    }
     
     const exp = data?.[0];
     return exp ? {
