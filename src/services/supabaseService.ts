@@ -643,9 +643,9 @@ export const expensesService = {
       expense_date: expense.date,
       description: expense.description,
       amount: expense.amount,
-      category_id: expense.categoryId,
+      category_id: expense.categoryId || null, // Convert empty string to null
       project_id: expense.projectId || null,
-      account_id: expense.accountId,
+      account_id: expense.accountId || null,   // Convert empty string to null
       vendor_id: expense.vendorId || null,
     };
     
