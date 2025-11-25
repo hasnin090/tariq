@@ -159,7 +159,6 @@ export interface Expense {
     projectId?: string;
     documents?: SaleDocument[];
     accountId: string;
-    transactionId?: string;
     deferredPaymentInstallmentId?: string;
     employeeId?: string;
 }

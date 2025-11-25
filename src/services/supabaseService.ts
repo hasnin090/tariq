@@ -620,7 +620,6 @@ export const expensesService = {
       projectId: exp.project_id,
       accountId: exp.account_id,
       vendorId: exp.vendor_id,
-      transactionId: exp.transaction_id,
     }));
   },
 
@@ -637,7 +636,6 @@ export const expensesService = {
       project_id: expense.projectId || null,
       account_id: expense.accountId,
       vendor_id: expense.vendorId || null,
-      transaction_id: expense.transactionId || null,
     };
     
     const { data, error } = await supabase
@@ -656,7 +654,6 @@ export const expensesService = {
       projectId: exp.project_id,
       accountId: exp.account_id,
       vendorId: exp.vendor_id,
-      transactionId: exp.transaction_id,
     } : null;
   },
 
@@ -670,7 +667,6 @@ export const expensesService = {
     if (expense.projectId !== undefined) dbUpdate.project_id = expense.projectId;
     if (expense.accountId !== undefined) dbUpdate.account_id = expense.accountId;
     if (expense.vendorId !== undefined) dbUpdate.vendor_id = expense.vendorId;
-    if (expense.transactionId !== undefined) dbUpdate.transaction_id = expense.transactionId;
     
     const { data, error } = await supabase
       .from('expenses')
@@ -689,7 +685,6 @@ export const expensesService = {
       projectId: exp.project_id,
       accountId: exp.account_id,
       vendorId: exp.vendor_id,
-      transactionId: exp.transaction_id,
     } : null;
   },
 
