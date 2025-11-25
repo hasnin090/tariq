@@ -988,9 +988,10 @@ export const expenseCategoriesService = {
   },
 
   async create(item: Omit<ExpenseCategory, 'id'>) {
+    const id = `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { data, error } = await supabase
       .from('expense_categories')
-      .insert([item])
+      .insert([{ ...item, id }])
       .select();
     if (error) throw error;
     return data?.[0];
