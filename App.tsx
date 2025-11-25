@@ -24,6 +24,7 @@ import ProjectUserManagement from './components/pages/ProjectUserManagement';
 import ProjectsManagement from './components/pages/ProjectsManagement';
 import BookingsArchive from './components/pages/BookingsArchive';
 import GeneralArchive from './components/pages/GeneralArchive';
+import DataImport from './components/pages/DataImport';
 
 // Expenses Interface Pages
 import ExpenseDashboard from './components/pages/expenses/ExpenseDashboard';
@@ -103,6 +104,9 @@ const App: React.FC = () => {
       // Archive
       case 'bookings-archive': return <BookingsArchive />;
       case 'general-archive': return <GeneralArchive />;
+      
+      // Admin Tools
+      case 'data-import': return <DataImport />;
       
       default: return <Dashboard />;
     }
