@@ -603,33 +603,94 @@ export const paymentsService = {
  * EXPENSES SERVICE
  */
 export const expensesService = {
-  async getAll() {
+  async getAll(): Promise<Expense[]> {
     const { data, error } = await supabase
       .from('expenses')
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Map database fields to frontend fields
+    return (data || []).map(exp => ({
+      id: exp.id,
+      date: exp.expense_date,
+      description: exp.description,
+      amount: exp.amount,
+      categoryId: exp.category_id,
+      projectId: exp.project_id,
+      accountId: exp.account_id,
+      vendorId: exp.vendor_id,
+      transactionId: exp.transaction_id,
+    }));
   },
 
   async create(expense: Omit<Expense, 'id'>) {
     const id = `expense_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Convert camelCase to snake_case for database
+    const dbExpense = {
+      id,
+      expense_date: expense.date,
+      description: expense.description,
+      amount: expense.amount,
+      category_id: expense.categoryId,
+      project_id: expense.projectId || null,
+      account_id: expense.accountId,
+      vendor_id: expense.vendorId || null,
+      transaction_id: expense.transactionId || null,
+    };
+    
     const { data, error } = await supabase
       .from('expenses')
-      .insert([{ ...expense, id }])
+      .insert([dbExpense])
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    const exp = data?.[0];
+    return exp ? {
+      id: exp.id,
+      date: exp.expense_date,
+      description: exp.description,
+      amount: exp.amount,
+      categoryId: exp.category_id,
+      projectId: exp.project_id,
+      accountId: exp.account_id,
+      vendorId: exp.vendor_id,
+      transactionId: exp.transaction_id,
+    } : null;
   },
 
   async update(id: string, expense: Partial<Expense>) {
+    // Convert camelCase to snake_case for database
+    const dbUpdate: any = {};
+    if (expense.date !== undefined) dbUpdate.expense_date = expense.date;
+    if (expense.description !== undefined) dbUpdate.description = expense.description;
+    if (expense.amount !== undefined) dbUpdate.amount = expense.amount;
+    if (expense.categoryId !== undefined) dbUpdate.category_id = expense.categoryId;
+    if (expense.projectId !== undefined) dbUpdate.project_id = expense.projectId;
+    if (expense.accountId !== undefined) dbUpdate.account_id = expense.accountId;
+    if (expense.vendorId !== undefined) dbUpdate.vendor_id = expense.vendorId;
+    if (expense.transactionId !== undefined) dbUpdate.transaction_id = expense.transactionId;
+    
     const { data, error } = await supabase
       .from('expenses')
-      .update(expense)
+      .update(dbUpdate)
       .eq('id', id)
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    const exp = data?.[0];
+    return exp ? {
+      id: exp.id,
+      date: exp.expense_date,
+      description: exp.description,
+      amount: exp.amount,
+      categoryId: exp.category_id,
+      projectId: exp.project_id,
+      accountId: exp.account_id,
+      vendorId: exp.vendor_id,
+      transactionId: exp.transaction_id,
+    } : null;
   },
 
   async delete(id: string) {
