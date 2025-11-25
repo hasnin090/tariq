@@ -654,9 +654,14 @@ export const expensesService = {
       .insert([dbExpense])
       .select();
     if (error) {
-      console.error('Supabase error creating expense:', error);
-      console.error('Attempted to insert:', dbExpense);
-      throw error;
+      console.error('❌ Supabase error creating expense:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      console.error('📝 Attempted to insert:', JSON.stringify(dbExpense, null, 2));
+      throw new Error(`${error.message} (Code: ${error.code})`);
     }
     
     const exp = data?.[0];
