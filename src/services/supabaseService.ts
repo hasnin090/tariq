@@ -635,6 +635,7 @@ export const expensesService = {
 
   async create(expense: Omit<Expense, 'id'>) {
     const id = generateUniqueId('expense');
+    console.log('Generated expense ID:', id);
     
     // Convert camelCase to snake_case for database
     const dbExpense = {
@@ -664,6 +665,7 @@ export const expensesService = {
       projectId: exp.project_id,
       accountId: exp.account_id,
       vendorId: exp.vendor_id,
+      transactionId: expense.transactionId, // Keep from input for frontend use
     } : null;
   },
 

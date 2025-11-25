@@ -159,6 +159,7 @@ export interface Expense {
     projectId?: string;
     documents?: SaleDocument[];
     accountId: string;
+    transactionId?: string; // Used for linking, but not stored in expenses table
     deferredPaymentInstallmentId?: string;
     employeeId?: string;
 }
