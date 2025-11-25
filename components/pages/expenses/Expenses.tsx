@@ -402,7 +402,7 @@ export const Expenses: React.FC = () => {
                                 {paginatedExpenses.map(exp => (
                                     <tr key={exp.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                         {visibleColumns.date && <td className="p-4 text-slate-600 dark:text-slate-300">{exp.date}</td>}
-                                        {visibleColumns.description && <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{exp.description}</td>}
+                                        {visibleColumns.description && <td className="p-4 font-medium text-slate-800 dark:text-slate-100"><div className="max-w-xs truncate" title={exp.description}>{exp.description}</div></td>}
                                         {visibleColumns.category && <td className="p-4 text-slate-600 dark:text-slate-300">{categories.find(c=>c.id === exp.categoryId)?.name || '-'}</td>}
                                         {visibleColumns.project && <td className="p-4 text-slate-600 dark:text-slate-300">{projects.find(p=>p.id === exp.projectId)?.name || '-'}</td>}
                                         {visibleColumns.amount && <td className="p-4 font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(exp.amount)}</td>}
@@ -564,7 +564,7 @@ const Pagination: React.FC<{
     const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
     return (
-        <nav className="flex justify-center items-center gap-2 mt-6 p-4" aria-label="Pagination">
+        <nav className="flex flex-wrap justify-center items-center gap-2 mt-6 p-4" aria-label="Pagination">
             <button
                 onClick={() => onPageChange(currentPage - 1)}
                 disabled={currentPage === 1}
