@@ -2,6 +2,16 @@ import { supabase } from '../lib/supabase';
 import { Customer, Unit, Booking, Payment, Expense, Transaction, Employee, UnitSaleRecord, Project, Vendor, ExpenseCategory, Account, User, UnitType, UnitStatus, Document } from '../../types';
 
 /**
+ * HELPER: Generate unique ID
+ */
+const generateUniqueId = (prefix: string): string => {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 15);
+  const counter = Math.floor(Math.random() * 10000);
+  return `${prefix}_${timestamp}_${random}_${counter}`;
+};
+
+/**
  * USERS SERVICE
  */
 export const usersService = {
@@ -26,7 +36,7 @@ export const usersService = {
 
   async create(user: Omit<User, 'id'>) {
     // Generate unique ID for user
-    const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('user');
     
     const { data, error } = await supabase
       .from('users')
@@ -74,7 +84,7 @@ export const customersService = {
   },
 
   async create(customer: Omit<Customer, 'id'>) {
-    const id = `customer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('customer');
     const { data, error } = await supabase
       .from('customers')
       .insert([{ ...customer, id }])
@@ -138,7 +148,7 @@ export const unitsService = {
   },
 
   async create(unit: Omit<Unit, 'id'>) {
-    const id = `unit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('unit');
     
     // Transform camelCase to snake_case for database
     const dbUnit: any = {
@@ -247,7 +257,7 @@ export const bookingsService = {
   },
 
   async create(booking: Omit<Booking, 'id'>) {
-    const id = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('booking');
     
     // Transform to snake_case for database
     const dbData = {
@@ -479,7 +489,7 @@ export const paymentsService = {
   },
 
   async create(payment: Omit<Payment, 'id' | 'remainingAmount'>) {
-    const id = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('payment');
     
     // Only insert columns that exist in payments table
     const dbData = {
@@ -624,7 +634,7 @@ export const expensesService = {
   },
 
   async create(expense: Omit<Expense, 'id'>) {
-    const id = `expense_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('expense');
     
     // Convert camelCase to snake_case for database
     const dbExpense = {
@@ -735,7 +745,7 @@ export const transactionsService = {
   },
 
   async create(transaction: Omit<Transaction, 'id'>) {
-    const id = `transaction_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('transaction');
     // Convert camelCase to snake_case
     const dbTransaction = {
       id,
@@ -816,7 +826,7 @@ export const unitSalesService = {
   },
 
   async create(sale: Omit<UnitSaleRecord, 'id'>) {
-    const id = `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('sale');
     const { data, error } = await supabase
       .from('unit_sales')
       .insert([{ ...sale, id }])
@@ -899,7 +909,7 @@ export const projectsService = {
   },
 
   async create(project: Omit<Project, 'id'>) {
-    const id = `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('project');
     const { data, error } = await supabase
       .from('projects')
       .insert([{ ...project, id }])
@@ -1044,7 +1054,7 @@ export const expenseCategoriesService = {
   },
 
   async create(item: Omit<ExpenseCategory, 'id'>) {
-    const id = `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('cat');
     const { data, error } = await supabase
       .from('expense_categories')
       .insert([{ ...item, id }])
@@ -1193,7 +1203,7 @@ export const documentsService = {
     }
 
     // 2. Create a record in the 'documents' table
-    const id = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('doc');
     const { data, error: dbError } = await supabase
       .from('documents')
       .insert({
@@ -1288,7 +1298,7 @@ export const accountsService = {
 
   async create(account: Omit<Account, 'id'>) {
     // Generate unique ID
-    const id = `account_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = generateUniqueId('account');
     
     const { data, error } = await supabase
       .from('accounts')
