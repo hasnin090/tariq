@@ -1209,7 +1209,7 @@ export const documentsService = {
  * ACCOUNTS SERVICE
  */
 export const accountsService = {
-  async getAll() {
+  async getAll(): Promise<Account[]> {
     const { data, error } = await supabase
       .from('accounts')
       .select('*')
@@ -1220,7 +1220,14 @@ export const accountsService = {
       return [];
     }
     if (error) throw error;
-    return data || [];
+    
+    // Map database fields to frontend fields
+    return (data || []).map(acc => ({
+      id: acc.id,
+      name: acc.name,
+      type: acc.account_type as 'Bank' | 'Cash',
+      initialBalance: acc.balance || 0,
+    }));
   },
 
   async create(account: Omit<Account, 'id'>) {
@@ -1229,24 +1236,46 @@ export const accountsService = {
     
     const { data, error } = await supabase
       .from('accounts')
-      .insert([{ ...account, id }])
+      .insert([{ 
+        id,
+        name: account.name,
+        account_type: account.type,
+        balance: account.initialBalance || 0,
+      }])
       .select()
       .single();
     
     if (error) throw error;
-    return data;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      type: data.account_type as 'Bank' | 'Cash',
+      initialBalance: data.balance || 0,
+    };
   },
 
   async update(id: string, updates: Partial<Account>) {
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.type !== undefined) dbUpdates.account_type = updates.type;
+    if (updates.initialBalance !== undefined) dbUpdates.balance = updates.initialBalance;
+    
     const { data, error } = await supabase
       .from('accounts')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single();
     
     if (error) throw error;
-    return data;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      type: data.account_type as 'Bank' | 'Cash',
+      initialBalance: data.balance || 0,
+    };
   },
 
   async delete(id: string) {

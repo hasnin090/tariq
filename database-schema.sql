@@ -70,6 +70,11 @@ CREATE TABLE public.accounts (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- إدراج حسابات افتراضية
+INSERT INTO public.accounts (id, name, account_type, balance, description) VALUES
+('account_default_cash', 'خزينة المكتب', 'Cash', 0, 'الحساب النقدي الرئيسي للمكتب'),
+('account_default_bank', 'الحساب البنكي', 'Bank', 0, 'الحساب البنكي الرئيسي');
+
 -- ============================================================================
 -- 4. جدول المعاملات (Transactions)
 -- ============================================================================
