@@ -82,12 +82,12 @@ CREATE TABLE public.transactions (
     id TEXT PRIMARY KEY,
     account_id TEXT REFERENCES public.accounts(id) ON DELETE CASCADE,
     account_name TEXT,
-    type TEXT NOT NULL CHECK (type IN ('Income', 'Expense', 'Transfer')),
+    type TEXT NOT NULL CHECK (type IN ('Income', 'Expense', 'Transfer', 'Deposit', 'Withdrawal')),
     date DATE NOT NULL,
     description TEXT,
     amount DECIMAL(15, 2) NOT NULL,
     source_id TEXT,
-    source_type TEXT CHECK (source_type IN ('expense', 'payment', 'sale', 'booking', 'transfer', 'adjustment')),
+    source_type TEXT CHECK (source_type IN ('Expense', 'Payment', 'Sale', 'Booking', 'Transfer', 'Manual', 'Salary', 'Deferred Payment', 'expense', 'payment', 'sale', 'booking', 'transfer', 'adjustment')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
