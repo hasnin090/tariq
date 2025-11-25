@@ -304,9 +304,9 @@ const DataImport: React.FC = () => {
                 date: record.expense_date || new Date().toISOString().split('T')[0],
                 description: record.description || '',
                 amount: record.amount || 0,
-                categoryId: record.category_id || '',
-                projectId: record.project_id,
-                accountId: '',
+                categoryId: record.category_id || null,
+                projectId: record.project_id || null,
+                accountId: record.account_id || null,
               });
               break;
             case 'customers':
@@ -322,15 +322,15 @@ const DataImport: React.FC = () => {
                 type: record.type || '',
                 status: record.status || 'متاح',
                 price: record.price || 0,
-                projectId: record.project_id,
+                projectId: record.project_id || null,
               });
               break;
             case 'payments':
               await paymentsService.create({
                 amount: record.amount || 0,
                 paymentDate: record.payment_date || new Date().toISOString().split('T')[0],
-                bookingId: record.booking_id || '',
-                customerId: record.customer_id,
+                bookingId: record.booking_id || null,
+                customerId: record.customer_id || null,
                 unitPrice: 0,
               });
               break;
