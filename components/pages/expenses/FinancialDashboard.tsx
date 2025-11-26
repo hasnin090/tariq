@@ -4,15 +4,27 @@ import { formatCurrency } from '../../../utils/currencyFormatter';
 // FIX: Replaced non-existent PresentationChartLineIcon with ChartBarIcon.
 import { TrendingUpIcon, ScaleIcon, BanknotesIcon, ChartBarIcon } from '../../shared/Icons';
 
-const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-start border border-slate-200 dark:border-slate-700">
-        <div className={`p-3 rounded-full ${color}`}>
-            {/* FIX: Corrected React.cloneElement call by providing a generic type argument `<{ className: string }>` to resolve a TypeScript error where the `className` prop was not recognized on the cloned icon element. */}
-            {React.cloneElement<{ className: string }>(icon, { className: "h-7 w-7 text-white"})}
-        </div>
-        <div className="mr-4">
-            <p className="text-slate-600 dark:text-slate-300 font-semibold">{title}</p>
-            <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
+const StatCard: React.FC<{ 
+    title: string; 
+    value: string | number; 
+    icon: React.ReactElement; 
+    color: string;
+    bgGradient: string;
+    iconBg: string;
+}> = ({ title, value, icon, color, bgGradient, iconBg }) => (
+    <div className={`group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 ${bgGradient} p-[1px]`}>
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-6 h-full">
+            <div className="flex items-start justify-between mb-4">
+                <div className={`${iconBg} p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform duration-300`}>
+                    {React.cloneElement<{ className: string }>(icon, { className: "h-6 w-6 text-white"})}
+                </div>
+            </div>
+            <div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium mb-1">{title}</p>
+                <p className={`text-2xl md:text-3xl font-bold ${color} break-words`}>{value}</p>
+            </div>
+            <div className={`absolute bottom-0 left-0 right-0 h-1 ${bgGradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300`}></div>
         </div>
     </div>
 );
@@ -310,13 +322,46 @@ const FinancialDashboard: React.FC = () => {
 
     return (
         <div className="container mx-auto">
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">ملخص الأداء المالي</h2>
+            <div className="mb-8">
+                <h2 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                    ملخص الأداء المالي
+                </h2>
+                <p className="text-slate-600 dark:text-slate-400">نظرة شاملة على الإيرادات والمصروفات</p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard title="إجمالي الإيرادات" value={formatCurrency(kpiData.totalRevenue)} icon={<TrendingUpIcon />} color="bg-primary-500" />
-                <StatCard title="إجمالي المصروفات" value={formatCurrency(kpiData.totalExpenses)} icon={<ScaleIcon />} color="bg-rose-500" />
-                <StatCard title="صافي الدخل" value={formatCurrency(kpiData.netIncome)} icon={<BanknotesIcon />} color="bg-emerald-500" />
-                <StatCard title="عدد الحركات المالية" value={kpiData.totalTransactions} icon={<ChartBarIcon />} color="bg-blue-500" />
+                <StatCard 
+                    title="إجمالي الإيرادات" 
+                    value={formatCurrency(kpiData.totalRevenue)} 
+                    icon={<TrendingUpIcon />} 
+                    color="text-emerald-600 dark:text-emerald-400"
+                    bgGradient="bg-gradient-to-br from-emerald-400 to-teal-500"
+                    iconBg="bg-gradient-to-br from-emerald-500 to-teal-600"
+                />
+                <StatCard 
+                    title="إجمالي المصروفات" 
+                    value={formatCurrency(kpiData.totalExpenses)} 
+                    icon={<ScaleIcon />} 
+                    color="text-rose-600 dark:text-rose-400"
+                    bgGradient="bg-gradient-to-br from-rose-400 to-pink-500"
+                    iconBg="bg-gradient-to-br from-rose-500 to-pink-600"
+                />
+                <StatCard 
+                    title="صافي الدخل" 
+                    value={formatCurrency(kpiData.netIncome)} 
+                    icon={<BanknotesIcon />} 
+                    color="text-blue-600 dark:text-blue-400"
+                    bgGradient="bg-gradient-to-br from-blue-400 to-indigo-500"
+                    iconBg="bg-gradient-to-br from-blue-500 to-indigo-600"
+                />
+                <StatCard 
+                    title="عدد الحركات المالية" 
+                    value={kpiData.totalTransactions} 
+                    icon={<ChartBarIcon />} 
+                    color="text-purple-600 dark:text-purple-400"
+                    bgGradient="bg-gradient-to-br from-purple-400 to-fuchsia-500"
+                    iconBg="bg-gradient-to-br from-purple-500 to-fuchsia-600"
+                />
             </div>
 
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
