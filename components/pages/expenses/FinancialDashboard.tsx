@@ -182,6 +182,17 @@ const FinancialDashboard: React.FC = () => {
         const netIncome = totalRevenue - totalExpenses;
         const profitMargin = totalRevenue > 0 ? ((netIncome / totalRevenue) * 100).toFixed(1) + '%' : '0%';
         const totalTransactions = expenses.length;
+        
+        console.log('📊 KPI Calculations:', {
+            salesCount: sales.length,
+            paymentsCount: payments.length,
+            expensesCount: expenses.length,
+            totalRevenue,
+            totalExpenses,
+            netIncome,
+            totalTransactions
+        });
+        
         return { totalRevenue, totalExpenses, netIncome, profitMargin, totalTransactions };
     }, [sales, payments, expenses]);
 
