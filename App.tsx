@@ -27,7 +27,7 @@ import GeneralArchive from './components/pages/GeneralArchive';
 import DataImport from './components/pages/DataImport';
 
 // Expenses Interface Pages
-import ExpenseDashboard from './components/pages/expenses/ExpenseDashboard';
+import FinancialDashboard from './components/pages/expenses/FinancialDashboard';
 import { Expenses } from './components/pages/expenses/Expenses';
 import Treasury from './components/pages/expenses/Treasury';
 import DeferredPayments from './components/pages/expenses/DeferredPayments';
@@ -84,7 +84,7 @@ const App: React.FC = () => {
       case 'financial-summary': return <FinancialSummary />;
       
       // Expenses
-      case 'expense_dashboard': return <ExpenseDashboard />;
+      case 'expense_dashboard': return <FinancialDashboard />;
       case 'expenses': return <Expenses />;
       case 'treasury': return <Treasury />;
       case 'deferred-payments': return <DeferredPayments />;
