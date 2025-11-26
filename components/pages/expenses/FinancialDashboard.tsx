@@ -145,6 +145,7 @@ const FinancialDashboard: React.FC = () => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
+                console.log('🔄 Fetching financial data...');
                 const { unitSalesService, paymentsService, expensesService, expenseCategoriesService } = await import('../../../src/services/supabaseService');
                 
                 const [salesData, paymentsData, expensesData, categoriesData] = await Promise.all([
@@ -154,12 +155,19 @@ const FinancialDashboard: React.FC = () => {
                     expenseCategoriesService.getAll()
                 ]);
                 
+                console.log('✅ Financial data loaded:', {
+                    sales: salesData.length,
+                    payments: paymentsData.length,
+                    expenses: expensesData.length,
+                    categories: categoriesData.length
+                });
+                
                 setSales(salesData);
                 setPayments(paymentsData);
                 setExpenses(expensesData);
                 setExpenseCategories(categoriesData);
             } catch (error) {
-                console.error('Error fetching financial data:', error);
+                console.error('❌ Error fetching financial data:', error);
             } finally {
                 setIsLoading(false);
             }
@@ -224,16 +232,30 @@ const FinancialDashboard: React.FC = () => {
     const revenueSourcesData = useMemo(() => {
         const totalFromSales = sales.reduce((sum, s) => sum + s.finalSalePrice, 0);
         const totalFromPayments = payments.reduce((sum, p) => sum + p.amount, 0);
+        
+        // Return data with at least 1 IQD if both are zero to show chart structure
+        if (totalFromSales === 0 && totalFromPayments === 0) {
+            return [
+                { label: "المبيعات", value: 1, color: "#14b8a6"},
+                { label: "الدفعات", value: 1, color: "#5eead4"},
+            ];
+        }
+        
         return [
-            { label: "المبيعات", value: totalFromSales, color: "#14b8a6"},
-            { label: "الدفعات", value: totalFromPayments, color: "#5eead4"},
+            { label: "المبيعات", value: totalFromSales || 1, color: "#14b8a6"},
+            { label: "الدفعات", value: totalFromPayments || 1, color: "#5eead4"},
         ];
     }, [sales, payments]);
 
     const expenseBreakdownData = useMemo(() => {
+        if (expenses.length === 0) {
+            return [{ label: "لا توجد بيانات", value: 1, color: "#64748b" }];
+        }
+        
         const byCategory: { [key:string]: number } = {};
         expenses.forEach(e => {
-            byCategory[e.categoryId] = (byCategory[e.categoryId] || 0) + e.amount;
+            const catId = e.categoryId || 'uncategorized';
+            byCategory[catId] = (byCategory[catId] || 0) + e.amount;
         });
 
         const sorted = Object.entries(byCategory).sort((a,b) => b[1] - a[1]);
@@ -248,7 +270,7 @@ const FinancialDashboard: React.FC = () => {
         }));
         if(other > 0) data.push({ label: "أخرى", value: other, color: colors[4] });
         
-        return data;
+        return data.length > 0 ? data : [{ label: "لا توجد بيانات", value: 1, color: "#64748b" }];
     }, [expenses, expenseCategories]);
 
 
