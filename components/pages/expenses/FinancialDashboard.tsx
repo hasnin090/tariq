@@ -139,12 +139,33 @@ const FinancialDashboard: React.FC = () => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        setSales(JSON.parse(localStorage.getItem('unitSales') || '[]'));
-        setPayments(JSON.parse(localStorage.getItem('payments') || '[]'));
-        setExpenses(JSON.parse(localStorage.getItem('expenses') || '[]'));
-        setExpenseCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
+        const fetchData = async () => {
+            try {
+                setIsLoading(true);
+                const { unitSalesService, paymentsService, expensesService, expenseCategoriesService } = await import('../../../src/services/supabaseService');
+                
+                const [salesData, paymentsData, expensesData, categoriesData] = await Promise.all([
+                    unitSalesService.getAll(),
+                    paymentsService.getAll(),
+                    expensesService.getAll(),
+                    expenseCategoriesService.getAll()
+                ]);
+                
+                setSales(salesData);
+                setPayments(paymentsData);
+                setExpenses(expensesData);
+                setExpenseCategories(categoriesData);
+            } catch (error) {
+                console.error('Error fetching financial data:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        
+        fetchData();
     }, []);
 
     const kpiData = useMemo(() => {
@@ -152,7 +173,8 @@ const FinancialDashboard: React.FC = () => {
         const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
         const netIncome = totalRevenue - totalExpenses;
         const profitMargin = totalRevenue > 0 ? ((netIncome / totalRevenue) * 100).toFixed(1) + '%' : '0%';
-        return { totalRevenue, totalExpenses, netIncome, profitMargin };
+        const totalTransactions = expenses.length;
+        return { totalRevenue, totalExpenses, netIncome, profitMargin, totalTransactions };
     }, [sales, payments, expenses]);
 
     const monthlyChartData = useMemo(() => {
@@ -230,6 +252,17 @@ const FinancialDashboard: React.FC = () => {
     }, [expenses, expenseCategories]);
 
 
+    if (isLoading) {
+        return (
+            <div className="container mx-auto flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                    <p className="text-slate-600 dark:text-slate-400">جاري تحميل البيانات المالية...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="container mx-auto">
             <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">ملخص الأداء المالي</h2>
@@ -238,7 +271,7 @@ const FinancialDashboard: React.FC = () => {
                 <StatCard title="إجمالي الإيرادات" value={formatCurrency(kpiData.totalRevenue)} icon={<TrendingUpIcon />} color="bg-primary-500" />
                 <StatCard title="إجمالي المصروفات" value={formatCurrency(kpiData.totalExpenses)} icon={<ScaleIcon />} color="bg-rose-500" />
                 <StatCard title="صافي الدخل" value={formatCurrency(kpiData.netIncome)} icon={<BanknotesIcon />} color="bg-emerald-500" />
-                <StatCard title="هامش الربح" value={kpiData.profitMargin} icon={<ChartBarIcon />} color="bg-blue-500" />
+                <StatCard title="عدد الحركات المالية" value={kpiData.totalTransactions} icon={<ChartBarIcon />} color="bg-blue-500" />
             </div>
 
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6">

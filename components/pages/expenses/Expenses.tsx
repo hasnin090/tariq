@@ -221,6 +221,10 @@ export const Expenses: React.FC = () => {
         return filteredExpenses.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     }, [currentPage, filteredExpenses]);
 
+    const totalExpensesAmount = useMemo(() => {
+        return filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    }, [filteredExpenses]);
+
 
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -404,7 +408,21 @@ export const Expenses: React.FC = () => {
     return (
         <div className="container mx-auto">
              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">الحركات المالية (المصروفات)</h2>
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">الحركات المالية (المصروفات)</h2>
+                    <div className="flex items-center gap-4 mt-2">
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                            العدد: <span className="font-bold text-primary-600 dark:text-primary-400">{filteredExpenses.length}</span>
+                            {filteredExpenses.length !== allExpenses.length && (
+                                <span className="mr-1 text-slate-500">من {allExpenses.length}</span>
+                            )}
+                        </p>
+                        <span className="text-slate-300 dark:text-slate-600">|</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                            المجموع: <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalExpensesAmount)}</span>
+                        </p>
+                    </div>
+                </div>
                 <div className="flex items-center gap-4">
                     <button onClick={() => setShowFilters(prev => !prev)} className="bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-semibold border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm flex items-center gap-2">
                         <FilterIcon className="h-5 w-5" />
