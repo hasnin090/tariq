@@ -447,7 +447,8 @@ export const Expenses: React.FC = () => {
              {filteredExpenses.length > 0 ? (
                 <>
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
-                        <table className="w-full text-right">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right min-w-[800px]">
                             <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
                                 {visibleColumns.date && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>}
                                 {visibleColumns.description && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوصف</th>}
@@ -490,6 +491,7 @@ export const Expenses: React.FC = () => {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                      {totalPages > 1 && (
                         <Pagination

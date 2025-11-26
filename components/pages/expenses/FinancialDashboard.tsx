@@ -157,7 +157,6 @@ const FinancialDashboard: React.FC = () => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                console.log('🔄 Fetching financial data...');
                 const { unitSalesService, paymentsService, expensesService, expenseCategoriesService } = await import('../../../src/services/supabaseService');
                 
                 const [salesData, paymentsData, expensesData, categoriesData] = await Promise.all([
@@ -167,27 +166,13 @@ const FinancialDashboard: React.FC = () => {
                     expenseCategoriesService.getAll()
                 ]);
                 
-                console.log('✅ Financial data loaded:', {
-                    sales: salesData.length,
-                    payments: paymentsData.length,
-                    expenses: expensesData.length,
-                    categories: categoriesData.length
-                });
-                
-                console.log('📦 Sample data:', {
-                    firstSale: salesData[0],
-                    firstPayment: paymentsData[0],
-                    firstExpense: expensesData[0]
-                });
-                
                 setSales(salesData);
                 setPayments(paymentsData);
                 setExpenses(expensesData);
                 setExpenseCategories(categoriesData);
             } catch (error) {
-                console.error('❌ Error fetching financial data:', error);
+                console.error('Error fetching financial data:', error);
             } finally {
-                console.log('🏁 Setting isLoading to false');
                 setIsLoading(false);
             }
         };
@@ -201,16 +186,6 @@ const FinancialDashboard: React.FC = () => {
         const netIncome = totalRevenue - totalExpenses;
         const profitMargin = totalRevenue > 0 ? ((netIncome / totalRevenue) * 100).toFixed(1) + '%' : '0%';
         const totalTransactions = expenses.length;
-        
-        console.log('📊 KPI Calculations:', {
-            salesCount: sales.length,
-            paymentsCount: payments.length,
-            expensesCount: expenses.length,
-            totalRevenue,
-            totalExpenses,
-            netIncome,
-            totalTransactions
-        });
         
         return { totalRevenue, totalExpenses, netIncome, profitMargin, totalTransactions };
     }, [sales, payments, expenses]);
@@ -304,10 +279,7 @@ const FinancialDashboard: React.FC = () => {
     }, [expenses, expenseCategories]);
 
 
-    console.log('🎨 Rendering FinancialDashboard, isLoading:', isLoading);
-
     if (isLoading) {
-        console.log('⏳ Showing loading state');
         return (
             <div className="container mx-auto flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
@@ -317,8 +289,6 @@ const FinancialDashboard: React.FC = () => {
             </div>
         );
     }
-
-    console.log('✨ Showing dashboard content with KPI:', kpiData);
 
     return (
         <div className="container mx-auto">
@@ -366,7 +336,11 @@ const FinancialDashboard: React.FC = () => {
 
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
                  <h3 className="font-bold text-xl text-slate-800 dark:text-slate-200 mb-4">الإيرادات مقابل المصروفات (آخر 6 أشهر)</h3>
-                 <LineChart data={monthlyChartData} />
+                 <div className="overflow-x-auto">
+                     <div className="min-w-[600px]">
+                         <LineChart data={monthlyChartData} />
+                     </div>
+                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

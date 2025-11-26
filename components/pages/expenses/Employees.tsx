@@ -257,7 +257,8 @@ const Employees: React.FC = () => {
             </div>
             {employees.length > 0 ? (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
-                    <table className="w-full text-right">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right min-w-[700px]">
                         <thead>
                             <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
                                 <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الاسم</th>
@@ -287,6 +288,7 @@ const Employees: React.FC = () => {
                             )})}
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 ) : (
                 <EmptyState Icon={UsersIcon} title="لا يوجد موظفين" message="ابدأ بإضافة بيانات الموظفين لتتمكن من إدارة شؤونهم ورواتبهم." actionButton={currentUser?.role === 'Admin' ? { text: 'إضافة موظف', onClick: () => handleOpenModal(null) } : undefined} />
