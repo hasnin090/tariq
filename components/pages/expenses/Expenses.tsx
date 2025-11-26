@@ -341,7 +341,11 @@ export const Expenses: React.FC = () => {
         if (expenseToDelete) {
             const expenseId = expenseToDelete.id;
             try {
-                // Start delete animation
+                // Close modal first
+                setExpenseToDelete(null);
+                
+                // Start delete animation after modal closes
+                await new Promise(resolve => setTimeout(resolve, 100));
                 setDeletingId(expenseId);
                 
                 // Wait for animation to complete
@@ -349,7 +353,6 @@ export const Expenses: React.FC = () => {
                 
                 // Optimistic update - remove from UI immediately
                 setAllExpenses(prev => prev.filter(exp => exp.id !== expenseId));
-                setExpenseToDelete(null);
                 
                 // First delete the associated transaction
                 if (expenseToDelete.transactionId) {
