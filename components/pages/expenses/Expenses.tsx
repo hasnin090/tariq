@@ -118,6 +118,8 @@ export const Expenses: React.FC = () => {
     const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
     const [viewingAttachment, setViewingAttachment] = useState<SaleDocument | null>(null);
     const [showFilters, setShowFilters] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [filters, setFilters] = useState({
         startDate: '',
         endDate: '',
@@ -248,8 +250,14 @@ export const Expenses: React.FC = () => {
     };
 
     const handleSave = async (expenseData: Omit<Expense, 'id'>) => {
+        setIsSaving(true);
         try {
             if (editingExpense) {
+                // Optimistic update
+                setAllExpenses(prev => prev.map(exp => 
+                    exp.id === editingExpense.id ? { ...exp, ...expenseData } : exp
+                ));
+                
                 // Remove documents field before updating expense (documents are stored separately)
                 const { documents, ...expenseDataWithoutDocs } = expenseData;
                 
@@ -268,8 +276,14 @@ export const Expenses: React.FC = () => {
             } else {
                 if (!expenseData.accountId) {
                     addToast('الحساب المحدد غير صالح.', 'error');
+                    setIsSaving(false);
                     return;
                 }
+                
+                // Optimistic update - add temporary expense immediately
+                const tempId = `temp_${Date.now()}`;
+                const tempExpense = { ...expenseData, id: tempId };
+                setAllExpenses(prev => [tempExpense, ...prev]);
                 
                 // Create transaction first to get its ID
                 const newTransaction = await transactionsService.create({
@@ -298,13 +312,24 @@ export const Expenses: React.FC = () => {
                 // Update transaction with the sourceId
                 await transactionsService.update(newTransaction.id, { sourceId: newExpense.id });
 
+                // Replace temp expense with real one
+                setAllExpenses(prev => prev.map(exp => 
+                    exp.id === tempId ? newExpense : exp
+                ));
+
                 addToast('تمت إضافة المصروف بنجاح.', 'success');
                 logActivity('Add Expense', `Added expense: ${newExpense.description}`);
             }
             handleCloseModal();
         } catch (error) {
             console.error('Error saving expense:', error);
+            // Remove temp expense on error
+            if (!editingExpense) {
+                setAllExpenses(prev => prev.filter(exp => !exp.id.startsWith('temp_')));
+            }
             addToast('فشل حفظ المصروف.', 'error');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -314,20 +339,33 @@ export const Expenses: React.FC = () => {
 
     const confirmDelete = async () => {
         if (expenseToDelete) {
+            const expenseId = expenseToDelete.id;
             try {
+                // Start delete animation
+                setDeletingId(expenseId);
+                
+                // Wait for animation to complete
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // Optimistic update - remove from UI immediately
+                setAllExpenses(prev => prev.filter(exp => exp.id !== expenseId));
+                setExpenseToDelete(null);
+                
                 // First delete the associated transaction
                 if (expenseToDelete.transactionId) {
                     await transactionsService.delete(expenseToDelete.transactionId);
                 }
                 // Then delete the expense
-                await expensesService.delete(expenseToDelete.id);
+                await expensesService.delete(expenseId);
                 
                 addToast('تم حذف المصروف بنجاح.', 'success');
                 logActivity('Delete Expense', `Deleted expense: ${expenseToDelete.description}`);
-                setExpenseToDelete(null);
             } catch (error) {
                 console.error('Error deleting expense:', error);
                 addToast('فشل حذف المصروف.', 'error');
+                // Revert on error - will be restored by subscription
+            } finally {
+                setDeletingId(null);
             }
         }
     };
@@ -400,7 +438,11 @@ export const Expenses: React.FC = () => {
                             </tr></thead>
                             <tbody>
                                 {paginatedExpenses.map(exp => (
-                                    <tr key={exp.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
+                                    <tr key={exp.id} className={`border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all duration-300 ${
+                                        deletingId === exp.id ? 'opacity-0 scale-95 bg-rose-50 dark:bg-rose-900/20' : 'opacity-100 scale-100'
+                                    } ${
+                                        exp.id.startsWith('temp_') ? 'animate-pulse bg-primary-50 dark:bg-primary-900/20' : ''
+                                    }`}>
                                         {visibleColumns.date && <td className="p-4 text-slate-600 dark:text-slate-300">{exp.date}</td>}
                                         {visibleColumns.description && <td className="p-4 font-medium text-slate-800 dark:text-slate-100"><div className="max-w-xs truncate" title={exp.description}>{exp.description}</div></td>}
                                         {visibleColumns.category && <td className="p-4 text-slate-600 dark:text-slate-300">{categories.find(c=>c.id === exp.categoryId)?.name || '-'}</td>}
@@ -452,7 +494,7 @@ export const Expenses: React.FC = () => {
                     />
                 )
             )}
-            {isModalOpen && <ExpensePanel expense={editingExpense} categories={categories} projects={projects} accounts={accounts} onClose={handleCloseModal} onSave={handleSave} />}
+            {isModalOpen && <ExpensePanel expense={editingExpense} categories={categories} projects={projects} accounts={accounts} onClose={handleCloseModal} onSave={handleSave} isSaving={isSaving} />}
             <ConfirmModal isOpen={!!expenseToDelete} onClose={() => setExpenseToDelete(null)} onConfirm={confirmDelete} title="تأكيد الحذف" message="هل أنت متأكد من حذف هذه الحركة المالية؟" />
             <AttachmentViewerModal document={viewingAttachment} onClose={() => setViewingAttachment(null)} />
         </div>
@@ -467,9 +509,10 @@ interface PanelProps {
     accounts: Account[];
     onClose: () => void;
     onSave: (data: Omit<Expense, 'id'>) => void;
+    isSaving: boolean;
 }
 
-const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, accounts, onClose, onSave }) => {
+const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, accounts, onClose, onSave, isSaving }) => {
     const { addToast } = useToast();
     const [formData, setFormData] = useState({
         date: expense?.date || new Date().toISOString().split('T')[0],
@@ -549,7 +592,7 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
                             )}
                         </div>
                     </div>
-                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold">إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm">حفظ</button></div>
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold" disabled={isSaving}>إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 justify-center" disabled={isSaving}>{isSaving ? <><svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>جاري الحفظ...</> : 'حفظ'}</button></div>
                 </form>
             </div>
         </div>
