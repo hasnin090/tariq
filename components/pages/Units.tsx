@@ -198,7 +198,6 @@ const Units: React.FC = () => {
                         </tbody>
                     </table>
                     </div>
-                    </div>
                 </div>
             ) : (
                 <EmptyState Icon={UnitsEmptyIcon} title="لا توجد وحدات" message="ابدأ بإضافة الوحدات العقارية الخاصة بك." actionButton={{ text: 'إضافة وحدة', onClick: () => handleOpenModal(null)}} />
