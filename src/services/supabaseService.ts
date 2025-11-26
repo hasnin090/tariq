@@ -827,13 +827,28 @@ export const transactionsService = {
  * UNIT SALES SERVICE
  */
 export const unitSalesService = {
-  async getAll() {
+  async getAll(): Promise<UnitSaleRecord[]> {
     const { data, error } = await supabase
       .from('unit_sales')
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Map database fields to frontend fields
+    return (data || []).map(sale => ({
+      id: sale.id,
+      unitId: sale.unit_id || '',
+      unitName: sale.unit_name || '',
+      customerId: sale.customer_id || '',
+      customerName: sale.customer_name || '',
+      salePrice: sale.sale_price || 0,
+      finalSalePrice: sale.final_sale_price || 0,
+      saleDate: sale.sale_date || '',
+      documents: sale.documents || [],
+      accountId: sale.account_id || '',
+      transactionId: sale.transaction_id,
+      projectId: sale.project_id,
+    }));
   },
 
   async create(sale: Omit<UnitSaleRecord, 'id'>) {
