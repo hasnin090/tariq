@@ -162,6 +162,12 @@ const FinancialDashboard: React.FC = () => {
                     categories: categoriesData.length
                 });
                 
+                console.log('📦 Sample data:', {
+                    firstSale: salesData[0],
+                    firstPayment: paymentsData[0],
+                    firstExpense: expensesData[0]
+                });
+                
                 setSales(salesData);
                 setPayments(paymentsData);
                 setExpenses(expensesData);
@@ -169,6 +175,7 @@ const FinancialDashboard: React.FC = () => {
             } catch (error) {
                 console.error('❌ Error fetching financial data:', error);
             } finally {
+                console.log('🏁 Setting isLoading to false');
                 setIsLoading(false);
             }
         };
@@ -285,7 +292,10 @@ const FinancialDashboard: React.FC = () => {
     }, [expenses, expenseCategories]);
 
 
+    console.log('🎨 Rendering FinancialDashboard, isLoading:', isLoading);
+
     if (isLoading) {
+        console.log('⏳ Showing loading state');
         return (
             <div className="container mx-auto flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
@@ -295,6 +305,8 @@ const FinancialDashboard: React.FC = () => {
             </div>
         );
     }
+
+    console.log('✨ Showing dashboard content with KPI:', kpiData);
 
     return (
         <div className="container mx-auto">
