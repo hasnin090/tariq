@@ -304,4 +304,31 @@
     z-index: 9999;
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
   }
+
+  /* Modal & Dialog Positioning */
+  .modal-safe-area {
+    padding-top: 5rem;
+    max-height: calc(100vh - 8rem);
+  }
+
+  /* Ensure modals don't get cut off on small screens */
+  @media (max-height: 600px) {
+    .modal-safe-area {
+      padding-top: 3rem;
+      max-height: calc(100vh - 4rem);
+    }
+  }
+
+  /* Smooth scrolling for modal content */
+  .modal-content-scroll {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Better modal backdrop blur on mobile */
+  @supports (backdrop-filter: blur(10px)) {
+    .modal-backdrop-enhanced {
+      backdrop-filter: blur(10px) saturate(180%);
+    }
+  }
 }

@@ -17,7 +17,7 @@ const AttachmentViewerModal: React.FC<{ document: SaleDocument | null, onClose: 
     const url = `data:${document.mimeType};base64,${document.content}`;
 
     return (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-60 flex justify-center items-center p-4 animate-drawer-overlay-show" onClick={onClose}>
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-60 flex justify-center items-center p-4 pt-20 animate-drawer-overlay-show" onClick={onClose}>
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col animate-fade-in-scale-up" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                     <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{document.name}</h2>
@@ -588,7 +588,7 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
     const selectStyle = `${inputStyle} bg-white dark:bg-slate-700`;
 
     return (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 animate-drawer-overlay-show" onClick={onClose}>
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 pt-20 animate-drawer-overlay-show" onClick={onClose}>
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl animate-fade-in-scale-up" onClick={e => e.stopPropagation()}>
                  <form onSubmit={handleSubmit} className="flex flex-col h-full">
                     <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start"><h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{expense ? 'تعديل' : 'إضافة'} حركة</h2><button type="button" onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"><CloseIcon className="h-6 w-6"/></button></div>

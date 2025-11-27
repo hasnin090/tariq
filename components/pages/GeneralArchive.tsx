@@ -292,7 +292,7 @@ const GeneralArchive: React.FC = () => {
 
             {/* Details Modal */}
             {showDetailsModal && selectedItem && (
-                <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4" onClick={() => setShowDetailsModal(false)}>
+                <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 pt-20" onClick={() => setShowDetailsModal(false)}>
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
                         <div className="p-6 border-b border-slate-200 dark:border-slate-700">
                             <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">تفاصيل العنصر المؤرشف</h3>

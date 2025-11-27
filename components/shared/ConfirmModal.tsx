@@ -49,8 +49,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex justify-center items-center p-4 no-print animate-fade-in" onClick={onClose}>
-      <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl border border-white/20 dark:border-slate-700/50 animate-scale-up" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex justify-center items-center p-4 no-print animate-fade-in pt-20" onClick={onClose}>
+      <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl border border-white/20 dark:border-slate-700/50 animate-scale-up my-16" onClick={e => e.stopPropagation()}>
         <div className="sm:flex sm:items-start">
           <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full ${iconColorClasses[variant]} sm:mx-0 sm:h-10 sm:w-10`}>
             <Icon />
