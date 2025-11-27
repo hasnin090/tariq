@@ -36,6 +36,7 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave }) =>
     const { addToast } = useToast();
     const [formData, setFormData] = useState({
         name: user?.name || '',
+        email: user?.email || '',
         role: user?.role || 'Sales',
         password: '',
         confirmPassword: '',
@@ -56,6 +57,16 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave }) =>
         e.preventDefault();
         if (!formData.name.trim() || !formData.role) {
             addToast('الاسم والدور حقول إلزامية.', 'error');
+            return;
+        }
+        if (!formData.email.trim()) {
+            addToast('البريد الإلكتروني مطلوب.', 'error');
+            return;
+        }
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+            addToast('الرجاء إدخال بريد إلكتروني صحيح.', 'error');
             return;
         }
         if (!isEditing && !formData.password) {
@@ -87,6 +98,7 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave }) =>
                     </div>
                     <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                         <input type="text" name="name" placeholder="الاسم الكامل" value={formData.name} onChange={handleChange} className={inputStyle} required />
+                        <input type="email" name="email" placeholder="البريد الإلكتروني" value={formData.email} onChange={handleChange} className={inputStyle} required />
                         <select name="role" value={formData.role} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
                             <option value="Sales">Sales</option>
                             <option value="Accounting">Accounting</option>
