@@ -14,15 +14,15 @@ const StatCard: React.FC<{
 }> = ({ title, value, icon, color, bgGradient, iconBg }) => (
     <div className={`group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 ${bgGradient} p-[1px]`}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-6 h-full">
+        <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 h-full">
             <div className="flex items-start justify-between mb-4">
                 <div className={`${iconBg} p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform duration-300`}>
                     {React.cloneElement<{ className: string }>(icon, { className: "h-6 w-6 text-white"})}
                 </div>
             </div>
             <div>
-                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium mb-1">{title}</p>
-                <p className={`text-2xl md:text-3xl font-bold ${color} break-words`}>{value}</p>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium mb-1">{title}</p>
+                <p className={`text-xl sm:text-2xl md:text-3xl font-bold ${color} break-words`}>{value}</p>
             </div>
             <div className={`absolute bottom-0 left-0 right-0 h-1 ${bgGradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300`}></div>
         </div>

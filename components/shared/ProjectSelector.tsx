@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Project } from '../../types';
 import { BriefcaseIcon } from './Icons';
 
@@ -9,151 +9,222 @@ interface ProjectSelectorProps {
 }
 
 const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProject, onSelectProject }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     if (projects.length === 0) {
         return null;
     }
 
+    const filteredProjects = projects.filter(p => 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    const handleSelectProject = (project: Project | null) => {
+        onSelectProject(project);
+        setIsOpen(false);
+        setSearchTerm('');
+    };
+
     return (
-        <div className="mb-6">
+        <div className="mb-6" ref={dropdownRef}>
             <div className="flex items-center gap-2 mb-3">
                 <BriefcaseIcon className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">اختر المشروع</h3>
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">المشروع النشط</h3>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {/* زر جميع المشاريع */}
+            {/* Dropdown Selector */}
+            <div className="relative">
                 <button
-                    onClick={() => onSelectProject(null)}
-                    className={`group relative overflow-hidden rounded-xl p-4 transition-all duration-300 transform hover:scale-105 active:scale-95 ${
-                        !activeProject
-                            ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl shadow-emerald-500/30'
-                            : 'bg-white dark:bg-slate-800 hover:bg-gradient-to-br hover:from-emerald-50 hover:to-teal-50 dark:hover:from-emerald-900/20 dark:hover:to-teal-900/20 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700'
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`w-full flex items-center justify-between gap-3 p-4 rounded-xl transition-all duration-300 border-2 ${
+                        isOpen
+                            ? 'bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-900/30 dark:to-blue-900/30 border-primary-400 dark:border-primary-600 shadow-lg'
+                            : activeProject
+                            ? 'bg-gradient-to-br from-primary-500 to-blue-600 border-primary-500 shadow-lg shadow-primary-500/30 hover:shadow-xl'
+                            : 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-500 shadow-lg shadow-emerald-500/30 hover:shadow-xl'
                     }`}
                 >
-                    {/* Animated Background */}
-                    {!activeProject && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
-                    )}
-                    
-                    {/* Content */}
-                    <div className="relative z-10 flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                            !activeProject 
-                                ? 'bg-white/25 shadow-lg' 
-                                : 'bg-emerald-100 dark:bg-emerald-900/30 group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/50'
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                            isOpen
+                                ? 'bg-primary-100 dark:bg-primary-900/50'
+                                : 'bg-white/25 backdrop-blur-sm'
                         }`}>
-                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-colors duration-300 ${
-                                !activeProject 
-                                    ? 'text-white' 
-                                    : 'text-emerald-600 dark:text-emerald-400'
-                            }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                            </svg>
+                            {activeProject ? (
+                                <BriefcaseIcon className={`h-6 w-6 ${isOpen ? 'text-primary-600 dark:text-primary-400' : 'text-white'}`} />
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${isOpen ? 'text-emerald-600 dark:text-emerald-400' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                </svg>
+                            )}
                         </div>
                         
                         <div className="flex-1 text-right min-w-0">
-                            <p className={`font-bold text-sm transition-colors duration-300 ${
-                                !activeProject 
-                                    ? 'text-white' 
-                                    : 'text-slate-800 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-300'
+                            <p className={`font-bold text-base mb-1 truncate ${
+                                isOpen
+                                    ? 'text-slate-800 dark:text-slate-100'
+                                    : 'text-white'
                             }`}>
-                                جميع المشاريع
+                                {activeProject ? activeProject.name : 'جميع المشاريع'}
                             </p>
-                            <p className={`text-xs mt-0.5 transition-colors duration-300 ${
-                                !activeProject 
-                                    ? 'text-white/80' 
-                                    : 'text-slate-500 dark:text-slate-400 group-hover:text-emerald-600/80 dark:group-hover:text-emerald-400/80'
+                            <p className={`text-xs truncate ${
+                                isOpen
+                                    ? 'text-slate-600 dark:text-slate-400'
+                                    : 'text-white/90'
                             }`}>
-                                عرض كل البيانات
+                                {activeProject 
+                                    ? (activeProject.description || 'انقر للتبديل بين المشاريع')
+                                    : 'عرض جميع البيانات عبر كل المشاريع'
+                                }
                             </p>
                         </div>
                     </div>
                     
-                    {/* Active Indicator */}
-                    {!activeProject && (
-                        <div className="absolute top-2 left-2">
-                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {!isOpen && activeProject && (
+                            <span className="px-2 py-1 rounded-md bg-white/20 backdrop-blur-sm text-white text-xs font-semibold">
+                                نشط
+                            </span>
+                        )}
+                        <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            className={`h-5 w-5 transition-transform duration-300 ${
+                                isOpen 
+                                    ? 'rotate-180 text-primary-600 dark:text-primary-400' 
+                                    : 'text-white'
+                            }`}
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
                 </button>
 
-                {projects.map(project => {
-                    const isActive = activeProject?.id === project.id;
-                    
-                    return (
-                        <button
-                            key={project.id}
-                            onClick={() => onSelectProject(project)}
-                            className={`group relative overflow-hidden rounded-xl p-4 transition-all duration-300 transform hover:scale-105 active:scale-95 ${
-                                isActive
-                                    ? 'bg-gradient-to-br from-primary-500 to-blue-600 shadow-xl shadow-primary-500/30'
-                                    : 'bg-white dark:bg-slate-800 hover:bg-gradient-to-br hover:from-primary-50 hover:to-blue-50 dark:hover:from-primary-900/20 dark:hover:to-blue-900/20 border-2 border-slate-200 dark:border-slate-700 hover:border-primary-300 dark:hover:border-primary-700'
-                            }`}
-                        >
-                            {/* Animated Background */}
-                            {isActive && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
-                            )}
-                            
-                            {/* Content */}
-                            <div className="relative z-10 flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                                    isActive 
-                                        ? 'bg-white/25 shadow-lg' 
-                                        : 'bg-primary-100 dark:bg-primary-900/30 group-hover:bg-primary-200 dark:group-hover:bg-primary-900/50'
-                                }`}>
-                                    <BriefcaseIcon className={`h-5 w-5 transition-colors duration-300 ${
-                                        isActive 
-                                            ? 'text-white' 
-                                            : 'text-primary-600 dark:text-primary-400'
-                                    }`} />
-                                </div>
-                                
-                                <div className="flex-1 text-right min-w-0">
-                                    <p className={`font-bold text-sm truncate transition-colors duration-300 ${
-                                        isActive 
-                                            ? 'text-white' 
-                                            : 'text-slate-800 dark:text-slate-100 group-hover:text-primary-700 dark:group-hover:text-primary-300'
-                                    }`}>
-                                        {project.name}
-                                    </p>
-                                    {project.description && (
-                                        <p className={`text-xs truncate mt-0.5 transition-colors duration-300 ${
-                                            isActive 
-                                                ? 'text-white/80' 
-                                                : 'text-slate-500 dark:text-slate-400 group-hover:text-primary-600/80 dark:group-hover:text-primary-400/80'
-                                        }`}>
-                                            {project.description}
-                                        </p>
-                                    )}
-                                </div>
+                {/* Dropdown Menu */}
+                {isOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border-2 border-slate-200 dark:border-slate-700 z-50 overflow-hidden animate-fade-in-scale-up">
+                        {/* Search Bar */}
+                        <div className="p-3 border-b border-slate-200 dark:border-slate-700">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="ابحث عن مشروع..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 text-sm"
+                                    autoFocus
+                                />
+                                <svg xmlns="http://www.w3.org/2000/svg" className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
                             </div>
-                            
-                            {/* Active Indicator */}
-                            {isActive && (
-                                <div className="absolute top-2 left-2">
-                                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                        </div>
+
+                        {/* Projects List */}
+                        <div className="max-h-96 overflow-y-auto">
+                            {/* All Projects Option */}
+                            <button
+                                onClick={() => handleSelectProject(null)}
+                                className={`w-full flex items-center gap-3 p-4 transition-all duration-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 border-b border-slate-100 dark:border-slate-700 ${
+                                    !activeProject ? 'bg-emerald-50 dark:bg-emerald-900/30' : ''
+                                }`}
+                            >
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                    !activeProject 
+                                        ? 'bg-emerald-500 shadow-md' 
+                                        : 'bg-emerald-100 dark:bg-emerald-900/30'
+                                }`}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${!activeProject ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                    </svg>
+                                </div>
+                                <div className="flex-1 text-right">
+                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100">جميع المشاريع</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">عرض البيانات من كل المشاريع</p>
+                                </div>
+                                {!activeProject && (
+                                    <div className="flex-shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                )}
+                            </button>
+
+                            {/* Individual Projects */}
+                            {filteredProjects.length > 0 ? (
+                                filteredProjects.map((project) => {
+                                    const isActive = activeProject?.id === project.id;
+                                    return (
+                                        <button
+                                            key={project.id}
+                                            onClick={() => handleSelectProject(project)}
+                                            className={`w-full flex items-center gap-3 p-4 transition-all duration-200 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${
+                                                isActive ? 'bg-primary-50 dark:bg-primary-900/30' : ''
+                                            }`}
+                                        >
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                                isActive 
+                                                    ? 'bg-primary-500 shadow-md' 
+                                                    : 'bg-primary-100 dark:bg-primary-900/30'
+                                            }`}>
+                                                <BriefcaseIcon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-primary-600 dark:text-primary-400'}`} />
+                                            </div>
+                                            <div className="flex-1 text-right min-w-0">
+                                                <p className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{project.name}</p>
+                                                {project.description && (
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{project.description}</p>
+                                                )}
+                                            </div>
+                                            {isActive && (
+                                                <div className="flex-shrink-0">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary-500" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p className="text-sm font-semibold">لا توجد مشاريع مطابقة</p>
+                                    <p className="text-xs mt-1">جرب كلمات بحث مختلفة</p>
                                 </div>
                             )}
-                            
-                            {/* Hover Effect */}
-                            {!isActive && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-100/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                            )}
-                        </button>
-                    );
-                })}
-            </div>
-            
-            {/* Info Text */}
-            <div className="mt-3 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {activeProject ? (
-                    <span>عرض بيانات مشروع: <strong className="text-primary-600 dark:text-primary-400">{activeProject.name}</strong></span>
-                ) : (
-                    <span>عرض بيانات: <strong className="text-emerald-600 dark:text-emerald-400">جميع المشاريع</strong></span>
+                        </div>
+
+                        {/* Footer Info */}
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 dark:text-slate-400">
+                                    عدد المشاريع: <strong className="text-slate-700 dark:text-slate-300">{projects.length}</strong>
+                                </span>
+                                <span className="text-slate-500 dark:text-slate-400">
+                                    المعروض: <strong className="text-slate-700 dark:text-slate-300">{filteredProjects.length}</strong>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

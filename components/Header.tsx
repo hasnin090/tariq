@@ -324,7 +324,7 @@ const Header: React.FC<{
                         )}
                     </div>
 
-                    <div className="relative w-full max-w-xs" ref={searchRef}>
+                    <div className="relative w-full max-w-xs hidden sm:block" ref={searchRef}>
                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                            <SearchIcon />
                         </div>
@@ -406,7 +406,7 @@ const Header: React.FC<{
                              <div className="w-9 h-9 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white dark:ring-slate-800">
                                 {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'A'}
                             </div>
-                            <div className="hidden sm:block text-right">
+                            <div className="hidden md:block text-right">
                                 <span className="font-semibold text-slate-800 dark:text-slate-100 block leading-tight text-sm">{currentUser?.name}</span>
                                 {assignedProjectName ? (
                                      <span className="text-[10px] text-primary-600 dark:text-primary-400 font-medium flex items-center justify-end gap-1 leading-tight mt-0.5">

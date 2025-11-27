@@ -12,13 +12,15 @@ const NewStatCard: React.FC<{
   progressColor: string;
   progress: number;
 }> = ({ title, value, icon, description, borderColor, progressColor, progress }) => (
-    <div className={`p-6 rounded-2xl bg-white dark:bg-slate-800 border-t-4 ${borderColor}`}>
+    <div className={`p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-800 border-t-4 ${borderColor}`}>
         <div className="flex justify-between items-start">
-            <div className="flex flex-col">
-                <p className="text-slate-600 dark:text-slate-300 font-semibold">{title}</p>
-                <p className="text-3xl font-bold text-slate-900 dark:text-white">{value}</p>
+            <div className="flex flex-col min-w-0">
+                <p className="text-slate-600 dark:text-slate-300 font-semibold text-sm sm:text-base">{title}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white break-words">{value}</p>
             </div>
-            {icon}
+            <div className="flex-shrink-0 ml-2">
+                {icon}
+            </div>
         </div>
         <div className="mt-6">
             <div className="bg-slate-200 dark:bg-black/20 rounded-full h-1.5 w-full">

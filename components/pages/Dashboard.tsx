@@ -7,13 +7,13 @@ import { useProject } from '../../contexts/ProjectContext.tsx';
 import ProjectSelector from '../shared/ProjectSelector.tsx';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center border border-slate-200 dark:border-slate-700 min-w-0">
-        <div className={`p-4 rounded-full ${color} flex-shrink-0`}>
+    <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center border border-slate-200 dark:border-slate-700 min-w-0">
+        <div className={`p-3 sm:p-4 rounded-full ${color} flex-shrink-0`}>
             {icon}
         </div>
-        <div className="mr-4 flex-1 min-w-0">
-            <p className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 break-words">{value}</p>
-            <p className="text-sm text-slate-600 dark:text-slate-300">{title}</p>
+        <div className="mr-3 sm:mr-4 flex-1 min-w-0">
+            <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-slate-100 break-words">{value}</p>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">{title}</p>
         </div>
     </div>
 );
@@ -318,8 +318,10 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                     <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">اتجاه المبيعات والإيرادات</h3>
-                    <div className="h-96">
-                        <LineChart data={salesTrendData} />
+                    <div className="overflow-x-auto">
+                        <div className="h-96 min-w-[600px]">
+                            <LineChart data={salesTrendData} />
+                        </div>
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">

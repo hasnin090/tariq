@@ -1,5 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProject } from '../../contexts/ProjectContext';
 import { 
   expensesService, 
   customersService, 
@@ -9,6 +10,7 @@ import {
   vendorsService 
 } from '../../src/services/supabaseService';
 import { UploadIcon, DocumentTextIcon, CheckCircleIcon, XCircleIcon, RefreshIcon, EyeIcon } from '../shared/Icons';
+import ProjectSelector from '../shared/ProjectSelector';
 
 interface CSVData {
   headers: string[];
@@ -126,6 +128,7 @@ const ARABIC_COLUMN_MAPPINGS: Record<string, string[]> = {
 
 const DataImport: React.FC = () => {
   const { currentUser } = useAuth();
+  const { activeProject, availableProjects, setActiveProject } = useProject();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [step, setStep] = useState<'upload' | 'map' | 'preview' | 'result'>('upload');
@@ -305,7 +308,7 @@ const DataImport: React.FC = () => {
                 description: record.description || '',
                 amount: record.amount || 0,
                 categoryId: null, // Ignore category from CSV for now
-                projectId: null,  // Ignore project from CSV for now
+                projectId: activeProject?.id || null,  // Use selected project
                 accountId: null,  // Ignore account from CSV for now
               });
               break;
@@ -322,7 +325,7 @@ const DataImport: React.FC = () => {
                 type: record.type || '',
                 status: record.status || 'متاح',
                 price: record.price || 0,
-                projectId: record.project_id || null,
+                projectId: activeProject?.id || record.project_id || null,
               });
               break;
             case 'payments':
@@ -436,10 +439,27 @@ const DataImport: React.FC = () => {
         </div>
       </div>
 
+      {/* Project Selector */}
+      <ProjectSelector 
+        projects={availableProjects}
+        activeProject={activeProject}
+        onSelectProject={setActiveProject}
+      />
+
       {/* Step 1: Upload */}
       {step === 'upload' && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">1. اختر نوع البيانات</h2>
+          
+          {/* Project Info */}
+          {activeProject && (
+            <div className="mb-4 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
+              <p className="text-sm text-slate-700 dark:text-slate-300">
+                <span className="font-semibold">سيتم استيراد البيانات إلى مشروع:</span>{' '}
+                <span className="text-primary-600 dark:text-primary-400 font-bold">{activeProject.name}</span>
+              </p>
+            </div>
+          )}
           
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
             {IMPORT_TARGETS.map(target => (
