@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { data: user, error } = await supabase
         .from('users')
         .select('id, name, username, email, role, password')
-        .eq('username', username)
+        .eq('name', username)
         .single();
 
       if (error || !user) {
@@ -62,14 +62,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Add permissions based on role
       const userWithPermissions = {
         ...user,
-        permissions: user.role === 'Admin' 
+        permissions: user.role === 'Admin'
           ? { canView: true, canEdit: true, canDelete: true }
           : { canView: true, canEdit: false, canDelete: false }
       };
 
       setCurrentUser(userWithPermissions);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userWithPermissions));
-      
+
       return { error: null };
     } catch (error) {
       console.error('Login exception:', error);
@@ -80,7 +80,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signUp = async (username: string, password: string, name: string, role: 'Admin' | 'Sales' | 'Accounting') => {
     try {
       const { usersService } = await import('../src/services/supabaseService');
-      
+
       // Create new user
       const newUser = await usersService.create({
         name,
@@ -89,11 +89,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         password,
         email: undefined
       });
-      
+
       // Auto-login after signup
       setCurrentUser(newUser);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
-      
+
       return { error: null };
     } catch (error) {
       return { error: error as Error };
