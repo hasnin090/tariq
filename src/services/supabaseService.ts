@@ -78,6 +78,12 @@ export const usersService = {
     
     if (error) {
       console.error('Supabase create user error:', error);
+      
+      // Handle duplicate email error with user-friendly message
+      if (error.code === '23505' && error.message.includes('users_email_key')) {
+        throw new Error('البريد الإلكتروني مستخدم بالفعل. الرجاء استخدام بريد إلكتروني آخر.');
+      }
+      
       throw error;
     }
     

@@ -211,8 +211,10 @@ const Users: React.FC = () => {
             logActivity(isEditing ? 'Update User' : 'Add User', `User: ${userToSave.name}`);
             setIsModalOpen(false);
             setEditingUser(null);
-        } catch (error) {
-            addToast('فشل حفظ المستخدم.', 'error');
+        } catch (error: any) {
+            console.error('Error saving user:', error);
+            const errorMessage = error.message || 'فشل حفظ المستخدم.';
+            addToast(errorMessage, 'error');
         }
     };
 
