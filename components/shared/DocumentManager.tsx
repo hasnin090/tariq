@@ -118,56 +118,84 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto">
-          <div className="mb-6">
-            <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-3">رفع مستند جديد</h4>
-            <div className="flex flex-col sm:flex-row gap-3">
+        <div className="p-4 overflow-y-auto flex-1">
+          {/* Upload Section - Compact Design */}
+          <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600">
+            <div className="flex items-center gap-2">
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-slate-700 dark:file:text-slate-300 dark:hover:file:bg-slate-600"
+                className="hidden"
+                id="file-upload-input"
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
               />
+              <label
+                htmlFor="file-upload-input"
+                className="flex-1 flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-sm"
+              >
+                <UploadIcon className="h-4 w-4 text-slate-400" />
+                <span className="text-slate-600 dark:text-slate-400 truncate">
+                  {selectedFile ? selectedFile.name : 'اختر ملف للرفع...'}
+                </span>
+              </label>
               <button
                 onClick={handleUpload}
                 disabled={!selectedFile || isUploading}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 disabled:bg-primary-300 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-1.5 px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors text-sm"
               >
-                {isUploading ? <SpinnerIcon /> : <UploadIcon />}
-                <span>{isUploading ? 'جاري الرفع...' : 'رفع'}</span>
+                {isUploading ? (
+                  <>
+                    <SpinnerIcon className="h-4 w-4" />
+                    <span>جاري...</span>
+                  </>
+                ) : (
+                  <span>رفع</span>
+                )}
               </button>
             </div>
           </div>
 
+          {/* Documents List - Compact Design */}
           <div>
-            <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-3">المستندات المرفقة</h4>
-            <div className="min-h-[200px]">
-              {isLoading ? (
-                <div className="flex flex-col items-center justify-center p-8 gap-3">
-                  <SpinnerIcon className="text-primary-600" />
-                  <p className="text-slate-600 dark:text-slate-400 text-sm">جاري تحميل المستندات...</p>
-                </div>
-              ) : documents.length > 0 ? (
-              <ul className="space-y-2">
+            <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2 text-sm">المستندات المرفقة ({documents.length})</h4>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center p-6 gap-2">
+                <SpinnerIcon className="text-primary-600 h-6 w-6" />
+                <p className="text-slate-500 dark:text-slate-400 text-xs">جاري التحميل...</p>
+              </div>
+            ) : documents.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {documents.map(doc => (
-                  <li key={doc.id} className="flex justify-between items-center bg-slate-100 dark:bg-slate-700 p-3 rounded-lg">
+                  <div 
+                    key={doc.id} 
+                    className="group relative flex items-center gap-2 p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg hover:border-primary-400 dark:hover:border-primary-500 hover:shadow-sm transition-all"
+                  >
                     <button
                       onClick={() => setPreviewDocument(doc)}
-                      className="flex items-center gap-3 font-medium text-primary-600 hover:underline flex-1 text-right"
+                      className="flex items-center gap-2 flex-1 min-w-0 text-right"
                     >
-                      <FileIcon />
-                      <span>{doc.file_name}</span>
+                      <FileIcon mimeType={doc.file_type} />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-primary-600 dark:group-hover:text-primary-400">
+                        {doc.file_name}
+                      </span>
                     </button>
-                    <button onClick={() => handleDelete(doc)} className="text-rose-500 hover:text-rose-700 p-2 rounded-full hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors">
-                      <TrashIcon />
+                    <button 
+                      onClick={() => handleDelete(doc)} 
+                      className="opacity-0 group-hover:opacity-100 p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-all"
+                      title="حذف"
+                    >
+                      <TrashIcon className="h-4 w-4" />
                     </button>
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : (
-              <p className="text-center text-slate-500 dark:text-slate-400 py-8">لا توجد مستندات مرفقة لهذا العنصر.</p>
-              )}
-            </div>
+              <div className="text-center py-8 px-4">
+                <FileIcon className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-slate-400 dark:text-slate-500 text-sm">لا توجد مستندات مرفقة</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

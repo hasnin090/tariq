@@ -7,9 +7,10 @@ import ProjectSelector from '../shared/ProjectSelector';
 import { filterBookingsByProject } from '../../utils/projectFilters';
 import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
-import { bookingsService, unitsService, customersService, paymentsService, accountsService } from '../../src/services/supabaseService';
+import { bookingsService, unitsService, customersService, paymentsService, accountsService, documentsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
 import DocumentManager from '../shared/DocumentManager';
+import CompactDocumentUploader from '../shared/CompactDocumentUploader';
 import { CloseIcon, DocumentTextIcon, EditIcon } from '../shared/Icons';
 
 export const Bookings: React.FC = () => {
@@ -184,13 +185,13 @@ export const Bookings: React.FC = () => {
         }
     };
 
-    const handleSave = async (bookingData: Omit<Booking, 'id' | 'unitName' | 'customerName' | 'status'>) => {
+    const handleSave = async (bookingData: Omit<Booking, 'id' | 'unitName' | 'customerName' | 'status'>): Promise<Booking | undefined> => {
         try {
             const unit = units.find(u => u.id === bookingData.unitId);
             const customer = customers.find(c => c.id === bookingData.customerId);
             if (!unit || !customer) {
                 addToast('تأكد من اختيار وحدة وعميل صحيحة', 'error');
-                return;
+                return undefined;
             }
 
             // Convert camelCase to snake_case for database
@@ -207,6 +208,9 @@ export const Bookings: React.FC = () => {
                 await bookingsService.update(editingBooking.id, dbData as any);
                 logActivity('Update Booking', `Updated booking for ${customer.name}`);
                 addToast('تم تحديث الحجز بنجاح', 'success');
+                handleCloseModal();
+                await loadData();
+                return undefined;
             } else {
                 const newBooking = { 
                     ...dbData, 
@@ -224,9 +228,12 @@ export const Bookings: React.FC = () => {
                 // Note: amountPaid in booking is the first payment, no need to create separate payment record
                 
                 addToast('تم إضافة الحجز بنجاح', 'success');
+                handleCloseModal();
+                await loadData();
+                
+                // Return the created booking for document upload
+                return createdBooking;
             }
-            handleCloseModal();
-            await loadData();
         } catch (error) {
             console.error('Error saving booking:', error);
             addToast('خطأ في حفظ الحجز', 'error');
@@ -555,6 +562,7 @@ interface PanelProps { booking: Booking | null; units: Unit[]; customers: Custom
 
 const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, accounts, onClose, onSave }) => {
     const { addToast } = useToast();
+    const [uploadFiles, setUploadFiles] = useState<File[]>([]);
     const [formData, setFormData] = useState({
         unitId: booking?.unitId || '',
         customerId: booking?.customerId || '',
@@ -563,13 +571,28 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
         accountId: accounts.length > 0 ? accounts[0].id : '',
     });
     
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.unitId || !formData.customerId) {
             addToast('يرجى اختيار وحدة وعميل.', 'error');
             return;
         }
-        onSave(formData);
+        
+        // Save booking first
+        const savedBooking = await onSave(formData);
+        
+        // Upload documents if any and if booking is new
+        if (!booking && uploadFiles.length > 0 && savedBooking) {
+            try {
+                for (const file of uploadFiles) {
+                    await documentsService.upload(file, { booking_id: savedBooking.id });
+                }
+                addToast('تم رفع المستندات بنجاح', 'success');
+            } catch (error) {
+                console.error('Error uploading documents:', error);
+                addToast('تم حفظ الحجز لكن فشل رفع بعض المستندات', 'warning');
+            }
+        }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -612,6 +635,16 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
                                 <option value="">اختر حساب الدفع (اختياري)</option>
                                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
+                        )}
+                        
+                        {/* Document Upload Section - Only show for new bookings */}
+                        {!booking && (
+                            <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <CompactDocumentUploader 
+                                    onFilesChange={setUploadFiles}
+                                    maxFiles={5}
+                                />
+                            </div>
                         )}
                     </div>
                     <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4">
