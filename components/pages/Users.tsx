@@ -36,7 +36,7 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave }) =>
     const { addToast } = useToast();
     const [formData, setFormData] = useState({
         name: user?.name || '',
-        email: user?.email || '',
+        username: user?.username || '',
         role: user?.role || 'Sales',
         password: '',
         confirmPassword: '',
@@ -59,14 +59,14 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave }) =>
             addToast('الاسم والدور حقول إلزامية.', 'error');
             return;
         }
-        if (!formData.email.trim()) {
-            addToast('البريد الإلكتروني مطلوب.', 'error');
+        if (!formData.username.trim()) {
+            addToast('اسم المستخدم مطلوب.', 'error');
             return;
         }
-        // Basic email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData.email)) {
-            addToast('الرجاء إدخال بريد إلكتروني صحيح.', 'error');
+        // Username validation (only letters, numbers, underscore)
+        const usernameRegex = /^[a-zA-Z0-9_]+$/;
+        if (!usernameRegex.test(formData.username)) {
+            addToast('اسم المستخدم يجب أن يحتوي على حروف وأرقام و _ فقط.', 'error');
             return;
         }
         if (!isEditing && !formData.password) {
@@ -98,15 +98,20 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave }) =>
                     </div>
                     <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                         <input type="text" name="name" placeholder="الاسم الكامل" value={formData.name} onChange={handleChange} className={inputStyle} required />
-                        <input type="email" name="email" placeholder="البريد الإلكتروني" value={formData.email} onChange={handleChange} className={inputStyle} required />
+                        <input type="text" name="username" placeholder="اسم المستخدم (للدخول)" value={formData.username} onChange={handleChange} className={inputStyle} required disabled={isEditing} />
                         <select name="role" value={formData.role} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
                             <option value="Sales">Sales</option>
                             <option value="Accounting">Accounting</option>
                             <option value="Admin">Admin</option>
                         </select>
-                        <div className="grid grid-cols-2 gap-4">
-                            <input type="password" name="password" placeholder={isEditing ? 'كلمة مرور جديدة (اختياري)' : 'كلمة المرور'} value={formData.password} onChange={handleChange} className={inputStyle} />
-                            <input type="password" name="confirmPassword" placeholder="تأكيد كلمة المرور" value={formData.confirmPassword} onChange={handleChange} className={inputStyle} />
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">كلمة المرور {isEditing && '(اتركها فارغة إذا لم ترد التغيير)'}</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <input type="password" name="password" placeholder={isEditing ? 'كلمة مرور جديدة' : 'كلمة المرور'} value={formData.password} onChange={handleChange} className={inputStyle} />
+                                <input type="password" name="confirmPassword" placeholder="تأكيد كلمة المرور" value={formData.confirmPassword} onChange={handleChange} className={inputStyle} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 hidden">
                         </div>
                         {formData.role === 'Accounting' && (
                              <select name="assignedProjectId" value={formData.assignedProjectId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}>
@@ -189,7 +194,8 @@ const Users: React.FC = () => {
             // Only keep valid User properties
             const coreUserData: Omit<User, 'id'> = {
                 name: rest.name,
-                email: rest.email || '',
+                username: rest.username,
+                email: rest.email,
                 role: rest.role,
                 password: rest.password,
                 permissions: rest.permissions
@@ -198,8 +204,12 @@ const Users: React.FC = () => {
             let userToSave: User;
 
             if (isEditing) {
-                const newPassword = coreUserData.password ? coreUserData.password : editingUser.password;
-                userToSave = await usersService.update(editingUser.id, { ...coreUserData, password: newPassword });
+                // Admin can change password even during edit
+                const updateData = { ...coreUserData };
+                if (!updateData.password) {
+                    delete updateData.password; // Don't send empty password
+                }
+                userToSave = await usersService.update(editingUser.id, updateData);
             } else {
                 if (!coreUserData.password) {
                     addToast('كلمة المرور مطلوبة للمستخدمين الجدد.', 'error');

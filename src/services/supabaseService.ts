@@ -66,7 +66,8 @@ export const usersService = {
     // Only include valid database columns (permissions is not stored in DB, derived from role)
     const cleanUserData = {
       name: userWithoutPassword.name,
-      email: userWithoutPassword.email || '',
+      username: userWithoutPassword.username,
+      email: userWithoutPassword.email || null,
       role: userWithoutPassword.role
     };
     
@@ -79,9 +80,9 @@ export const usersService = {
     if (error) {
       console.error('Supabase create user error:', error);
       
-      // Handle duplicate email error with user-friendly message
-      if (error.code === '23505' && error.message.includes('users_email_key')) {
-        throw new Error('البريد الإلكتروني مستخدم بالفعل. الرجاء استخدام بريد إلكتروني آخر.');
+      // Handle duplicate username error
+      if (error.code === '23505' && error.message.includes('users_username_key')) {
+        throw new Error('اسم المستخدم مستخدم بالفعل. الرجاء اختيار اسم مختلف.');
       }
       
       throw error;
@@ -92,6 +93,33 @@ export const usersService = {
       ...data,
       permissions: permissions || { canView: true, canEdit: false, canDelete: false }
     };
+  },
+
+  async createPasswordResetNotification(username: string) {
+    // Find user by username
+    const { data: users, error: userError } = await supabase
+      .from('users')
+      .select('id, name')
+      .eq('username', username)
+      .single();
+    
+    if (userError || !users) {
+      throw new Error('اسم المستخدم غير موجود');
+    }
+
+    // Create notification
+    const notificationId = generateUniqueId('notification');
+    const { error } = await supabase
+      .from('notifications')
+      .insert([{
+        id: notificationId,
+        type: 'password_reset',
+        user_id: users.id,
+        username: username,
+        message: `طلب استعادة كلمة المرور من المستخدم: ${users.name} (@${username})`
+      }]);
+    
+    if (error) throw error;
   },
 
   async update(id: string, user: Partial<User>) {
@@ -117,6 +145,58 @@ export const usersService = {
   async delete(id: string) {
     const { error } = await supabase
       .from('users')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+};
+
+/**
+ * NOTIFICATIONS SERVICE
+ */
+export const notificationsService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getUnread() {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('is_read', false)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async markAsRead(id: string) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  async resolve(id: string, resolvedBy: string) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ 
+        is_read: true,
+        resolved_at: new Date().toISOString(),
+        resolved_by: resolvedBy
+      })
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('notifications')
       .delete()
       .eq('id', id);
     if (error) throw error;

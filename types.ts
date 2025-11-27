@@ -3,7 +3,8 @@ export type InterfaceMode = 'projects' | 'expenses';
 export interface User {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  email?: string;
   password?: string;
   role: 'Admin' | 'Sales' | 'Accounting';
   permissions?: {
@@ -12,6 +13,18 @@ export interface User {
     canDelete: boolean;
   };
   projectAssignments?: ProjectAssignment[];
+}
+
+export interface Notification {
+  id: string;
+  type: 'password_reset' | 'general' | 'alert';
+  user_id?: string;
+  username?: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  resolved_at?: string;
+  resolved_by?: string;
 }
 
 export interface ProjectAssignment {
