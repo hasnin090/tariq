@@ -38,16 +38,27 @@ export const usersService = {
     // Generate unique ID for user
     const id = generateUniqueId('user');
     
-    // Remove password from database insert (passwords should be handled by Supabase Auth)
-    const { password, ...userWithoutPassword } = user;
+    // Remove password and other sensitive/non-DB fields
+    const { password, projectAssignments, ...userWithoutPassword } = user as any;
+    
+    // Only include valid database columns
+    const cleanUserData = {
+      name: userWithoutPassword.name,
+      email: userWithoutPassword.email || '',
+      role: userWithoutPassword.role,
+      permissions: userWithoutPassword.permissions
+    };
     
     const { data, error } = await supabase
       .from('users')
-      .insert([{ ...userWithoutPassword, id }])
+      .insert([{ ...cleanUserData, id }])
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase create user error:', error);
+      throw error;
+    }
     return data;
   },
 

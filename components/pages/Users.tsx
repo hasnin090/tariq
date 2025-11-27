@@ -172,7 +172,17 @@ const Users: React.FC = () => {
     const handleSave = async (userData: Omit<User, 'id'> & { assignedProjectId?: string }) => {
         const isEditing = !!editingUser;
         try {
-            const { assignedProjectId, ...coreUserData } = userData;
+            const { assignedProjectId, ...rest } = userData;
+            
+            // Only keep valid User properties
+            const coreUserData: Omit<User, 'id'> = {
+                name: rest.name,
+                email: rest.email || '',
+                role: rest.role,
+                password: rest.password,
+                permissions: rest.permissions
+            };
+            
             let userToSave: User;
 
             if (isEditing) {
