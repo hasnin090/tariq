@@ -11,14 +11,28 @@ BEGIN
     END IF;
 END $$;
 
--- تحديث المستخدمين الحاليين لإضافة username من name
+-- إضافة عمود password إذا لم يكن موجوداً
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'users' AND column_name = 'password') THEN
+        ALTER TABLE public.users ADD COLUMN password TEXT;
+    END IF;
+END $$;
+
+-- تحديث المستخدمين الحاليين لإضافة username من name وكلمة مرور افتراضية
 UPDATE public.users 
-SET username = LOWER(REPLACE(name, ' ', '_'))
-WHERE username IS NULL;
+SET username = LOWER(REPLACE(name, ' ', '_')),
+    password = '123456'
+WHERE username IS NULL OR password IS NULL;
 
 -- جعل username إلزامياً بعد ملء البيانات
 ALTER TABLE public.users 
 ALTER COLUMN username SET NOT NULL;
+
+-- جعل password إلزامياً بعد ملء البيانات
+ALTER TABLE public.users 
+ALTER COLUMN password SET NOT NULL;
 
 -- ============================================================================
 -- جدول الإشعارات (Notifications)

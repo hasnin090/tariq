@@ -60,7 +60,7 @@ export const usersService = {
     // Generate UUID for user (users table uses UUID type)
     const id = generateUUID();
     
-    // Remove password and other sensitive/non-DB fields
+    // Extract fields
     const { password, projectAssignments, permissions, ...userWithoutPassword } = user as any;
     
     // Only include valid database columns (permissions is not stored in DB, derived from role)
@@ -68,13 +68,14 @@ export const usersService = {
       name: userWithoutPassword.name,
       username: userWithoutPassword.username,
       email: userWithoutPassword.email || null,
-      role: userWithoutPassword.role
+      role: userWithoutPassword.role,
+      password: password || '123456' // Default password if not provided
     };
     
     const { data, error } = await supabase
       .from('users')
       .insert([{ ...cleanUserData, id }])
-      .select()
+      .select('id, name, username, email, role')
       .single();
     
     if (error) {
@@ -123,14 +124,20 @@ export const usersService = {
   },
 
   async update(id: string, user: Partial<User>) {
-    // Remove password, permissions, and other non-DB fields from database update
+    // Extract fields
     const { password, permissions, projectAssignments, ...userWithoutPassword } = user as any;
+    
+    // Build update data (include password if provided)
+    const updateData: any = { ...userWithoutPassword };
+    if (password && password.trim()) {
+      updateData.password = password;
+    }
     
     const { data, error } = await supabase
       .from('users')
-      .update(userWithoutPassword)
+      .update(updateData)
       .eq('id', id)
-      .select()
+      .select('id, name, username, email, role')
       .single();
     
     if (error) throw error;

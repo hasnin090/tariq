@@ -34,28 +34,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string) => {
     try {
-      // Fetch all users from database (in production, this should be a secure API call)
+      // Fetch user from database
       const { supabase } = await import('../src/lib/supabase');
-      const { data: users, error } = await supabase
+      const { data: user, error } = await supabase
         .from('users')
-        .select('*')
+        .select('id, name, username, email, role, password')
         .eq('username', username)
         .single();
 
-      if (error || !users) {
+      if (error || !user) {
+        console.error('Login error:', error);
         return { error: new Error('اسم المستخدم غير موجود') };
+      }
+
+      // Check if password field exists
+      if (!user.password) {
+        console.error('Password field missing for user:', username);
+        return { error: new Error('خطأ في إعدادات المستخدم. الرجاء التواصل مع المدير.') };
       }
 
       // Note: In production, password should be hashed and verified securely on the server
       // For now, we're doing simple comparison (THIS IS NOT SECURE FOR PRODUCTION)
-      if (users.password !== password) {
+      if (user.password !== password) {
         return { error: new Error('كلمة المرور غير صحيحة') };
       }
 
       // Add permissions based on role
       const userWithPermissions = {
-        ...users,
-        permissions: users.role === 'Admin' 
+        ...user,
+        permissions: user.role === 'Admin' 
           ? { canView: true, canEdit: true, canDelete: true }
           : { canView: true, canEdit: false, canDelete: false }
       };
@@ -65,6 +72,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       return { error: null };
     } catch (error) {
+      console.error('Login exception:', error);
       return { error: error as Error };
     }
   };
