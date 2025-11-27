@@ -12,6 +12,13 @@ const generateUniqueId = (prefix: string): string => {
 };
 
 /**
+ * HELPER: Generate UUID v4
+ */
+const generateUUID = (): string => {
+  return crypto.randomUUID();
+};
+
+/**
  * USERS SERVICE
  */
 // Helper function to add default permissions based on role
@@ -50,8 +57,8 @@ export const usersService = {
   },
 
   async create(user: Omit<User, 'id'>) {
-    // Generate unique ID for user
-    const id = generateUniqueId('user');
+    // Generate UUID for user (users table uses UUID type)
+    const id = generateUUID();
     
     // Remove password and other sensitive/non-DB fields
     const { password, projectAssignments, permissions, ...userWithoutPassword } = user as any;
