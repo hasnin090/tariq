@@ -200,7 +200,8 @@ const Customers: React.FC = () => {
             
              {filteredCustomers.length > 0 ? (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
-                    <table className="w-full text-right">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right min-w-[600px]">
                         <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
                             <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الاسم</th>
                             <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الهاتف</th>
@@ -231,6 +232,7 @@ const Customers: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             ) : (
                 <EmptyState Icon={CustomersEmptyIcon} title="لا يوجد عملاء" message="ابدأ بإضافة بيانات العملاء لتتمكن من ربطهم بالوحدات." actionButton={{ text: 'إضافة عميل', onClick: () => handleOpenModal(null)}} />

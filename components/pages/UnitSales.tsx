@@ -192,7 +192,8 @@ const UnitSales: React.FC = () => {
             
             {loading ? <p>جاري تحميل البيانات...</p> : (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
-                    <table className="w-full text-right">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right min-w-[700px]">
                         <thead><tr className="border-b-2 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm">الوحدة</th><th className="p-4 font-bold text-sm">العميل</th><th className="p-4 font-bold text-sm">تاريخ البيع</th><th className="p-4 font-bold text-sm">سعر البيع النهائي</th><th className="p-4 font-bold text-sm">المستندات</th></tr></thead>
                         <tbody>
                             {filteredSales.map(sale => {
@@ -237,6 +238,7 @@ const UnitSales: React.FC = () => {
                             })}
                         </tbody>
                     </table>
+                    </div>
                     {sales.length === 0 && <p className="text-center p-8 text-slate-500 dark:text-slate-400">لا توجد عمليات بيع مسجلة.</p>}
                 </div>
             )}

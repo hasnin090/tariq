@@ -496,7 +496,8 @@ const Payments: React.FC = () => {
                         <div className="p-6">
                             <h3 className="text-xl font-bold mb-4">دفعات العميل</h3>
                             {customerPayments.length > 0 ? (
-                                <table className="w-full text-right">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-right min-w-[700px]">
                                     <thead>
                                         <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
                                             <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الدفعة</th>
@@ -518,6 +519,7 @@ const Payments: React.FC = () => {
                                         ))}
                                     </tbody>
                                 </table>
+                                </div>
                             ) : (
                                 <p className="text-slate-600 dark:text-slate-300">لا توجد دفعات لهذا العميل</p>
                             )}
@@ -528,7 +530,8 @@ const Payments: React.FC = () => {
                 <>
                     {allPaymentsWithBooking.length > 0 ? (
                         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
-                            <table className="w-full text-right">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-right min-w-[800px]">
                                 <thead>
                                     <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
                                         <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الدفعة</th>
@@ -578,6 +581,7 @@ const Payments: React.FC = () => {
                                     })}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     ) : (
                         <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">

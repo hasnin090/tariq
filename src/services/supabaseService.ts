@@ -658,10 +658,7 @@ export const expensesService = {
       .from('expenses')
       .insert([dbExpense])
       .select();
-    if (error) {
-      console.error('Error creating expense:', error.message);
-      throw new Error(`${error.message} (Code: ${error.code})`);
-    }
+    if (error) throw error;
     
     const exp = data?.[0];
     return exp ? {
@@ -893,9 +890,10 @@ export const employeesService = {
   },
 
   async create(employee: Omit<Employee, 'id'>) {
+    const id = generateUniqueId('emp');
     const { data, error } = await supabase
       .from('employees')
-      .insert([employee])
+      .insert([{ ...employee, id }])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -976,9 +974,10 @@ export const vendorsService = {
   },
 
   async create(vendor: Omit<Vendor, 'id'>) {
+    const id = generateUniqueId('vendor');
     const { data, error } = await supabase
       .from('vendors')
-      .insert([vendor])
+      .insert([{ ...vendor, id }])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -1017,9 +1016,10 @@ export const unitTypesService = {
   },
 
   async create(item: Omit<UnitType, 'id'>) {
+    const id = generateUniqueId('type');
     const { data, error } = await supabase
       .from('unit_types')
-      .insert([item])
+      .insert([{ ...item, id }])
       .select();
     if (error) throw error;
     return data?.[0];
@@ -1048,9 +1048,10 @@ export const unitStatusesService = {
   },
 
   async create(item: Omit<UnitStatus, 'id'>) {
+    const id = generateUniqueId('status');
     const { data, error } = await supabase
       .from('unit_statuses')
-      .insert([item])
+      .insert([{ ...item, id }])
       .select();
     if (error) throw error;
     return data?.[0];
