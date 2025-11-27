@@ -14,6 +14,21 @@ const generateUniqueId = (prefix: string): string => {
 /**
  * USERS SERVICE
  */
+// Helper function to add default permissions based on role
+const addPermissionsToUser = (user: any) => {
+  if (!user) return user;
+  
+  // If user already has permissions, return as is
+  if (user.permissions) return user;
+  
+  // Set default permissions based on role
+  const defaultPermissions = user.role === 'Admin' 
+    ? { canView: true, canEdit: true, canDelete: true }
+    : { canView: true, canEdit: false, canDelete: false };
+  
+  return { ...user, permissions: defaultPermissions };
+};
+
 export const usersService = {
   async getAll() {
     const { data, error } = await supabase
@@ -21,7 +36,7 @@ export const usersService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    return (data || []).map(addPermissionsToUser);
   },
 
   async getById(id: string) {
@@ -31,7 +46,7 @@ export const usersService = {
       .eq('id', id)
       .single();
     if (error) throw error;
-    return data;
+    return addPermissionsToUser(data);
   },
 
   async create(user: Omit<User, 'id'>) {
@@ -39,14 +54,13 @@ export const usersService = {
     const id = generateUniqueId('user');
     
     // Remove password and other sensitive/non-DB fields
-    const { password, projectAssignments, ...userWithoutPassword } = user as any;
+    const { password, projectAssignments, permissions, ...userWithoutPassword } = user as any;
     
-    // Only include valid database columns
+    // Only include valid database columns (permissions is not stored in DB, derived from role)
     const cleanUserData = {
       name: userWithoutPassword.name,
       email: userWithoutPassword.email || '',
-      role: userWithoutPassword.role,
-      permissions: userWithoutPassword.permissions
+      role: userWithoutPassword.role
     };
     
     const { data, error } = await supabase
@@ -59,12 +73,17 @@ export const usersService = {
       console.error('Supabase create user error:', error);
       throw error;
     }
-    return data;
+    
+    // Add permissions based on role for the returned data
+    return {
+      ...data,
+      permissions: permissions || { canView: true, canEdit: false, canDelete: false }
+    };
   },
 
   async update(id: string, user: Partial<User>) {
-    // Remove password from database update
-    const { password, ...userWithoutPassword } = user;
+    // Remove password, permissions, and other non-DB fields from database update
+    const { password, permissions, projectAssignments, ...userWithoutPassword } = user as any;
     
     const { data, error } = await supabase
       .from('users')
@@ -74,7 +93,12 @@ export const usersService = {
       .single();
     
     if (error) throw error;
-    return data;
+    
+    // Add permissions (either from input or auto-generated from role)
+    return addPermissionsToUser({
+      ...data,
+      permissions: permissions
+    });
   },
 
   async delete(id: string) {
