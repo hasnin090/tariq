@@ -38,9 +38,12 @@ export const usersService = {
     // Generate unique ID for user
     const id = generateUniqueId('user');
     
+    // Remove password from database insert (passwords should be handled by Supabase Auth)
+    const { password, ...userWithoutPassword } = user;
+    
     const { data, error } = await supabase
       .from('users')
-      .insert([{ ...user, id }])
+      .insert([{ ...userWithoutPassword, id }])
       .select()
       .single();
     
@@ -49,9 +52,12 @@ export const usersService = {
   },
 
   async update(id: string, user: Partial<User>) {
+    // Remove password from database update
+    const { password, ...userWithoutPassword } = user;
+    
     const { data, error } = await supabase
       .from('users')
-      .update(user)
+      .update(userWithoutPassword)
       .eq('id', id)
       .select()
       .single();
