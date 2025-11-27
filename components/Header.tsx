@@ -215,7 +215,7 @@ const Header: React.FC<{
                         <div className="hidden sm:flex items-center bg-gradient-to-r from-slate-100/50 to-slate-50/50 dark:from-slate-800/50 dark:to-slate-700/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
                             <button 
                                 onClick={() => setInterfaceMode('projects')}
-                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-300 relative overflow-hidden group ${interfaceMode === 'projects' ? 'bg-gradient-to-r from-blue-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 animate-mode-slide scale-105' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:scale-105 active:scale-95'}`}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group ${interfaceMode === 'projects' ? 'bg-gradient-to-r from-blue-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 animate-mode-slide scale-[1.02]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
@@ -227,7 +227,7 @@ const Header: React.FC<{
                             </button>
                              <button 
                                 onClick={() => setInterfaceMode('expenses')}
-                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-300 relative overflow-hidden group ${interfaceMode === 'expenses' ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30 animate-mode-slide scale-105' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:scale-105 active:scale-95'}`}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group ${interfaceMode === 'expenses' ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30 animate-mode-slide scale-[1.02]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
@@ -268,7 +268,7 @@ const Header: React.FC<{
                             }}
                             onMouseEnter={() => setShowConnectionTooltip(true)}
                             onMouseLeave={() => setShowConnectionTooltip(false)}
-                            className="p-2.5 rounded-xl transition-all duration-300 border hover:scale-110 active:scale-95 relative group border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                            className="p-2.5 rounded-xl transition-all duration-200 ease-in-out border hover:scale-[1.02] active:scale-[0.98] relative group border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                             title="التحقق من الاتصال"
                         >
                             {connectionStatus === 'connected' && (
@@ -375,7 +375,7 @@ const Header: React.FC<{
                     
                     <button 
                         onClick={handleThemeToggle} 
-                        className={`text-slate-500 dark:text-slate-400 p-2.5 rounded-xl transition-all duration-200 border relative overflow-hidden group hover:scale-105 active:scale-95 ${
+                        className={`text-slate-500 dark:text-slate-400 p-2.5 rounded-xl transition-all duration-200 ease-in-out border relative overflow-hidden group hover:scale-[1.02] active:scale-[0.98] ${
                             theme === 'light' 
                                 ? 'hover:bg-slate-800 hover:text-amber-300 hover:border-slate-700 hover:shadow-md hover:shadow-slate-800/20' 
                                 : 'hover:bg-amber-100 hover:text-amber-600 hover:border-amber-200 hover:shadow-md hover:shadow-amber-500/20'
@@ -389,7 +389,7 @@ const Header: React.FC<{
                     </button>
                     
                     <button 
-                        className="text-slate-500 dark:text-slate-400 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 relative group hover:scale-110 active:scale-95"
+                        className="text-slate-500 dark:text-slate-400 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 ease-in-out border border-transparent hover:border-slate-200 dark:hover:border-slate-700 relative group hover:scale-[1.02] active:scale-[0.98]"
                         onMouseEnter={(e) => {
                             const bell = e.currentTarget.querySelector('.bell-icon');
                             bell?.classList.add('animate-bell-ring');

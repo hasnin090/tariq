@@ -18,7 +18,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const baseStyle = "flex items-center w-full max-w-sm p-4 text-white rounded-2xl shadow-2xl backdrop-blur-xl border border-white/20 transition-all duration-500 transform hover:scale-105";
+  const baseStyle = "flex items-center w-full max-w-sm p-4 text-white rounded-2xl shadow-2xl backdrop-blur-xl border border-white/20 transition-all duration-300 ease-in-out transform hover:scale-[1.01]";
   const typeStyles = {
     success: 'bg-emerald-500/90 shadow-emerald-500/20',
     error: 'bg-rose-500/90 shadow-rose-500/20',

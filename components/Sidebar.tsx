@@ -44,7 +44,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                 } ${
                     isActive && !isEditMode
                     ? 'bg-gradient-to-l from-primary-600 via-primary-500 to-primary-600 text-white shadow-xl shadow-primary-500/30 translate-x-[-4px] scale-[1.02]' 
-                    : 'text-slate-400 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-slate-100 hover:translate-x-[-6px] hover:scale-[1.01]'
+                    : 'text-slate-400 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-slate-100 hover:translate-x-[-3px]'
                 }`}
             >
                 {/* Animated Background Particles */}
@@ -63,8 +63,8 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                 
                 <div className={`p-2 rounded-lg transition-all duration-500 transform ${
                     isActive 
-                    ? 'bg-white/25 shadow-lg rotate-0 scale-110' 
-                    : 'bg-white/5 group-hover:bg-white/15 group-hover:scale-110 group-hover:rotate-6'
+                    ? 'bg-white/25 shadow-lg rotate-0 scale-105' 
+                    : 'bg-white/5 group-hover:bg-white/15 group-hover:scale-105 group-hover:rotate-3'
                 }`}>
                     {React.cloneElement<{ className: string }>(icon, { 
                         className: `h-5 w-5 transition-all duration-500 ${

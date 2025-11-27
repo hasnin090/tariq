@@ -3,7 +3,7 @@ import React from 'react';
 // Animated Icon Wrapper
 const AnimatedIcon: React.FC<{ children: React.ReactElement; className?: string }> = ({ children, className = '' }) => {
   return React.cloneElement(children, {
-    className: `${children.props.className || ''} ${className} transition-all duration-300 hover:scale-110 hover:rotate-3 active:scale-95`.trim()
+    className: `${children.props.className || ''} ${className} transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-[0.98]`.trim()
   });
 };
 

@@ -16,7 +16,7 @@ const StatCard: React.FC<{
         <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 h-full">
             <div className="flex items-start justify-between mb-4">
-                <div className={`${iconBg} p-3 rounded-xl shadow-md group-hover:scale-110 transition-transform duration-300`}>
+                <div className={`${iconBg} p-3 rounded-xl shadow-md group-hover:scale-105 transition-transform duration-200 ease-in-out`}>
                     {React.cloneElement<{ className: string }>(icon, { className: "h-6 w-6 text-white"})}
                 </div>
             </div>
