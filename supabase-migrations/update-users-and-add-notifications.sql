@@ -34,6 +34,21 @@ ALTER COLUMN username SET NOT NULL;
 ALTER TABLE public.users 
 ALTER COLUMN password SET NOT NULL;
 
+-- إنشاء مستخدم admin تجريبي
+INSERT INTO public.users (id, name, username, email, role, password, is_active, created_at, updated_at)
+VALUES (
+    gen_random_uuid(),
+    'المدير',
+    'admin',
+    'admin@admin.com',
+    'Admin',
+    '123456',
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (username) DO NOTHING;
+
 -- ============================================================================
 -- جدول الإشعارات (Notifications)
 -- ============================================================================
