@@ -5,7 +5,7 @@ import {
     HomeIcon, BuildingIcon, UsersIcon, CreditCardIcon, TrendingUpIcon, 
     DocumentTextIcon, ChartBarIcon, CogIcon, UserGroupIcon, ReceiptIcon, 
     TagIcon, CalendarIcon, BriefcaseIcon, CalculatorIcon, ArchiveIcon, 
-    CollectionIcon, DocumentReportIcon, ClockIcon, BanknotesIcon
+    CollectionIcon, DocumentReportIcon, ClockIcon, BanknotesIcon, BellIcon
 } from './shared/Icons.tsx';
 
 interface NavLinkProps {
@@ -149,6 +149,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     const defaultSystemLinks = [
         { icon: <CogIcon />, label: 'تخصيص', page: 'customization', adminOnly: true },
         { icon: <UserGroupIcon />, label: 'المستخدمون', page: 'users', adminOnly: true },
+        { icon: <BellIcon />, label: 'الإشعارات', page: 'notifications', adminOnly: true },
         { icon: <BriefcaseIcon />, label: 'ربط المشاريع والمستخدمين', page: 'project-user-management', adminOnly: true },
         { icon: <DocumentTextIcon />, label: 'استيراد البيانات', page: 'data-import', adminOnly: true },
     ];

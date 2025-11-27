@@ -16,6 +16,8 @@ import {
   Plus,
   ArrowRight,
   ArrowLeft,
+  Key,
+  Check,
   
   // UI Elements
   ChevronDown,
@@ -87,6 +89,8 @@ export const CogIcon = (props: React.SVGProps<SVGSVGElement>) => <Settings {...p
 export const LogoutIcon = (props: React.SVGProps<SVGSVGElement>) => <LogOut {...props} />;
 export const SearchIcon = (props: React.SVGProps<SVGSVGElement>) => <Search {...props} />;
 export const BellIcon = (props: React.SVGProps<SVGSVGElement>) => <Bell {...props} />;
+export const KeyIcon = (props: React.SVGProps<SVGSVGElement>) => <Key {...props} />;
+export const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => <Check {...props} />;
 export const SwitchHorizontalIcon = (props: React.SVGProps<SVGSVGElement>) => <SwitchCamera {...props} />;
 export const MicrophoneIcon = (props: React.SVGProps<SVGSVGElement>) => <Mic {...props} />;
 export const CloseIcon = (props: React.SVGProps<SVGSVGElement>) => <X {...props} />;

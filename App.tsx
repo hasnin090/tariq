@@ -20,6 +20,7 @@ import Reports from './components/pages/Reports';
 import FinancialSummary from './components/pages/FinancialSummary';
 import Customization from './components/pages/Customization';
 import Users from './components/pages/Users';
+import Notifications from './components/pages/Notifications';
 import ProjectUserManagement from './components/pages/ProjectUserManagement';
 import ProjectsManagement from './components/pages/ProjectsManagement';
 import BookingsArchive from './components/pages/BookingsArchive';
@@ -98,6 +99,7 @@ const App: React.FC = () => {
       // System
       case 'customization': return <Customization />;
       case 'users': return <Users />;
+      case 'notifications': return <Notifications />;
       case 'project-user-management': return <ProjectUserManagement />;
       case 'projects-management': return <ProjectsManagement />;
       

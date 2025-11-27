@@ -1,92 +1,90 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '../src/lib/supabase';
-import { usersService } from '../src/services/supabaseService';
-
-interface AppUser extends User {
-  name: string;
-  role: 'Admin' | 'Sales' | 'Accounting';
-  assignedProjectId?: string;
-}
+import { User } from '../types';
 
 interface AuthContextType {
-  currentUser: AppUser | null;
-  login: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, name: string, role: 'Admin' | 'Sales' | 'Accounting') => Promise<{ error: Error | null }>;
+  currentUser: User | null;
+  login: (username: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (username: string, password: string, name: string, role: 'Admin' | 'Sales' | 'Accounting') => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Simple authentication service using localStorage
+const AUTH_STORAGE_KEY = 'auth_user';
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUser = async (sessionUser: User) => {
+    // Check if user is logged in from localStorage
+    const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (storedUser) {
       try {
-        const appUser = await usersService.getById(sessionUser.id);
-        setCurrentUser({ ...sessionUser, ...appUser });
+        setCurrentUser(JSON.parse(storedUser));
       } catch (error) {
-        console.error("Failed to fetch user profile", error);
-        // Fallback with default values if user profile doesn't exist in database
-        setCurrentUser({ 
-          ...sessionUser, 
-          name: sessionUser.email?.split('@')[0] || 'User',
-          role: 'Admin', // Default role
-        } as AppUser);
-      } finally {
-        setLoading(false);
+        console.error('Failed to parse stored user', error);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
       }
-    };
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchUser(session.user);
-      } else {
-        setCurrentUser(null);
-        setLoading(false);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        fetchUser(session.user);
-      } else {
-        setCurrentUser(null);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    }
+    setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error };
+      // Fetch all users from database (in production, this should be a secure API call)
+      const { supabase } = await import('../src/lib/supabase');
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (error || !users) {
+        return { error: new Error('اسم المستخدم غير موجود') };
+      }
+
+      // Note: In production, password should be hashed and verified securely on the server
+      // For now, we're doing simple comparison (THIS IS NOT SECURE FOR PRODUCTION)
+      if (users.password !== password) {
+        return { error: new Error('كلمة المرور غير صحيحة') };
+      }
+
+      // Add permissions based on role
+      const userWithPermissions = {
+        ...users,
+        permissions: users.role === 'Admin' 
+          ? { canView: true, canEdit: true, canDelete: true }
+          : { canView: true, canEdit: false, canDelete: false }
+      };
+
+      setCurrentUser(userWithPermissions);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userWithPermissions));
+      
+      return { error: null };
     } catch (error) {
       return { error: error as Error };
     }
   };
 
-  const signUp = async (email: string, password: string, name: string, role: 'Admin' | 'Sales' | 'Accounting') => {
+  const signUp = async (username: string, password: string, name: string, role: 'Admin' | 'Sales' | 'Accounting') => {
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { usersService } = await import('../src/services/supabaseService');
       
-      if (error) return { error };
+      // Create new user
+      const newUser = await usersService.create({
+        name,
+        username,
+        role,
+        password,
+        email: undefined
+      });
       
-      if (data.user) {
-        // Create user profile in users table
-        const userProfile = {
-          name,
-          email,
-          role,
-          password: '',
-        };
-        await usersService.create({ ...userProfile, id: data.user.id } as any);
-      }
+      // Auto-login after signup
+      setCurrentUser(newUser);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
       
       return { error: null };
     } catch (error) {
@@ -96,7 +94,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      setCurrentUser(null);
+      localStorage.removeItem(AUTH_STORAGE_KEY);
     } catch (error) {
       console.error('Error logging out:', error);
     }
