@@ -57,6 +57,26 @@ import {
   Globe,
   Building,
   UserCircle2,
+  
+  // Date & Time
+  Calendar,
+  Clock,
+  
+  // Status Icons
+  CheckCircle,
+  AlertTriangle,
+  HelpCircle,
+  ArrowUp,
+  ArrowDown,
+  
+  // File Types
+  FileImage,
+  File,
+  
+  // Modern Icons
+  Sparkles,
+  Rocket,
+  Zap,
 } from 'lucide-react';
 
 // General & Navigation
