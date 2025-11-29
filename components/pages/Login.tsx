@@ -1,7 +1,81 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usersService } from '../../src/services/supabaseService';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+
+// Inline Icons to avoid dependency issues
+const UserIcon = ({ size = 18, className = "" }: { size?: number, className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+    <circle cx="12" cy="7" r="4"></circle>
+  </svg>
+);
+
+const LockIcon = ({ size = 18, className = "" }: { size?: number, className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+  </svg>
+);
+
+const EyeIcon = ({ size = 18, className = "" }: { size?: number, className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+    <circle cx="12" cy="12" r="3"></circle>
+  </svg>
+);
+
+const EyeOffIcon = ({ size = 18, className = "" }: { size?: number, className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.68 0 1.35-.06 1.99-.17"></path>
+    <line x1="2" y1="2" x2="22" y2="22"></line>
+  </svg>
+);
 
 const Login: React.FC = () => {
   const { login, signUp } = useAuth();
@@ -22,7 +96,7 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = isRegistering 
+      const { error } = isRegistering
         ? await signUp(username, password, name, role)
         : await login(username, password);
 
@@ -63,7 +137,7 @@ const Login: React.FC = () => {
       {/* Background with gradient and pattern */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"></div>
       <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-      
+
       {/* Decorative Glow Effects */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -92,7 +166,7 @@ const Login: React.FC = () => {
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                      <User size={18} />
+                      <UserIcon size={18} />
                     </div>
                     <input
                       id="name"
@@ -140,7 +214,7 @@ const Login: React.FC = () => {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                  <User size={18} />
+                  <UserIcon size={18} />
                 </div>
                 <input
                   id="username"
@@ -163,7 +237,7 @@ const Login: React.FC = () => {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                  <Lock size={18} />
+                  <LockIcon size={18} />
                 </div>
                 <input
                   id="password"
@@ -182,7 +256,7 @@ const Login: React.FC = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 hover:text-slate-200 focus:outline-none"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                 </button>
               </div>
               {!isRegistering && (
@@ -244,8 +318,8 @@ const Login: React.FC = () => {
                 اسم المستخدم
               </label>
               <div className="relative">
-                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                  <User size={18} />
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                  <UserIcon size={18} />
                 </div>
                 <input
                   type="text"
