@@ -85,6 +85,12 @@ import {
 export const HomeIcon = (props: React.SVGProps<SVGSVGElement>) => <Home {...props} />;
 export const BuildingIcon = (props: React.SVGProps<SVGSVGElement>) => <Building2 {...props} />;
 export const UsersIcon = (props: React.SVGProps<SVGSVGElement>) => <Users {...props} />;
+export const UserGroupIcon = (props: React.SVGProps<SVGSVGElement>) => <Users {...props} />;
+export const CogIcon = (props: React.SVGProps<SVGSVGElement>) => <Settings {...props} />;
+export const LogoutIcon = (props: React.SVGProps<SVGSVGElement>) => <LogOut {...props} />;
+export const SearchIcon = (props: React.SVGProps<SVGSVGElement>) => <Search {...props} />;
+export const BellIcon = (props: React.SVGProps<SVGSVGElement>) => <Bell {...props} />;
+export const KeyIcon = (props: React.SVGProps<SVGSVGElement>) => <Key {...props} />;
 export const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => <Check {...props} />;
 export const SwitchHorizontalIcon = (props: React.SVGProps<SVGSVGElement>) => <SwitchCamera {...props} />;
 export const MicrophoneIcon = (props: React.SVGProps<SVGSVGElement>) => <Mic {...props} />;
