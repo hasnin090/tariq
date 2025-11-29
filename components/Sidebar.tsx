@@ -1,32 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { InterfaceMode } from '../types.ts';
-import { useAuth } from '../contexts/AuthContext.tsx';
-import { 
-    HomeIcon, BuildingIcon, UsersIcon, CreditCardIcon, TrendingUpIcon, 
-    DocumentTextIcon, ChartBarIcon, CogIcon, UserGroupIcon, ReceiptIcon, 
-    TagIcon, CalendarIcon, BriefcaseIcon, CalculatorIcon, ArchiveIcon, 
-    CollectionIcon, DocumentReportIcon, ClockIcon, BanknotesIcon, BellIcon
-} from './shared/Icons.tsx';
-
-interface NavLinkProps {
-    icon: React.ReactElement;
-    label: string;
-    page: string;
-    activePage: string;
-    onClick: (page: string) => void;
-    isEditMode?: boolean;
-    onDragStart?: (e: React.DragEvent) => void;
-    onDragOver?: (e: React.DragEvent) => void;
-    onDrop?: (e: React.DragEvent) => void;
-    isDragging?: boolean;
+page: string;
+activePage: string;
+onClick: (page: string) => void;
+isEditMode ?: boolean;
+onDragStart ?: (e: React.DragEvent) => void;
+onDragOver ?: (e: React.DragEvent) => void;
+onDrop ?: (e: React.DragEvent) => void;
+isDragging ?: boolean;
 }
 
 const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClick, isEditMode, onDragStart, onDragOver, onDrop, isDragging }) => {
     const isActive = activePage === page;
     const [isHovered, setIsHovered] = React.useState(false);
-    
+
     return (
-        <li 
+        <li
             className="mb-1"
             draggable={isEditMode}
             onDragStart={onDragStart}
@@ -37,15 +25,12 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                 onClick={() => !isEditMode && onClick(page)}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                className={`w-full flex items-center gap-4 px-4 py-3.5 mx-auto rounded-xl text-sm font-medium transition-all duration-500 group relative overflow-hidden ${
-                    isDragging ? 'opacity-30 scale-95' : ''
-                } ${
-                    isEditMode ? 'cursor-move border-2 border-dashed border-amber-500/50' : 'cursor-pointer'
-                } ${
-                    isActive && !isEditMode
-                    ? 'bg-gradient-to-l from-primary-600 via-primary-500 to-primary-600 text-white shadow-xl shadow-primary-500/30 translate-x-[-4px] scale-[1.02]' 
-                    : 'text-slate-400 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-slate-100 hover:translate-x-[-3px]'
-                }`}
+                className={`w-full flex items-center gap-4 px-4 py-3.5 mx-auto rounded-xl text-sm font-medium transition-all duration-500 group relative overflow-hidden ${isDragging ? 'opacity-30 scale-95' : ''
+                    } ${isEditMode ? 'cursor-move border-2 border-dashed border-amber-500/50' : 'cursor-pointer'
+                    } ${isActive && !isEditMode
+                        ? 'bg-gradient-to-l from-primary-600 via-primary-500 to-primary-600 text-white shadow-xl shadow-primary-500/30 translate-x-[-4px] scale-[1.02]'
+                        : 'text-slate-400 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-slate-100 hover:translate-x-[-3px]'
+                    }`}
             >
                 {/* Animated Background Particles */}
                 {(isActive || isHovered) && (
@@ -55,30 +40,28 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                         <div className={`absolute top-3 right-12 w-1 h-1 bg-white/20 rounded-full blur-sm transition-all duration-700 ${isActive ? 'animate-ping' : ''}`} style={{ animationDelay: '400ms' }}></div>
                     </>
                 )}
-                
+
                 {/* Gradient Glow Effect */}
                 {isActive && (
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
                 )}
-                
-                <div className={`p-2 rounded-lg transition-all duration-500 transform ${
-                    isActive 
-                    ? 'bg-white/25 shadow-lg rotate-0 scale-105' 
-                    : 'bg-white/5 group-hover:bg-white/15 group-hover:scale-105 group-hover:rotate-3'
-                }`}>
-                    {React.cloneElement<{ className: string }>(icon, { 
-                        className: `h-5 w-5 transition-all duration-500 ${
-                            isActive 
-                            ? 'text-white drop-shadow-lg' 
-                            : 'text-slate-400 group-hover:text-white group-hover:drop-shadow-md'
-                        }` 
+
+                <div className={`p-2 rounded-lg transition-all duration-500 transform ${isActive
+                        ? 'bg-white/25 shadow-lg rotate-0 scale-105'
+                        : 'bg-white/5 group-hover:bg-white/15 group-hover:scale-105 group-hover:rotate-3'
+                    }`}>
+                    {React.cloneElement<{ className: string }>(icon, {
+                        className: `h-5 w-5 transition-all duration-500 ${isActive
+                                ? 'text-white drop-shadow-lg'
+                                : 'text-slate-400 group-hover:text-white group-hover:drop-shadow-md'
+                            }`
                     })}
                 </div>
-                
+
                 <span className={`relative z-10 transition-all duration-300 ${isActive ? 'font-bold' : 'font-medium'}`}>
                     {label}
                 </span>
-                
+
                 {/* Drag Indicator */}
                 {isEditMode && (
                     <div className="mr-auto flex gap-0.5">
@@ -87,12 +70,12 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                         <div className="w-1 h-1 rounded-full bg-amber-400"></div>
                     </div>
                 )}
-                
+
                 {/* Active Indicator */}
                 {isActive && (
                     <div className="absolute inset-y-0 right-0 w-1.5 bg-gradient-to-b from-white/60 via-white/80 to-white/60 rounded-l-full shadow-lg shadow-white/50 animate-pulse"></div>
                 )}
-                
+
                 {/* Hover Indicator */}
                 {!isActive && isHovered && (
                     <div className="absolute inset-y-0 right-0 w-0.5 bg-gradient-to-b from-transparent via-primary-400/50 to-transparent rounded-l-full"></div>
@@ -113,7 +96,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceMode, isOpen, onClose }) => {
     const { currentUser } = useAuth();
     const isAdmin = currentUser?.role === 'Admin';
-    
+
     const [isEditMode, setIsEditMode] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -145,7 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <ClockIcon />, label: 'سجل النشاطات', page: 'activity-log', adminOnly: true },
         { icon: <ArchiveIcon />, label: 'الأرشيف العام', page: 'general-archive', adminOnly: false },
     ];
-    
+
     const defaultSystemLinks = [
         { icon: <CogIcon />, label: 'تخصيص', page: 'customization', adminOnly: true },
         { icon: <UserGroupIcon />, label: 'المستخدمون', page: 'users', adminOnly: true },
@@ -169,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
             const savedProjects = localStorage.getItem(getStorageKey('projects'));
             const savedExpenses = localStorage.getItem(getStorageKey('expenses'));
             const savedSystem = localStorage.getItem(getStorageKey('system'));
-            
+
             if (savedProjects) setProjectsLinks(JSON.parse(savedProjects));
             if (savedExpenses) setExpensesLinks(JSON.parse(savedExpenses));
             if (savedSystem) setSystemLinks(JSON.parse(savedSystem));
@@ -210,7 +193,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     const handleDrop = (dropIndex: number, section: 'projects' | 'expenses' | 'system') => (e: React.DragEvent) => {
         e.preventDefault();
         const dragSection = e.dataTransfer.getData('section');
-        
+
         if (dragSection !== section || draggedIndex === null) return;
 
         const links = section === 'projects' ? projectsLinks : section === 'expenses' ? expensesLinks : systemLinks;
@@ -231,7 +214,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         setSystemLinks(defaultSystemLinks);
         setIsEditMode(false);
     };
-    
+
     let linksToShow: typeof defaultProjectsLinks = [];
     let sectionTitle = '';
     let systemTitle = '';
@@ -262,10 +245,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 onClick={onClose}
                 aria-hidden="true"
             ></div>
-            
+
             {/* Sidebar Container */}
             <aside className={`fixed lg:relative inset-y-0 right-0 w-72 bg-slate-900/95 backdrop-blur-2xl border-l border-white/5 flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-out shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
-                
+
                 {/* Logo Area */}
                 <div className="h-24 flex items-center justify-center relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-primary-600/20 to-transparent opacity-50"></div>
@@ -281,11 +264,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setIsEditMode(!isEditMode)}
-                                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
-                                    isEditMode 
-                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' 
-                                    : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
-                                }`}
+                                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${isEditMode
+                                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
+                                        : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                                    }`}
                             >
                                 {isEditMode ? '✓ حفظ الترتيب' : '⚙ تعديل الترتيب'}
                             </button>
@@ -316,10 +298,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                         </h2>
                         <ul className="space-y-1">
                             {linksToShow.filter(link => !link.adminOnly || isAdmin).map((link, index) => (
-                                <NavLink 
-                                    key={link.page} 
-                                    {...link} 
-                                    activePage={activePage} 
+                                <NavLink
+                                    key={link.page}
+                                    {...link}
+                                    activePage={activePage}
                                     onClick={setActivePage}
                                     isEditMode={isEditMode}
                                     onDragStart={handleDragStart(index, currentSection)}
@@ -339,10 +321,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                             </h2>
                             <ul className="space-y-1">
                                 {systemLinks.filter(link => !link.adminOnly || isAdmin).map((link, index) => (
-                                    <NavLink 
-                                        key={link.page} 
-                                        {...link} 
-                                        activePage={activePage} 
+                                    <NavLink
+                                        key={link.page}
+                                        {...link}
+                                        activePage={activePage}
                                         onClick={setActivePage}
                                         isEditMode={isEditMode}
                                         onDragStart={handleDragStart(index, 'system')}
