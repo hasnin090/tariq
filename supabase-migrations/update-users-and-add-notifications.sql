@@ -34,20 +34,46 @@ ALTER COLUMN username SET NOT NULL;
 ALTER TABLE public.users 
 ALTER COLUMN password SET NOT NULL;
 
--- إنشاء مستخدم admin تجريبي
+-- حذف المستخدم admin إن وجد وإعادة إنشائه
+DELETE FROM public.users WHERE username = 'admin';
+
+-- إنشاء مستخدم admin
 INSERT INTO public.users (id, name, username, email, role, password, is_active, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
     'المدير',
     'admin',
-    'admin@admin.com',
+    NULL,
     'Admin',
     '123456',
     true,
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
-)
-ON CONFLICT (username) DO NOTHING;
+);
+
+-- ============================================================================
+-- تحديث سياسات RLS لجدول المستخدمين
+-- ============================================================================
+-- حذف السياسات القديمة
+DROP POLICY IF EXISTS "Allow public read for authentication" ON public.users;
+DROP POLICY IF EXISTS "Allow authentication read" ON public.users;
+
+-- السماح بقراءة المستخدمين للمصادقة (بدون auth.uid)
+CREATE POLICY "Allow authentication read" ON public.users
+    FOR SELECT
+    USING (true);
+
+-- ============================================================================
+-- تحديث سياسات RLS لجدول الإعدادات (Settings)
+-- ============================================================================
+-- حذف السياسات القديمة
+DROP POLICY IF EXISTS "Allow public read settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow settings read" ON public.settings;
+
+-- السماح بقراءة الإعدادات
+CREATE POLICY "Allow settings read" ON public.settings
+    FOR SELECT
+    USING (true);
 
 -- ============================================================================
 -- جدول الإشعارات (Notifications)
@@ -72,32 +98,16 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(
 -- إضافة RLS policies للإشعارات
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
--- السماح للمدراء فقط برؤية جميع الإشعارات
-CREATE POLICY "Admins can view all notifications" ON public.notifications
-    FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE users.id = auth.uid() 
-            AND users.role = 'Admin'
-        )
-    );
+-- حذف السياسات القديمة إن وجدت
+DROP POLICY IF EXISTS "Admins can view all notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Authenticated users can create notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Admins can update notifications" ON public.notifications;
 
--- السماح بإنشاء إشعارات من أي مستخدم مسجل
-CREATE POLICY "Authenticated users can create notifications" ON public.notifications
-    FOR INSERT
-    WITH CHECK (auth.uid() IS NOT NULL);
-
--- السماح للمدراء بتحديث الإشعارات (وضع علامة مقروء/حل)
-CREATE POLICY "Admins can update notifications" ON public.notifications
-    FOR UPDATE
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE users.id = auth.uid() 
-            AND users.role = 'Admin'
-        )
-    );
+-- السماح بالوصول الكامل للإشعارات (بدون قيود مؤقتاً)
+CREATE POLICY "Allow all notifications access" ON public.notifications
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
 
 -- التعليق على الجداول
 COMMENT ON TABLE public.notifications IS 'جدول الإشعارات للمدراء';
