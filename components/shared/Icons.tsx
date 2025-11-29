@@ -45,24 +45,6 @@ import {
   BarChart3,
   FileText,
   Briefcase,
-  FileArchive,
-  BarChart,
-  Download,
-  Printer,
-  Upload,
-  RefreshCw,
-  Flame,
-  Heart,
-  Star,
-  Globe,
-  Building,
-  UserCircle2,
-} from 'lucide-react';
-
-// General & Navigation
-export const HomeIcon = (props: React.SVGProps<SVGSVGElement>) => <Home {...props} />;
-export const BuildingIcon = (props: React.SVGProps<SVGSVGElement>) => <Building2 {...props} />;
-export const UsersIcon = (props: React.SVGProps<SVGSVGElement>) => <Users {...props} />;
 export const UserGroupIcon = (props: React.SVGProps<SVGSVGElement>) => <Users {...props} />;
 export const CogIcon = (props: React.SVGProps<SVGSVGElement>) => <Settings {...props} />;
 export const LogoutIcon = (props: React.SVGProps<SVGSVGElement>) => <LogOut {...props} />;
