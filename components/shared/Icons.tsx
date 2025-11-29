@@ -18,7 +18,7 @@ import {
   ArrowLeft,
   Key,
   Check,
-  
+
   // UI Elements
   ChevronDown,
   ChevronUp,
@@ -28,7 +28,7 @@ import {
   XCircle,
   PlusCircle,
   Link,
-  
+
   // Financial & Sales
   CreditCard,
   TrendingUp,
@@ -40,7 +40,7 @@ import {
   Banknote,
   Wallet,
   PieChart,
-  
+
   // Documents & Reports
   BarChart3,
   FileText,
@@ -51,27 +51,6 @@ import {
   Printer,
   Upload,
   RefreshCw,
-  Trash2,
-  Loader2,
-  Image,
-  FileImage,
-  File,
-  
-  // Time & Status
-  Calendar,
-  Clock,
-  CheckCircle,
-  ArrowUp,
-  ArrowDown,
-  Check,
-  AlertCircle,
-  AlertTriangle,
-  HelpCircle,
-  
-  // Modern Icons
-  Sparkles,
-  Rocket,
-  Zap,
   Flame,
   Heart,
   Star,
