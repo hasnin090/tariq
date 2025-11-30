@@ -348,6 +348,7 @@ export const Expenses: React.FC = () => {
             const expenseId = expenseToDelete.id;
             const expenseDescription = expenseToDelete.description;
             const expenseAmount = expenseToDelete.amount;
+            const transactionId = expenseToDelete.transactionId;
             
             try {
                 // Close modal first
@@ -357,8 +358,8 @@ export const Expenses: React.FC = () => {
                 setDeletingId(expenseId);
                 
                 // Delete from database first (before updating UI)
-                if (expenseToDelete.transactionId) {
-                    await transactionsService.delete(expenseToDelete.transactionId);
+                if (transactionId) {
+                    await transactionsService.delete(transactionId);
                 }
                 await expensesService.delete(expenseId);
                 
