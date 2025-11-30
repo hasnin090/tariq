@@ -1,7 +1,0 @@
-{
-  "name": "Copy of Real Estate Management Dashboard",
-  "description": "A comprehensive dashboard for managing residential units, customers, payments, and bookings. The application provides interfaces for data entry, viewing records, tracking revenue, and managing documents, all in an intuitive and visually appealing interface.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
-}
