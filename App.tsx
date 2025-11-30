@@ -122,7 +122,13 @@ const App: React.FC = () => {
     <ProjectProvider>
       <div dir="rtl" className="flex h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-amber-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-amber-900/30 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden relative">
         {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-30 dark:opacity-20 pointer-events-none" style={{backgroundImage: "url('data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f59e0b' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')"}}></div>
+        <div 
+          className="fixed inset-0 opacity-[0.15] dark:opacity-10 pointer-events-none z-0" 
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f59e0b' fill-opacity='0.4'%3E%3Cpath d='M50 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10-10-4.477-10-10zM10 10c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10-10-4.477-10-10zm40 0c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10-10-4.477-10-10zM10 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10-10-4.477-10-10z' opacity='.5'%3E%3Canimate attributeName='opacity' values='0.5;1;0.5' dur='8s' repeatCount='indefinite'/%3E%3C/path%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundSize: '80px 80px'
+          }}
+        ></div>
         {/* Scroll Progress Bar */}
         <div 
           className="scroll-progress" 
