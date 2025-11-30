@@ -277,7 +277,7 @@ const Users: React.FC = () => {
                 </button>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 mb-6">
+            <div className="glass-card p-4 mb-6">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-full">
                         {(['All', 'Admin', 'Sales', 'Accounting'] as const).map(role => (
@@ -305,8 +305,8 @@ const Users: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
-                <div className="overflow-x-auto">
+            <div className="glass-card overflow-hidden">
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
                     <table className="w-full text-right min-w-[600px]">
                     <thead>
                         <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">

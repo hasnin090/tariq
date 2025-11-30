@@ -275,8 +275,8 @@ export const Expenses: React.FC = () => {
                         amount: expenseData.amount,
                     });
                 }
-                addToast('تم تحديث الحركة المالية بنجاح.', 'success');
-                logActivity('Update Expense', `Updated expense: ${expenseData.description}`);
+                addToast(`تم تحديث الحركة المالية "${expenseData.description}" بمبلغ ${formatCurrency(expenseData.amount)} بنجاح`, 'success');
+                logActivity('Update Expense', `Updated expense: ${expenseData.description} (Amount: ${expenseData.amount})`);
             } else {
                 if (!expenseData.accountId) {
                     addToast('الحساب المحدد غير صالح.', 'error');
@@ -321,8 +321,8 @@ export const Expenses: React.FC = () => {
                     exp.id === tempId ? newExpense : exp
                 ));
 
-                addToast('تمت إضافة المصروف بنجاح.', 'success');
-                logActivity('Add Expense', `Added expense: ${newExpense.description}`);
+                addToast(`تمت إضافة الحركة المالية "${newExpense.description}" بمبلغ ${formatCurrency(newExpense.amount)} بنجاح إلى قاعدة البيانات`, 'success');
+                logActivity('Add Expense', `Added expense: ${newExpense.description} (Amount: ${newExpense.amount}, ID: ${newExpense.id})`);
             }
             handleCloseModal();
         } catch (error) {
@@ -331,7 +331,9 @@ export const Expenses: React.FC = () => {
             if (!editingExpense) {
                 setAllExpenses(prev => prev.filter(exp => !exp.id.startsWith('temp_')));
             }
-            addToast('فشل حفظ المصروف.', 'error');
+            const operation = editingExpense ? 'تحديث' : 'إضافة';
+            const errorMessage = error?.message || 'حدث خطأ غير متوقع';
+            addToast(`فشل ${operation} الحركة المالية. السبب: ${errorMessage}`, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -344,33 +346,35 @@ export const Expenses: React.FC = () => {
     const confirmDelete = async () => {
         if (expenseToDelete) {
             const expenseId = expenseToDelete.id;
+            const expenseDescription = expenseToDelete.description;
+            const expenseAmount = expenseToDelete.amount;
+            
             try {
                 // Close modal first
                 setExpenseToDelete(null);
                 
-                // Start delete animation after modal closes
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Start delete animation
                 setDeletingId(expenseId);
                 
-                // Wait for animation to complete
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
-                // Optimistic update - remove from UI immediately
-                setAllExpenses(prev => prev.filter(exp => exp.id !== expenseId));
-                
-                // First delete the associated transaction
+                // Delete from database first (before updating UI)
                 if (expenseToDelete.transactionId) {
                     await transactionsService.delete(expenseToDelete.transactionId);
                 }
-                // Then delete the expense
                 await expensesService.delete(expenseId);
                 
-                addToast('تم حذف المصروف بنجاح.', 'success');
-                logActivity('Delete Expense', `Deleted expense: ${expenseToDelete.description}`);
+                // After successful database deletion, wait for animation then remove from UI
+                await new Promise(resolve => setTimeout(resolve, 300));
+                setAllExpenses(prev => prev.filter(exp => exp.id !== expenseId));
+                
+                // Precise success message
+                addToast(`تم حذف الحركة المالية "${expenseDescription}" بمبلغ ${formatCurrency(expenseAmount)} بنجاح من قاعدة البيانات`, 'success');
+                logActivity('Delete Expense', `Deleted expense: ${expenseDescription} (Amount: ${expenseAmount}, ID: ${expenseId})`);
+                
             } catch (error) {
                 console.error('Error deleting expense:', error);
-                addToast('فشل حذف المصروف.', 'error');
-                // Revert on error - will be restored by subscription
+                const errorMessage = error?.message || 'حدث خطأ غير متوقع';
+                addToast(`فشل حذف الحركة المالية "${expenseDescription}". السبب: ${errorMessage}`, 'error');
+                // No need to revert since we didn't remove from UI yet
             } finally {
                 setDeletingId(null);
             }
@@ -446,8 +450,8 @@ export const Expenses: React.FC = () => {
             {showFilters && <FilterBar />}
              {filteredExpenses.length > 0 ? (
                 <>
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
-                        <div className="overflow-x-auto">
+                    <div className="glass-card overflow-hidden">
+                        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
                             <table className="w-full text-right min-w-[800px]">
                             <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
                                 {visibleColumns.date && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>}

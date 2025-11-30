@@ -8,7 +8,7 @@ import { unitsService, paymentsService, bookingsService } from '../../src/servic
 import { TrendingUpIcon, ScaleIcon, BanknotesIcon } from '../shared/Icons';
 
 const SummaryCard: React.FC<{ title: string; value: string; icon: React.ReactElement; }> = ({ title, value, icon }) => (
-    <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+    <div className="glass-card p-4 sm:p-6">
         <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex-shrink-0 transform scale-75 sm:scale-100">
                 {icon}
@@ -88,7 +88,7 @@ const FinancialSummary: React.FC = () => {
                     <SummaryCard title="إجمالي المقبوضات" value={summary.totalPaymentsReceived} icon={<TrendingUpIcon className="h-10 w-10 text-blue-500" />} />
                 </div>
 
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <div className="glass-card p-6">
                     <h3 className="font-bold text-lg">تحليل سريع</h3>
                     <p className="text-slate-500">هذه المنطقة مخصصة لعرض مخططات ورسوم بيانية تلخص الوضع المالي العام.</p>
                     {/* Chart placeholder */}

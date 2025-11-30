@@ -118,16 +118,16 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border-2 border-slate-200 dark:border-slate-700 z-50 overflow-hidden animate-fade-in-scale-up">
+                    <div className="absolute top-full left-0 right-0 mt-2 backdrop-blur-2xl bg-white/95 dark:bg-slate-800/95 rounded-2xl shadow-2xl border-2 border-white/30 dark:border-slate-700/50 z-50 overflow-hidden transition-all duration-500 animate-fade-in-scale-up">
                         {/* Search Bar */}
-                        <div className="p-3 border-b border-slate-200 dark:border-slate-700">
+                        <div className="p-3 border-b border-white/30 dark:border-slate-700/50">
                             <div className="relative">
                                 <input
                                     type="text"
                                     placeholder="ابحث عن مشروع..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 text-sm"
+                                    className="w-full pl-10 pr-4 py-2.5 border-2 border-slate-300/50 dark:border-slate-600/50 rounded-xl backdrop-blur-lg bg-white/70 dark:bg-slate-900/70 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 text-sm transition-all duration-300"
                                     autoFocus
                                 />
                                 <svg xmlns="http://www.w3.org/2000/svg" className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,8 +141,8 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                             {/* All Projects Option */}
                             <button
                                 onClick={() => handleSelectProject(null)}
-                                className={`w-full flex items-center gap-3 p-4 transition-all duration-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 border-b border-slate-100 dark:border-slate-700 ${
-                                    !activeProject ? 'bg-emerald-50 dark:bg-emerald-900/30' : ''
+                                className={`w-full flex items-center gap-3 p-4 transition-all duration-500 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/30 hover:scale-[1.01] border-b border-white/30 dark:border-slate-700/50 ${
+                                    !activeProject ? 'bg-emerald-50/80 dark:bg-emerald-900/40 scale-[1.01]' : ''
                                 }`}
                             >
                                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -175,8 +175,8 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                                         <button
                                             key={project.id}
                                             onClick={() => handleSelectProject(project)}
-                                            className={`w-full flex items-center gap-3 p-4 transition-all duration-200 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${
-                                                isActive ? 'bg-primary-50 dark:bg-primary-900/30' : ''
+                                            className={`w-full flex items-center gap-3 p-4 transition-all duration-500 hover:bg-primary-50/80 dark:hover:bg-primary-900/30 hover:scale-[1.01] border-b border-white/30 dark:border-slate-700/50 last:border-b-0 ${
+                                                isActive ? 'bg-primary-50/80 dark:bg-primary-900/40 scale-[1.01]' : ''
                                             }`}
                                         >
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -214,7 +214,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                         </div>
 
                         {/* Footer Info */}
-                        <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700">
+                        <div className="p-3 backdrop-blur-md bg-slate-50/80 dark:bg-slate-900/60 border-t border-white/30 dark:border-slate-700/50">
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-slate-500 dark:text-slate-400">
                                     عدد المشاريع: <strong className="text-slate-700 dark:text-slate-300">{projects.length}</strong>

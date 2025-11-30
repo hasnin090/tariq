@@ -199,8 +199,8 @@ const Customers: React.FC = () => {
             />
             
              {filteredCustomers.length > 0 ? (
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
-                    <div className="overflow-x-auto">
+                <div className="glass-card overflow-hidden">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
                         <table className="w-full text-right min-w-[600px]">
                         <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
                             <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الاسم</th>

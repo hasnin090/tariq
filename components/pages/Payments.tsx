@@ -492,7 +492,7 @@ const Payments: React.FC = () => {
             {showCustomerPayments && selectedCustomer ? (
                 <div>
                     <button onClick={() => setShowCustomerPayments(false)} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg">العودة</button>
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700 mb-6">
+                    <div className="glass-card overflow-hidden mb-6">
                         <div className="p-6">
                             <h3 className="text-xl font-bold mb-4">دفعات العميل</h3>
                             {customerPayments.length > 0 ? (

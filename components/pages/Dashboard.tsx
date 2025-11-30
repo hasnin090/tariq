@@ -7,8 +7,8 @@ import { useProject } from '../../contexts/ProjectContext.tsx';
 import ProjectSelector from '../shared/ProjectSelector.tsx';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
-    <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center border border-slate-200 dark:border-slate-700 min-w-0">
-        <div className={`p-3 sm:p-4 rounded-full ${color} flex-shrink-0`}>
+    <div className="glass-card p-4 sm:p-6 hover:scale-[1.02] transition-all duration-300 flex items-center min-w-0">
+        <div className={`p-3 sm:p-4 rounded-xl ${color} flex-shrink-0`}>
             {icon}
         </div>
         <div className="mr-3 sm:mr-4 flex-1 min-w-0">
