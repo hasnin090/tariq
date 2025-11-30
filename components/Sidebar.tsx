@@ -378,19 +378,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                         </div>
                     )}
                 </nav>
-
-                {/* User Profile Summary (Optional Footer) */}
-                <div className="p-4 border-t border-white/20 backdrop-blur-lg bg-white/5">
-                    <div className="flex items-center gap-3 px-2">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-amber-700 flex items-center justify-center text-white font-bold shadow-lg">
-                            {currentUser?.username?.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{currentUser?.username}</p>
-                            <p className="text-xs text-slate-400 truncate">{currentUser?.role === 'Admin' ? 'مدير النظام' : currentUser?.role}</p>
-                        </div>
-                    </div>
-                </div>
             </aside>
         </>
     );

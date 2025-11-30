@@ -136,8 +136,8 @@ const GeneralArchive: React.FC = () => {
     const getTypeBadgeColor = (type: string): string => {
         const colors: Record<string, string> = {
             expense: 'bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200',
-            payment: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200',
-            transaction: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200',
+            payment: 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200',
+            transaction: 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200',
             sale: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200',
         };
         return colors[type] || 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200';

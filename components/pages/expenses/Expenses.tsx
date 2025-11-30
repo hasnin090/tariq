@@ -130,7 +130,7 @@ export const Expenses: React.FC = () => {
     });
 
     const [currentPage, setCurrentPage] = useState(1);
-    const ITEMS_PER_PAGE = 10;
+    const ITEMS_PER_PAGE = 50;
 
     const canEdit = currentUser?.role === 'Admin';
     const canDelete = currentUser?.role === 'Admin';

@@ -266,9 +266,9 @@ export const Bookings: React.FC = () => {
     
     const getStatusStyle = (status: Booking['status']) => {
         switch (status) {
-            case 'Active': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300';
+            case 'Active': return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300';
             case 'Cancelled': return 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300';
-            case 'Completed': return 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300';
+            case 'Completed': return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300';
             default: return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
         }
     };
@@ -310,7 +310,7 @@ export const Bookings: React.FC = () => {
                                 <td className="p-4 text-center">
                                     <button 
                                         onClick={() => handleShowPayments(booking)}
-                                        className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm font-semibold hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors cursor-pointer"
+                                        className="inline-block px-3 py-1 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-full text-sm font-semibold hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors cursor-pointer"
                                     >
                                         {paymentCount}
                                     </button>

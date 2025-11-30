@@ -386,7 +386,7 @@ const DeferredPayments: React.FC = () => {
         switch (status) {
             case 'Pending': return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300';
             case 'Partially Paid': return 'bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-300';
-            case 'Paid': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300';
+            case 'Paid': return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300';
         }
     };
     
