@@ -104,6 +104,17 @@ const Customization: React.FC = () => {
     const colorSchemes = [
         { value: 'amber', name: 'برتقالي (افتراضي)', preview: 'bg-gradient-to-r from-amber-500 to-amber-600' },
         { value: 'blue', name: 'أزرق', preview: 'bg-gradient-to-r from-blue-500 to-blue-600' },
+        { value: 'emerald', name: 'أخضر زمردي', preview: 'bg-gradient-to-r from-emerald-500 to-emerald-600' },
+        { value: 'purple', name: 'بنفسجي', preview: 'bg-gradient-to-r from-purple-500 to-purple-600' },
+        { value: 'rose', name: 'وردي', preview: 'bg-gradient-to-r from-rose-500 to-rose-600' },
+        { value: 'cyan', name: 'سماوي', preview: 'bg-gradient-to-r from-cyan-500 to-cyan-600' },
+        { value: 'indigo', name: 'نيلي', preview: 'bg-gradient-to-r from-indigo-500 to-indigo-600' },
+        { value: 'teal', name: 'أخضر مزرق', preview: 'bg-gradient-to-r from-teal-500 to-teal-600' },
+    ];
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
                 const [
                     unitTypesData, 
                     unitStatusesData, 
@@ -128,22 +139,28 @@ const Customization: React.FC = () => {
                     setAccentColor(accentColorData);
                     document.documentElement.setAttribute('data-accent-color', accentColorData);
                 }
-                    unitTypesService.getAll(),
-                    unitStatusesService.getAll(),
-                    expenseCategoriesService.getAll(),
-                    settingsService.get('systemCurrency'),
-                    settingsService.get('systemDecimalPlaces')
-                ]);
-                setUnitTypes(unitTypesData as UnitType[]);
-                setUnitStatuses(unitStatusesData as UnitStatus[]);
-                setExpenseCategories(expenseCategoriesData as ExpenseCategory[]);
-                if (currencyData) setCurrency(currencyData);
-                if (decimalPlacesData) setDecimalPlaces(parseInt(decimalPlacesData, 10));
 
             } catch (error) {
                 console.error("Failed to fetch customization data:", error);
                 addToast("فشل في تحميل بيانات التخصيص.", "error");
             }
+        };
+        fetchData();
+    }, [addToast]);
+
+    const handleCurrencyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newCurrency = e.target.value;
+        setCurrency(newCurrency);
+        try {
+            await settingsService.set('systemCurrency', newCurrency);
+            logActivity('Update Currency', `Set system currency to ${newCurrency}`);
+            addToast('تم تحديث العملة. ستظهر التغييرات عند تنقلك في التطبيق.', 'success');
+        } catch (error) {
+            console.error("Failed to save currency setting:", error);
+            addToast("فشل في حفظ إعداد العملة.", "error");
+        }
+    };
+    
     const handleDecimalPlacesChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newDecimalPlaces = parseInt(e.target.value, 10);
         setDecimalPlaces(newDecimalPlaces);
@@ -170,23 +187,6 @@ const Customization: React.FC = () => {
         }
     };
 
-    return (addToast("فشل في حفظ إعداد العملة.", "error");
-        }
-    };
-    
-    const handleDecimalPlacesChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newDecimalPlaces = parseInt(e.target.value, 10);
-        setDecimalPlaces(newDecimalPlaces);
-            <div className="mt-8 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">إعدادات عامة</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">aces to ${newDecimalPlaces}`);
-            addToast('تم تحديث عدد الخانات العشرية. ستظهر التغييرات عند تنقلك في التطبيق.', 'success');
-        } catch (error) {
-            console.error("Failed to save decimal places setting:", error);
-            addToast("فشل في حفظ إعداد الخانات العشرية.", "error");
-        }
-    };
-
     return (
         <div className="container mx-auto">
             <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">تخصيص النظام</h2>
@@ -198,7 +198,7 @@ const Customization: React.FC = () => {
 
             <div className="mt-8 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                 <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">إعدادات عامة</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     <div>
                         <label htmlFor="currency-select" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                             عملة النظام
@@ -216,6 +216,25 @@ const Customization: React.FC = () => {
                                 <option key={c.code} value={c.code}>
                                     {c.name} ({c.code})
                                 </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                         <label htmlFor="decimal-places-select" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            الخانات العشرية للمبالغ
+                        </label>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+                            حدد عدد الأرقام التي تظهر بعد الفاصلة العشرية للقيم المالية.
+                        </p>
+                        <select
+                            id="decimal-places-select"
+                            value={decimalPlaces}
+                            onChange={handleDecimalPlacesChange}
+                            className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
+                        >
+                            <option value="0">0 (بدون خانات عشرية)</option>
+                            <option value="1">1</option>
+                            <option value="2">2 (افتراضي)</option>
                             <option value="3">3</option>
                         </select>
                     </div>
@@ -244,25 +263,6 @@ const Customization: React.FC = () => {
                                 </button>
                             ))}
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default Customization;
-                        <select
-                            id="decimal-places-select"
-                            value={decimalPlaces}
-                            onChange={handleDecimalPlacesChange}
-                            className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
-                        >
-                            <option value="0">0 (بدون خانات عشرية)</option>
-                            <option value="1">1</option>
-                            <option value="2">2 (افتراضي)</option>
-                            <option value="3">3</option>
-                        </select>
                     </div>
                 </div>
             </div>
