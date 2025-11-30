@@ -145,13 +145,6 @@ CREATE POLICY "Allow all payments access" ON public.payments
     USING (true)
     WITH CHECK (true);
 
--- جدول المبيعات (Sales)
-DROP POLICY IF EXISTS "Allow all sales access" ON public.sales;
-CREATE POLICY "Allow all sales access" ON public.sales
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
 -- جدول المصروفات (Expenses)
 DROP POLICY IF EXISTS "Allow all expenses access" ON public.expenses;
 CREATE POLICY "Allow all expenses access" ON public.expenses
@@ -169,20 +162,6 @@ CREATE POLICY "Allow all employees access" ON public.employees
 -- جدول الموردين (Vendors)
 DROP POLICY IF EXISTS "Allow all vendors access" ON public.vendors;
 CREATE POLICY "Allow all vendors access" ON public.vendors
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
--- جدول الفئات (Categories)
-DROP POLICY IF EXISTS "Allow all categories access" ON public.categories;
-CREATE POLICY "Allow all categories access" ON public.categories
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
--- جدول الميزانيات (Budgets)
-DROP POLICY IF EXISTS "Allow all budgets access" ON public.budgets;
-CREATE POLICY "Allow all budgets access" ON public.budgets
     FOR ALL
     USING (true)
     WITH CHECK (true);
