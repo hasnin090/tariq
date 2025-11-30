@@ -50,6 +50,22 @@ const App: React.FC = () => {
     return (sessionStorage.getItem('interfaceMode') as InterfaceMode) || 'projects';
   });
 
+  // Load accent color on mount
+  useEffect(() => {
+    const loadAccentColor = async () => {
+      try {
+        const { settingsService } = await import('./src/services/supabaseService');
+        const savedColor = await settingsService.get('accentColor');
+        if (savedColor) {
+          document.documentElement.setAttribute('data-accent-color', savedColor);
+        }
+      } catch (error) {
+        console.error('Failed to load accent color:', error);
+      }
+    };
+    loadAccentColor();
+  }, []);
+
   const [activePage, setActivePage] = useState<string>(() => {
     const savedPage = sessionStorage.getItem('activePage');
     if (savedPage) return savedPage;

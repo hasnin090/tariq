@@ -90,6 +90,7 @@ const Customization: React.FC = () => {
     const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
     const [currency, setCurrency] = useState('IQD');
     const [decimalPlaces, setDecimalPlaces] = useState(2);
+    const [accentColor, setAccentColor] = useState('amber');
 
     const currencies = [
         { code: 'IQD', name: 'دينار عراقي' },
@@ -100,16 +101,33 @@ const Customization: React.FC = () => {
         { code: 'EGP', name: 'جنيه مصري' },
     ];
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
+    const colorSchemes = [
+        { value: 'amber', name: 'برتقالي (افتراضي)', preview: 'bg-gradient-to-r from-amber-500 to-amber-600' },
+        { value: 'blue', name: 'أزرق', preview: 'bg-gradient-to-r from-blue-500 to-blue-600' },
                 const [
                     unitTypesData, 
                     unitStatusesData, 
                     expenseCategoriesData,
                     currencyData,
-                    decimalPlacesData
+                    decimalPlacesData,
+                    accentColorData
                 ] = await Promise.all([
+                    unitTypesService.getAll(),
+                    unitStatusesService.getAll(),
+                    expenseCategoriesService.getAll(),
+                    settingsService.get('systemCurrency'),
+                    settingsService.get('systemDecimalPlaces'),
+                    settingsService.get('accentColor')
+                ]);
+                setUnitTypes(unitTypesData as UnitType[]);
+                setUnitStatuses(unitStatusesData as UnitStatus[]);
+                setExpenseCategories(expenseCategoriesData as ExpenseCategory[]);
+                if (currencyData) setCurrency(currencyData);
+                if (decimalPlacesData) setDecimalPlaces(parseInt(decimalPlacesData, 10));
+                if (accentColorData) {
+                    setAccentColor(accentColorData);
+                    document.documentElement.setAttribute('data-accent-color', accentColorData);
+                }
                     unitTypesService.getAll(),
                     unitStatusesService.getAll(),
                     expenseCategoriesService.getAll(),
@@ -126,29 +144,42 @@ const Customization: React.FC = () => {
                 console.error("Failed to fetch customization data:", error);
                 addToast("فشل في تحميل بيانات التخصيص.", "error");
             }
-        };
-        fetchData();
-    }, [addToast]);
-
-    const handleCurrencyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newCurrency = e.target.value;
-        setCurrency(newCurrency);
-        try {
-            await settingsService.set('systemCurrency', newCurrency);
-            logActivity('Update Currency', `Set system currency to ${newCurrency}`);
-            addToast('تم تحديث العملة. ستظهر التغييرات عند تنقلك في التطبيق.', 'success');
-        } catch (error) {
-            console.error("Failed to save currency setting:", error);
-            addToast("فشل في حفظ إعداد العملة.", "error");
-        }
-    };
-    
     const handleDecimalPlacesChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newDecimalPlaces = parseInt(e.target.value, 10);
         setDecimalPlaces(newDecimalPlaces);
         try {
             await settingsService.set('systemDecimalPlaces', newDecimalPlaces.toString());
             logActivity('Update Decimal Places', `Set system decimal places to ${newDecimalPlaces}`);
+            addToast('تم تحديث عدد الخانات العشرية. ستظهر التغييرات عند تنقلك في التطبيق.', 'success');
+        } catch (error) {
+            console.error("Failed to save decimal places setting:", error);
+            addToast("فشل في حفظ إعداد الخانات العشرية.", "error");
+        }
+    };
+
+    const handleColorChange = async (newColor: string) => {
+        setAccentColor(newColor);
+        try {
+            await settingsService.set('accentColor', newColor);
+            document.documentElement.setAttribute('data-accent-color', newColor);
+            logActivity('Update Accent Color', `Set system accent color to ${newColor}`);
+            addToast('تم تحديث نظام الألوان. سيتم تطبيق الألوان الجديدة فوراً.', 'success');
+        } catch (error) {
+            console.error("Failed to save accent color setting:", error);
+            addToast("فشل في حفظ إعداد اللون.", "error");
+        }
+    };
+
+    return (addToast("فشل في حفظ إعداد العملة.", "error");
+        }
+    };
+    
+    const handleDecimalPlacesChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newDecimalPlaces = parseInt(e.target.value, 10);
+        setDecimalPlaces(newDecimalPlaces);
+            <div className="mt-8 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">إعدادات عامة</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">aces to ${newDecimalPlaces}`);
             addToast('تم تحديث عدد الخانات العشرية. ستظهر التغييرات عند تنقلك في التطبيق.', 'success');
         } catch (error) {
             console.error("Failed to save decimal places setting:", error);
@@ -185,16 +216,42 @@ const Customization: React.FC = () => {
                                 <option key={c.code} value={c.code}>
                                     {c.name} ({c.code})
                                 </option>
-                            ))}
+                            <option value="3">3</option>
                         </select>
                     </div>
                     <div>
-                         <label htmlFor="decimal-places-select" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            الخانات العشرية للمبالغ
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            نظام الألوان
                         </label>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
-                            حدد عدد الأرقام التي تظهر بعد الفاصلة العشرية للقيم المالية.
+                            اختر اللون الأساسي للنظام (الأزرار، الروابط، التحديدات).
                         </p>
+                        <div className="grid grid-cols-2 gap-3">
+                            {colorSchemes.map(scheme => (
+                                <button
+                                    key={scheme.value}
+                                    onClick={() => handleColorChange(scheme.value)}
+                                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                                        accentColor === scheme.value 
+                                            ? 'border-slate-900 dark:border-white shadow-md' 
+                                            : 'border-slate-300 dark:border-slate-600 hover:border-slate-400'
+                                    }`}
+                                >
+                                    <div className={`h-8 w-full ${scheme.preview} rounded mb-2`}></div>
+                                    <p className="text-xs font-medium text-slate-700 dark:text-slate-300 text-center">
+                                        {scheme.name}
+                                    </p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Customization;
                         <select
                             id="decimal-places-select"
                             value={decimalPlaces}

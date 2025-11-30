@@ -21,6 +21,29 @@
            active:scale-[0.98] transition-all duration-300;
   }
 
+  /* Dynamic Color Schemes */
+  [data-accent-color="blue"] .btn-primary {
+    @apply from-blue-600/90 to-blue-700/90 shadow-blue-500/10 hover:shadow-blue-500/20 hover:from-blue-500 hover:to-blue-600;
+  }
+  [data-accent-color="emerald"] .btn-primary {
+    @apply from-emerald-600/90 to-emerald-700/90 shadow-emerald-500/10 hover:shadow-emerald-500/20 hover:from-emerald-500 hover:to-emerald-600;
+  }
+  [data-accent-color="purple"] .btn-primary {
+    @apply from-purple-600/90 to-purple-700/90 shadow-purple-500/10 hover:shadow-purple-500/20 hover:from-purple-500 hover:to-purple-600;
+  }
+  [data-accent-color="rose"] .btn-primary {
+    @apply from-rose-600/90 to-rose-700/90 shadow-rose-500/10 hover:shadow-rose-500/20 hover:from-rose-500 hover:to-rose-600;
+  }
+  [data-accent-color="cyan"] .btn-primary {
+    @apply from-cyan-600/90 to-cyan-700/90 shadow-cyan-500/10 hover:shadow-cyan-500/20 hover:from-cyan-500 hover:to-cyan-600;
+  }
+  [data-accent-color="indigo"] .btn-primary {
+    @apply from-indigo-600/90 to-indigo-700/90 shadow-indigo-500/10 hover:shadow-indigo-500/20 hover:from-indigo-500 hover:to-indigo-600;
+  }
+  [data-accent-color="teal"] .btn-primary {
+    @apply from-teal-600/90 to-teal-700/90 shadow-teal-500/10 hover:shadow-teal-500/20 hover:from-teal-500 hover:to-teal-600;
+  }
+
   .btn-secondary {
     @apply backdrop-blur-lg bg-slate-800/80 
            text-slate-200 
