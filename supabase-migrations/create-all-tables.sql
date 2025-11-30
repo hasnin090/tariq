@@ -275,23 +275,90 @@ CREATE POLICY "Allow settings update" ON public.settings FOR UPDATE USING (true)
 CREATE POLICY "Allow settings insert" ON public.settings FOR INSERT WITH CHECK (true);
 
 -- سياسات عامة لباقي الجداول (الوصول الكامل)
-CREATE POLICY "Allow all projects" ON public.projects FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all units" ON public.units FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all customers" ON public.customers FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all bookings" ON public.bookings FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all payments" ON public.payments FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all unit_sales" ON public.unit_sales FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all expenses" ON public.expenses FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all employees" ON public.employees FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all vendors" ON public.vendors FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all expense_categories" ON public.expense_categories FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all unit_types" ON public.unit_types FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all unit_statuses" ON public.unit_statuses FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all accounts" ON public.accounts FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all transactions" ON public.transactions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all documents" ON public.documents FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all activity_logs" ON public.activity_logs FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all notifications" ON public.notifications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "projects_select_policy" ON public.projects FOR SELECT USING (true);
+CREATE POLICY "projects_insert_policy" ON public.projects FOR INSERT WITH CHECK (true);
+CREATE POLICY "projects_update_policy" ON public.projects FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "projects_delete_policy" ON public.projects FOR DELETE USING (true);
+
+CREATE POLICY "units_select_policy" ON public.units FOR SELECT USING (true);
+CREATE POLICY "units_insert_policy" ON public.units FOR INSERT WITH CHECK (true);
+CREATE POLICY "units_update_policy" ON public.units FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "units_delete_policy" ON public.units FOR DELETE USING (true);
+
+CREATE POLICY "customers_select_policy" ON public.customers FOR SELECT USING (true);
+CREATE POLICY "customers_insert_policy" ON public.customers FOR INSERT WITH CHECK (true);
+CREATE POLICY "customers_update_policy" ON public.customers FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "customers_delete_policy" ON public.customers FOR DELETE USING (true);
+
+CREATE POLICY "bookings_select_policy" ON public.bookings FOR SELECT USING (true);
+CREATE POLICY "bookings_insert_policy" ON public.bookings FOR INSERT WITH CHECK (true);
+CREATE POLICY "bookings_update_policy" ON public.bookings FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "bookings_delete_policy" ON public.bookings FOR DELETE USING (true);
+
+CREATE POLICY "payments_select_policy" ON public.payments FOR SELECT USING (true);
+CREATE POLICY "payments_insert_policy" ON public.payments FOR INSERT WITH CHECK (true);
+CREATE POLICY "payments_update_policy" ON public.payments FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "payments_delete_policy" ON public.payments FOR DELETE USING (true);
+
+CREATE POLICY "unit_sales_select_policy" ON public.unit_sales FOR SELECT USING (true);
+CREATE POLICY "unit_sales_insert_policy" ON public.unit_sales FOR INSERT WITH CHECK (true);
+CREATE POLICY "unit_sales_update_policy" ON public.unit_sales FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "unit_sales_delete_policy" ON public.unit_sales FOR DELETE USING (true);
+
+CREATE POLICY "expenses_select_policy" ON public.expenses FOR SELECT USING (true);
+CREATE POLICY "expenses_insert_policy" ON public.expenses FOR INSERT WITH CHECK (true);
+CREATE POLICY "expenses_update_policy" ON public.expenses FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "expenses_delete_policy" ON public.expenses FOR DELETE USING (true);
+
+CREATE POLICY "employees_select_policy" ON public.employees FOR SELECT USING (true);
+CREATE POLICY "employees_insert_policy" ON public.employees FOR INSERT WITH CHECK (true);
+CREATE POLICY "employees_update_policy" ON public.employees FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "employees_delete_policy" ON public.employees FOR DELETE USING (true);
+
+CREATE POLICY "vendors_select_policy" ON public.vendors FOR SELECT USING (true);
+CREATE POLICY "vendors_insert_policy" ON public.vendors FOR INSERT WITH CHECK (true);
+CREATE POLICY "vendors_update_policy" ON public.vendors FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "vendors_delete_policy" ON public.vendors FOR DELETE USING (true);
+
+CREATE POLICY "expense_categories_select_policy" ON public.expense_categories FOR SELECT USING (true);
+CREATE POLICY "expense_categories_insert_policy" ON public.expense_categories FOR INSERT WITH CHECK (true);
+CREATE POLICY "expense_categories_update_policy" ON public.expense_categories FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "expense_categories_delete_policy" ON public.expense_categories FOR DELETE USING (true);
+
+CREATE POLICY "unit_types_select_policy" ON public.unit_types FOR SELECT USING (true);
+CREATE POLICY "unit_types_insert_policy" ON public.unit_types FOR INSERT WITH CHECK (true);
+CREATE POLICY "unit_types_update_policy" ON public.unit_types FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "unit_types_delete_policy" ON public.unit_types FOR DELETE USING (true);
+
+CREATE POLICY "unit_statuses_select_policy" ON public.unit_statuses FOR SELECT USING (true);
+CREATE POLICY "unit_statuses_insert_policy" ON public.unit_statuses FOR INSERT WITH CHECK (true);
+CREATE POLICY "unit_statuses_update_policy" ON public.unit_statuses FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "unit_statuses_delete_policy" ON public.unit_statuses FOR DELETE USING (true);
+
+CREATE POLICY "accounts_select_policy" ON public.accounts FOR SELECT USING (true);
+CREATE POLICY "accounts_insert_policy" ON public.accounts FOR INSERT WITH CHECK (true);
+CREATE POLICY "accounts_update_policy" ON public.accounts FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "accounts_delete_policy" ON public.accounts FOR DELETE USING (true);
+
+CREATE POLICY "transactions_select_policy" ON public.transactions FOR SELECT USING (true);
+CREATE POLICY "transactions_insert_policy" ON public.transactions FOR INSERT WITH CHECK (true);
+CREATE POLICY "transactions_update_policy" ON public.transactions FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "transactions_delete_policy" ON public.transactions FOR DELETE USING (true);
+
+CREATE POLICY "documents_select_policy" ON public.documents FOR SELECT USING (true);
+CREATE POLICY "documents_insert_policy" ON public.documents FOR INSERT WITH CHECK (true);
+CREATE POLICY "documents_update_policy" ON public.documents FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "documents_delete_policy" ON public.documents FOR DELETE USING (true);
+
+CREATE POLICY "activity_logs_select_policy" ON public.activity_logs FOR SELECT USING (true);
+CREATE POLICY "activity_logs_insert_policy" ON public.activity_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "activity_logs_update_policy" ON public.activity_logs FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "activity_logs_delete_policy" ON public.activity_logs FOR DELETE USING (true);
+
+CREATE POLICY "notifications_select_policy" ON public.notifications FOR SELECT USING (true);
+CREATE POLICY "notifications_insert_policy" ON public.notifications FOR INSERT WITH CHECK (true);
+CREATE POLICY "notifications_update_policy" ON public.notifications FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "notifications_delete_policy" ON public.notifications FOR DELETE USING (true);
 
 -- ============================================================================
 -- إنشاء مستخدم admin افتراضي
