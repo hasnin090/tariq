@@ -163,6 +163,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     const [expensesLinks, setExpensesLinks] = useState<typeof defaultExpensesLinks>(defaultExpensesLinks);
     const [systemLinks, setSystemLinks] = useState<typeof defaultSystemLinks>(defaultSystemLinks);
 
+    // Helper function to restore icons
+    const restoreIcons = (savedData: any[], defaultLinks: typeof defaultProjectsLinks) => {
+        return savedData.map(saved => {
+            const defaultLink = defaultLinks.find(link => link.page === saved.page);
+            return {
+                ...saved,
+                icon: defaultLink?.icon || <HomeIcon />
+            };
+        });
+    };
+
     // Load saved order from localStorage when user is available
     useEffect(() => {
         if (currentUser?.username) {
@@ -170,28 +181,40 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
             const savedExpenses = localStorage.getItem(getStorageKey('expenses'));
             const savedSystem = localStorage.getItem(getStorageKey('system'));
             
-            if (savedProjects) setProjectsLinks(JSON.parse(savedProjects));
-            if (savedExpenses) setExpensesLinks(JSON.parse(savedExpenses));
-            if (savedSystem) setSystemLinks(JSON.parse(savedSystem));
+            if (savedProjects) {
+                const parsed = JSON.parse(savedProjects);
+                setProjectsLinks(restoreIcons(parsed, defaultProjectsLinks));
+            }
+            if (savedExpenses) {
+                const parsed = JSON.parse(savedExpenses);
+                setExpensesLinks(restoreIcons(parsed, defaultExpensesLinks));
+            }
+            if (savedSystem) {
+                const parsed = JSON.parse(savedSystem);
+                setSystemLinks(restoreIcons(parsed, defaultSystemLinks));
+            }
         }
     }, [currentUser?.username]);
 
     // Save order to localStorage when links change
     useEffect(() => {
         if (currentUser?.username) {
-            localStorage.setItem(getStorageKey('projects'), JSON.stringify(projectsLinks));
+            const linkData = projectsLinks.map(link => ({ label: link.label, page: link.page, adminOnly: link.adminOnly }));
+            localStorage.setItem(getStorageKey('projects'), JSON.stringify(linkData));
         }
     }, [projectsLinks, currentUser?.username]);
 
     useEffect(() => {
         if (currentUser?.username) {
-            localStorage.setItem(getStorageKey('expenses'), JSON.stringify(expensesLinks));
+            const linkData = expensesLinks.map(link => ({ label: link.label, page: link.page, adminOnly: link.adminOnly }));
+            localStorage.setItem(getStorageKey('expenses'), JSON.stringify(linkData));
         }
     }, [expensesLinks, currentUser?.username]);
 
     useEffect(() => {
         if (currentUser?.username) {
-            localStorage.setItem(getStorageKey('system'), JSON.stringify(systemLinks));
+            const linkData = systemLinks.map(link => ({ label: link.label, page: link.page, adminOnly: link.adminOnly }));
+            localStorage.setItem(getStorageKey('system'), JSON.stringify(linkData));
         }
     }, [systemLinks, currentUser?.username]);
 
