@@ -52,17 +52,17 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                     onClick={() => setIsOpen(!isOpen)}
                     className={`w-full flex items-center justify-between gap-2 p-3 rounded-xl transition-all duration-300 border backdrop-blur-xl ${
                         isOpen
-                            ? 'bg-slate-800/70 border-amber-400/50 shadow-md text-white'
+                            ? 'backdrop-blur-xl bg-white/10 border-white/30 shadow-md text-white'
                             : activeProject
-                            ? 'bg-gradient-to-br from-amber-600 to-amber-700 border-amber-500 text-white shadow-lg shadow-amber-500/30 hover:shadow-xl'
-                            : 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl'
+                            ? 'backdrop-blur-xl bg-gradient-to-br from-amber-600/80 to-amber-700/80 border-white/20 text-white shadow-md shadow-amber-500/10 hover:shadow-lg'
+                            : 'backdrop-blur-xl bg-gradient-to-br from-emerald-500/80 to-teal-600/80 border-white/20 text-white shadow-md shadow-emerald-500/10 hover:shadow-lg'
                     }`}
                 >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
                             isOpen
-                                ? 'bg-slate-700/50'
-                                : 'bg-white/25 backdrop-blur-sm'
+                                ? 'bg-white/20 backdrop-blur-sm'
+                                : 'bg-white/20 backdrop-blur-sm'
                         }`}>
                             {activeProject ? (
                                 <BriefcaseIcon className={`h-5 w-5 ${isOpen ? 'text-amber-400' : 'text-white'}`} />
@@ -118,16 +118,16 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 backdrop-blur-2xl bg-slate-800/95 rounded-xl shadow-2xl border border-slate-700/50 z-50 overflow-hidden transition-all duration-500 animate-fade-in-scale-up">
+                    <div className="absolute top-full left-0 right-0 mt-1 backdrop-blur-2xl bg-white/10 rounded-xl shadow-2xl border border-white/20 z-50 overflow-hidden transition-all duration-500 animate-fade-in-scale-up">
                         {/* Search Bar */}
-                        <div className="p-2 border-b border-white/30 dark:border-slate-700/50">
+                        <div className="p-2 border-b border-white/20">
                             <div className="relative">
                                 <input
                                     type="text"
                                     placeholder="ابحث..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-8 pr-3 py-2 border border-slate-600 rounded-lg backdrop-blur-lg bg-slate-900/50 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 text-slate-100 placeholder:text-slate-500 text-xs transition-all duration-300"
+                                    className="w-full pl-8 pr-3 py-2 border border-white/30 rounded-lg backdrop-blur-lg bg-white/10 focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500/50 text-slate-100 placeholder:text-slate-400 text-xs transition-all duration-300"
                                     autoFocus
                                 />
                                 <svg xmlns="http://www.w3.org/2000/svg" className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,14 +141,14 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                             {/* All Projects Option */}
                             <button
                                 onClick={() => handleSelectProject(null)}
-                                className={`w-full flex items-center gap-2 p-2.5 transition-all duration-300 hover:bg-emerald-900/20 border-b border-white/20 dark:border-slate-700/30 ${
-                                    !activeProject ? 'bg-emerald-500/10 dark:bg-emerald-900/30' : ''
+                                className={`w-full flex items-center gap-2 p-2.5 transition-all duration-300 hover:bg-white/10 border-b border-white/10 ${
+                                    !activeProject ? 'bg-white/10' : ''
                                 }`}
                             >
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                                     !activeProject 
                                         ? 'bg-emerald-500 shadow-sm' 
-                                        : 'bg-emerald-500/20 dark:bg-emerald-900/20'
+                                        : 'bg-white/20 backdrop-blur-sm'
                                 }`}>
                                     <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${!activeProject ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -175,14 +175,14 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                                         <button
                                             key={project.id}
                                             onClick={() => handleSelectProject(project)}
-                                            className={`w-full flex items-center gap-2 p-2.5 transition-all duration-300 hover:bg-amber-900/20 border-b border-white/20 dark:border-slate-700/30 last:border-b-0 ${
-                                                isActive ? 'bg-amber-500/10 dark:bg-amber-900/30' : ''
+                                            className={`w-full flex items-center gap-2 p-2.5 transition-all duration-300 hover:bg-white/10 border-b border-white/10 last:border-b-0 ${
+                                                isActive ? 'bg-white/10' : ''
                                             }`}
                                         >
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                                                 isActive 
                                                     ? 'bg-amber-500 shadow-sm' 
-                                                    : 'bg-amber-500/20 dark:bg-amber-900/20'
+                                                    : 'bg-white/20 backdrop-blur-sm'
                                             }`}>
                                                 <BriefcaseIcon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`} />
                                             </div>
@@ -214,7 +214,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                         </div>
 
                         {/* Footer Info */}
-                        <div className="p-2 backdrop-blur-md bg-slate-900/60 border-t border-slate-700/50">
+                        <div className="p-2 backdrop-blur-md bg-white/5 border-t border-white/20">
                             <div className="flex items-center justify-between text-[10px]">
                                 <span className="text-slate-500 dark:text-slate-400">
                                     عدد المشاريع: <strong className="text-slate-700 dark:text-slate-300">{projects.length}</strong>

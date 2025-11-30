@@ -43,8 +43,8 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                     isEditMode ? 'cursor-move border-2 border-dashed border-amber-500/50' : 'cursor-pointer'
                 } ${
                     isActive && !isEditMode
-                    ? 'bg-gradient-to-l from-amber-600 via-amber-500 to-amber-600 text-white shadow-xl shadow-amber-500/30 translate-x-[-4px] scale-[1.02]' 
-                    : 'text-slate-400 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-slate-100 hover:translate-x-[-3px]'
+                    ? 'bg-gradient-to-l from-amber-600/90 via-amber-500/90 to-amber-600/90 text-white shadow-md shadow-amber-500/10 translate-x-[-4px] scale-[1.02]' 
+                    : 'text-slate-300 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-white hover:translate-x-[-3px]'
                 }`}
             >
                 {/* Animated Background Particles */}
@@ -287,11 +287,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
             ></div>
             
             {/* Sidebar Container */}
-            <aside className={`fixed lg:relative inset-y-0 right-0 w-72 backdrop-blur-xl bg-slate-900/95 border-l border-white/5 flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-out shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
+            <aside className={`fixed lg:relative inset-y-0 right-0 w-72 backdrop-blur-2xl bg-white/10 border-l border-white/20 flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-out shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
                 
                 {/* Logo Area */}
-                <div className="h-24 flex items-center justify-center relative overflow-hidden border-b border-white/5">
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-600/20 to-transparent opacity-50"></div>
+                <div className="h-24 flex items-center justify-center relative overflow-hidden border-b border-white/20">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-600/10 to-transparent opacity-30"></div>
                     <div className="relative z-10 text-center px-4">
                         <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 tracking-tight">{systemTitle}</h1>
                         <p className="text-xs text-amber-400 font-medium mt-1 tracking-widest uppercase opacity-80">لوحة التحكم المتطورة</p>
@@ -380,7 +380,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 </nav>
 
                 {/* User Profile Summary (Optional Footer) */}
-                <div className="p-4 border-t border-white/5 bg-black/20">
+                <div className="p-4 border-t border-white/20 backdrop-blur-lg bg-white/5">
                     <div className="flex items-center gap-3 px-2">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-amber-700 flex items-center justify-center text-white font-bold shadow-lg">
                             {currentUser?.username?.charAt(0).toUpperCase()}
