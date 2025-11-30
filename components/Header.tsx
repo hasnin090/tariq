@@ -204,11 +204,11 @@ const Header: React.FC<{
     const MenuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>;
 
     return (
-        <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 shadow-sm no-print transition-all duration-300">
+        <header className="sticky top-0 z-30 backdrop-blur-xl bg-slate-900/80 border-b border-white/5 shadow-lg no-print transition-all duration-300">
             <div className="h-20 flex items-center justify-between px-6 mx-auto gap-6">
                 
                 <div className="flex items-center gap-4">
-                    <button onClick={onToggleSidebar} className="lg:hidden text-slate-500 dark:text-slate-400 p-2 -mr-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                    <button onClick={onToggleSidebar} className="lg:hidden text-slate-400 p-2 -mr-2 hover:bg-slate-800 rounded-lg transition-colors">
                         <MenuIcon />
                     </button>
                     {currentUser?.role === 'Admin' && (
@@ -239,7 +239,7 @@ const Header: React.FC<{
                             </button>
                         </div>
                     )}
-                     <h1 className="text-lg font-semibold text-slate-700 dark:text-slate-200 hidden md:block whitespace-nowrap">
+                     <h1 className="text-lg font-semibold text-slate-200 hidden md:block whitespace-nowrap">
                         {pageName}
                     </h1>
                 </div>

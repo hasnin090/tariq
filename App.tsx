@@ -120,15 +120,16 @@ const App: React.FC = () => {
 
   return (
     <ProjectProvider>
-      <div dir="rtl" className="flex h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-amber-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-amber-900/30 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden relative">
-        {/* Background Pattern */}
-        <div 
-          className="fixed inset-0 opacity-[0.15] dark:opacity-10 pointer-events-none z-0" 
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f59e0b' fill-opacity='0.4'%3E%3Cpath d='M50 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10-10-4.477-10-10zM10 10c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10-10-4.477-10-10zm40 0c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10-10-4.477-10-10zM10 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10-10-4.477-10-10z' opacity='.5'%3E%3Canimate attributeName='opacity' values='0.5;1;0.5' dur='8s' repeatCount='indefinite'/%3E%3C/path%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            backgroundSize: '80px 80px'
-          }}
-        ></div>
+      <div dir="rtl" className="flex h-screen bg-slate-900 font-sans text-slate-100 overflow-hidden relative">
+        {/* Background gradient - exactly like Login */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 z-0"></div>
+        
+        {/* Background Pattern - cubes like Login */}
+        <div className="absolute inset-0 opacity-20 z-0" style={{backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')"}}></div>
+        
+        {/* Decorative Glow Effects - exactly like Login */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none z-0"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none z-0"></div>
         {/* Scroll Progress Bar */}
         <div 
           className="scroll-progress" 
