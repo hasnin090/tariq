@@ -153,7 +153,6 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 17. جدول المستندات (Documents)
 CREATE TABLE IF NOT EXISTS public.documents (
     id TEXT PRIMARY KEY,
     customer_id TEXT REFERENCES public.customers(id) ON DELETE CASCADE,
@@ -164,6 +163,9 @@ CREATE TABLE IF NOT EXISTS public.documents (
     file_type TEXT,
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- تأكد من وجود عمود sale_id في جدول المستندات (Documents)
+ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS sale_id TEXT;
 
 -- 18. جدول سجل النشاطات (Activity Logs)
 CREATE TABLE IF NOT EXISTS public.activity_logs (
