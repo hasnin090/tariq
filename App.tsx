@@ -131,14 +131,14 @@ const App: React.FC = () => {
         />
         
         <Sidebar 
-        activePage={activePage} 
-        setActivePage={(page) => {
-          setActivePage(page);
-          setIsSidebarOpen(false);
-        }} 
-        interfaceMode={interfaceMode} 
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
+          activePage={activePage} 
+          setActivePage={(page) => {
+            setActivePage(page);
+            setIsSidebarOpen(false);
+          }} 
+          interfaceMode={interfaceMode} 
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
         />
         
         <main className="flex-1 flex flex-col h-screen relative z-0">
@@ -159,4 +159,6 @@ const App: React.FC = () => {
       </div>
     </ProjectProvider>
   );
-};export default App;
+};
+
+export default App;
