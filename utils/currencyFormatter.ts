@@ -18,12 +18,29 @@ export const refreshCurrencyCache = async () => {
 export const formatCurrency = (amount: number): string => {
     // Use cached values or defaults
     const decimalPlaces = cachedDecimalPlaces ?? parseInt((localStorage.getItem('systemDecimalPlaces') || '2'), 10);
-    const currencyCode = cachedCurrency ?? (localStorage.getItem('systemCurrency') || 'IQD');
+    let currencyCode = cachedCurrency ?? (localStorage.getItem('systemCurrency') || 'IQD');
     
-    return new Intl.NumberFormat('ar-EG', {
-        style: 'currency',
-        currency: currencyCode,
-        minimumFractionDigits: decimalPlaces,
-        maximumFractionDigits: decimalPlaces,
-    }).format(amount);
+    // Validate currency code - must be exactly 3 letters (ISO 4217)
+    if (!currencyCode || currencyCode.length !== 3 || !/^[A-Z]{3}$/.test(currencyCode)) {
+        console.warn(`Invalid currency code: ${currencyCode}, falling back to IQD`);
+        currencyCode = 'IQD';
+    }
+    
+    try {
+        return new Intl.NumberFormat('ar-EG', {
+            style: 'currency',
+            currency: currencyCode,
+            minimumFractionDigits: decimalPlaces,
+            maximumFractionDigits: decimalPlaces,
+        }).format(amount);
+    } catch (error) {
+        console.error(`Error formatting currency with code ${currencyCode}:`, error);
+        // Fallback to simple formatting
+        return new Intl.NumberFormat('ar-EG', {
+            style: 'currency',
+            currency: 'IQD',
+            minimumFractionDigits: decimalPlaces,
+            maximumFractionDigits: decimalPlaces,
+        }).format(amount);
+    }
 };

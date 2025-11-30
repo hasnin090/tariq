@@ -218,13 +218,29 @@ const Customization: React.FC = () => {
 
     const handleCurrencyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newCurrency = e.target.value;
+        
+        // Validate it's a proper currency code (3 letters)
+        if (!newCurrency || newCurrency.length !== 3) {
+            addToast('رمز العملة غير صالح', 'error');
+            return;
+        }
+        
         setCurrency(newCurrency);
         try {
+            // Clear any old invalid data first
+            localStorage.removeItem('systemCurrency');
+            
+            // Set new valid currency
             await settingsService.set('systemCurrency', newCurrency);
             localStorage.setItem('systemCurrency', newCurrency);
             await refreshCurrencyCache();
             logActivity('Update Currency', `Set system currency to ${newCurrency}`);
-            addToast('تم تحديث العملة. قم بتحديث الصفحة لرؤية التغييرات.', 'success');
+            addToast('تم تحديث العملة بنجاح!', 'success');
+            
+            // Auto refresh after 1 second
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } catch (error) {
             console.error("Failed to save currency setting:", error);
             addToast("فشل في حفظ إعداد العملة.", "error");
@@ -235,11 +251,19 @@ const Customization: React.FC = () => {
         const newDecimalPlaces = parseInt(e.target.value, 10);
         setDecimalPlaces(newDecimalPlaces);
         try {
+            // Clear old value first
+            localStorage.removeItem('systemDecimalPlaces');
+            
             await settingsService.set('systemDecimalPlaces', newDecimalPlaces.toString());
             localStorage.setItem('systemDecimalPlaces', newDecimalPlaces.toString());
             await refreshCurrencyCache();
             logActivity('Update Decimal Places', `Set system decimal places to ${newDecimalPlaces}`);
-            addToast('تم تحديث عدد الخانات العشرية. قم بتحديث الصفحة لرؤية التغييرات.', 'success');
+            addToast('تم تحديث عدد الخانات العشرية بنجاح!', 'success');
+            
+            // Auto refresh after 1 second
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } catch (error) {
             console.error("Failed to save decimal places setting:", error);
             addToast("فشل في حفظ إعداد الخانات العشرية.", "error");
