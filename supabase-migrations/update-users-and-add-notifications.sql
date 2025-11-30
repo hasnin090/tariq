@@ -76,6 +76,132 @@ CREATE POLICY "Allow settings read" ON public.settings
     USING (true);
 
 -- ============================================================================
+-- تحديث سياسات RLS للجداول الأساسية - البيئة الآمنة
+-- ============================================================================
+-- ملاحظة: نظراً لأن النظام يستخدم localStorage بدلاً من Supabase Auth،
+-- سنسمح بالوصول الكامل مؤقتاً حتى يتم تطبيق مصادقة آمنة من جانب الخادم
+
+-- جدول المستخدمين - السماح بالتحديث للجميع
+DROP POLICY IF EXISTS "Allow users update" ON public.users;
+CREATE POLICY "Allow users update" ON public.users
+    FOR UPDATE
+    USING (true)
+    WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow users insert" ON public.users;
+CREATE POLICY "Allow users insert" ON public.users
+    FOR INSERT
+    WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow users delete" ON public.users;
+CREATE POLICY "Allow users delete" ON public.users
+    FOR DELETE
+    USING (true);
+
+-- جدول الإعدادات - السماح بالتحديث
+DROP POLICY IF EXISTS "Allow settings update" ON public.settings;
+CREATE POLICY "Allow settings update" ON public.settings
+    FOR UPDATE
+    USING (true)
+    WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow settings insert" ON public.settings;
+CREATE POLICY "Allow settings insert" ON public.settings
+    FOR INSERT
+    WITH CHECK (true);
+
+-- جدول المشاريع (Projects)
+DROP POLICY IF EXISTS "Allow all projects access" ON public.projects;
+CREATE POLICY "Allow all projects access" ON public.projects
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول الوحدات (Units)
+DROP POLICY IF EXISTS "Allow all units access" ON public.units;
+CREATE POLICY "Allow all units access" ON public.units
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول العملاء (Customers)
+DROP POLICY IF EXISTS "Allow all customers access" ON public.customers;
+CREATE POLICY "Allow all customers access" ON public.customers
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول الحجوزات (Bookings)
+DROP POLICY IF EXISTS "Allow all bookings access" ON public.bookings;
+CREATE POLICY "Allow all bookings access" ON public.bookings
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول المدفوعات (Payments)
+DROP POLICY IF EXISTS "Allow all payments access" ON public.payments;
+CREATE POLICY "Allow all payments access" ON public.payments
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول المبيعات (Sales)
+DROP POLICY IF EXISTS "Allow all sales access" ON public.sales;
+CREATE POLICY "Allow all sales access" ON public.sales
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول المصروفات (Expenses)
+DROP POLICY IF EXISTS "Allow all expenses access" ON public.expenses;
+CREATE POLICY "Allow all expenses access" ON public.expenses
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول الموظفين (Employees)
+DROP POLICY IF EXISTS "Allow all employees access" ON public.employees;
+CREATE POLICY "Allow all employees access" ON public.employees
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول الموردين (Vendors)
+DROP POLICY IF EXISTS "Allow all vendors access" ON public.vendors;
+CREATE POLICY "Allow all vendors access" ON public.vendors
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول الفئات (Categories)
+DROP POLICY IF EXISTS "Allow all categories access" ON public.categories;
+CREATE POLICY "Allow all categories access" ON public.categories
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول الميزانيات (Budgets)
+DROP POLICY IF EXISTS "Allow all budgets access" ON public.budgets;
+CREATE POLICY "Allow all budgets access" ON public.budgets
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول المستندات (Documents)
+DROP POLICY IF EXISTS "Allow all documents access" ON public.documents;
+CREATE POLICY "Allow all documents access" ON public.documents
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- جدول سجل النشاطات (Activity Log)
+DROP POLICY IF EXISTS "Allow all activity_log access" ON public.activity_log;
+CREATE POLICY "Allow all activity_log access" ON public.activity_log
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- ============================================================================
 -- جدول الإشعارات (Notifications)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.notifications (
