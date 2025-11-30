@@ -152,20 +152,6 @@ CREATE POLICY "Allow all expenses access" ON public.expenses
     USING (true)
     WITH CHECK (true);
 
--- جدول الموظفين (Employees)
-DROP POLICY IF EXISTS "Allow all employees access" ON public.employees;
-CREATE POLICY "Allow all employees access" ON public.employees
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
--- جدول الموردين (Vendors)
-DROP POLICY IF EXISTS "Allow all vendors access" ON public.vendors;
-CREATE POLICY "Allow all vendors access" ON public.vendors
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
 -- جدول المستندات (Documents)
 DROP POLICY IF EXISTS "Allow all documents access" ON public.documents;
 CREATE POLICY "Allow all documents access" ON public.documents
