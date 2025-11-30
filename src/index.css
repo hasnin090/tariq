@@ -15,27 +15,29 @@
 @layer components {
   .btn-primary {
     @apply backdrop-blur-lg bg-gradient-to-r from-amber-600/90 to-amber-700/90
-           border border-white/30 text-white px-4 py-2.5 rounded-xl font-semibold
-           shadow-lg shadow-amber-500/30 hover:shadow-xl hover:scale-[1.02]
+           border border-white/20 text-white px-4 py-2.5 rounded-xl font-semibold
+           shadow-md shadow-amber-500/10 hover:shadow-lg hover:shadow-amber-500/20 hover:scale-[1.01]
            hover:from-amber-500 hover:to-amber-600
            active:scale-[0.98] transition-all duration-300;
   }
 
   .btn-secondary {
-    @apply backdrop-blur-lg bg-slate-800/80 
-           text-slate-200 
+    @apply backdrop-blur-lg bg-slate-800/60 dark:bg-slate-800/80 
+           text-slate-100 dark:text-slate-200 
            px-4 py-2.5 rounded-xl font-semibold 
-           border-2 border-slate-600/50 
-           hover:bg-slate-700 hover:scale-[1.02]
+           border border-slate-600/30 dark:border-slate-600/50 
+           hover:bg-slate-700/70 dark:hover:bg-slate-700 hover:scale-[1.01]
            active:scale-[0.98] transition-all duration-300 shadow-sm;
   }
 
   .input-field {
-    @apply w-full p-2.5 backdrop-blur-lg bg-slate-800/50
-           border-2 border-slate-600/50 
-           text-slate-100 placeholder-slate-500
-           rounded-xl focus:ring-2 focus:ring-amber-500/50 
-           focus:border-amber-500 transition-all duration-300;
+    @apply w-full p-2.5 backdrop-blur-lg 
+           bg-white/90 dark:bg-slate-800/50
+           border border-slate-300/50 dark:border-slate-600/50 
+           text-slate-900 dark:text-slate-100 
+           placeholder-slate-400 dark:placeholder-slate-500
+           rounded-xl focus:ring-2 focus:ring-amber-500/30 
+           focus:border-amber-500/50 transition-all duration-300;
   }
 
   .card {
@@ -45,9 +47,9 @@
   }
 
   .glass-card {
-    @apply backdrop-blur-xl bg-white/10
-           border-2 border-white/20
-           rounded-2xl shadow-2xl shadow-black/50;
+    @apply backdrop-blur-xl bg-white/70 dark:bg-white/10
+           border border-white/30 dark:border-white/20
+           rounded-2xl shadow-lg shadow-black/5 dark:shadow-black/30;
   }
 
   .card-header {

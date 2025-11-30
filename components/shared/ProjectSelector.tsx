@@ -40,32 +40,32 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
     };
 
     return (
-        <div className="mb-6" ref={dropdownRef}>
-            <div className="flex items-center gap-2 mb-3">
-                <BriefcaseIcon className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">المشروع النشط</h3>
+        <div className="mb-4" ref={dropdownRef}>
+            <div className="flex items-center gap-2 mb-2">
+                <BriefcaseIcon className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">المشروع النشط</h3>
             </div>
             
             {/* Dropdown Selector */}
             <div className="relative">
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className={`w-full flex items-center justify-between gap-3 p-4 rounded-xl transition-all duration-300 border-2 ${
+                    className={`w-full flex items-center justify-between gap-2 p-3 rounded-xl transition-all duration-300 border backdrop-blur-xl ${
                         isOpen
-                            ? 'bg-gradient-to-br from-slate-800 to-slate-700 border-amber-400 shadow-lg'
+                            ? 'bg-white/70 dark:bg-slate-800/70 border-amber-400/50 shadow-md text-slate-900 dark:text-white'
                             : activeProject
-                            ? 'bg-gradient-to-br from-amber-600 to-amber-700 border-amber-500 shadow-lg shadow-amber-500/30 hover:shadow-xl'
-                            : 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-500 shadow-lg shadow-emerald-500/30 hover:shadow-xl'
+                            ? 'bg-gradient-to-br from-amber-600/90 to-amber-700/90 border-amber-500/30 text-white shadow-md shadow-amber-500/10 hover:shadow-lg'
+                            : 'bg-gradient-to-br from-emerald-600/90 to-teal-600/90 border-emerald-500/30 text-white shadow-md shadow-emerald-500/10 hover:shadow-lg'
                     }`}
                 >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
                             isOpen
-                                ? 'bg-slate-700/50'
-                                : 'bg-white/25 backdrop-blur-sm'
+                                ? 'bg-amber-500/20 dark:bg-slate-700/50'
+                                : 'bg-white/30 backdrop-blur-sm'
                         }`}>
                             {activeProject ? (
-                                <BriefcaseIcon className={`h-6 w-6 ${isOpen ? 'text-amber-400' : 'text-white'}`} />
+                                <BriefcaseIcon className={`h-5 w-5 ${isOpen ? 'text-amber-600 dark:text-amber-400' : 'text-white'}`} />
                             ) : (
                                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${isOpen ? 'text-emerald-600 dark:text-emerald-400' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -74,14 +74,14 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                         </div>
                         
                         <div className="flex-1 text-right min-w-0">
-                            <p className={`font-bold text-base mb-1 truncate ${
+                            <p className={`font-semibold text-sm mb-0.5 truncate ${
                                 isOpen
-                                    ? 'text-slate-800 dark:text-slate-100'
+                                    ? 'text-slate-900 dark:text-slate-100'
                                     : 'text-white'
                             }`}>
                                 {activeProject ? activeProject.name : 'جميع المشاريع'}
                             </p>
-                            <p className={`text-xs truncate ${
+                            <p className={`text-[10px] truncate ${
                                 isOpen
                                     ? 'text-slate-600 dark:text-slate-400'
                                     : 'text-white/90'
@@ -94,17 +94,17 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                         </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         {!isOpen && activeProject && (
-                            <span className="px-2 py-1 rounded-md bg-white/20 backdrop-blur-sm text-white text-xs font-semibold">
+                            <span className="px-1.5 py-0.5 rounded text-white text-[10px] font-semibold bg-white/20">
                                 نشط
                             </span>
                         )}
                         <svg 
                             xmlns="http://www.w3.org/2000/svg" 
-                            className={`h-5 w-5 transition-transform duration-300 ${
+                            className={`h-4 w-4 transition-transform duration-300 ${
                                 isOpen 
-                                    ? 'rotate-180 text-amber-400' 
+                                    ? 'rotate-180 text-amber-600 dark:text-amber-400' 
                                     : 'text-white'
                             }`}
                             fill="none" 
@@ -118,19 +118,19 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-2 backdrop-blur-2xl bg-white/95 dark:bg-slate-800/95 rounded-2xl shadow-2xl border-2 border-white/30 dark:border-slate-700/50 z-50 overflow-hidden transition-all duration-500 animate-fade-in-scale-up">
+                    <div className="absolute top-full left-0 right-0 mt-1 backdrop-blur-2xl bg-white/95 dark:bg-slate-800/95 rounded-xl shadow-lg border border-white/30 dark:border-slate-700/50 z-50 overflow-hidden transition-all duration-500 animate-fade-in-scale-up">
                         {/* Search Bar */}
-                        <div className="p-3 border-b border-white/30 dark:border-slate-700/50">
+                        <div className="p-2 border-b border-white/30 dark:border-slate-700/50">
                             <div className="relative">
                                 <input
                                     type="text"
-                                    placeholder="ابحث عن مشروع..."
+                                    placeholder="ابحث..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 border-2 border-slate-600/50 rounded-xl backdrop-blur-lg bg-slate-800/50 focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500/50 text-slate-100 placeholder:text-slate-500 text-sm transition-all duration-300"
+                                    className="w-full pl-8 pr-3 py-2 border border-slate-300/50 dark:border-slate-600/50 rounded-lg backdrop-blur-lg bg-white/80 dark:bg-slate-800/50 focus:ring-1 focus:ring-amber-500/30 focus:border-amber-500/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 text-xs transition-all duration-300"
                                     autoFocus
                                 />
-                                <svg xmlns="http://www.w3.org/2000/svg" className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
                             </div>
@@ -141,26 +141,26 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                             {/* All Projects Option */}
                             <button
                                 onClick={() => handleSelectProject(null)}
-                                className={`w-full flex items-center gap-3 p-4 transition-all duration-500 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/30 hover:scale-[1.01] border-b border-white/30 dark:border-slate-700/50 ${
-                                    !activeProject ? 'bg-emerald-50/80 dark:bg-emerald-900/40 scale-[1.01]' : ''
+                                className={`w-full flex items-center gap-2 p-2.5 transition-all duration-300 hover:bg-emerald-900/20 border-b border-white/20 dark:border-slate-700/30 ${
+                                    !activeProject ? 'bg-emerald-500/10 dark:bg-emerald-900/30' : ''
                                 }`}
                             >
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                                     !activeProject 
-                                        ? 'bg-emerald-500 shadow-md' 
-                                        : 'bg-emerald-100 dark:bg-emerald-900/30'
+                                        ? 'bg-emerald-500 shadow-sm' 
+                                        : 'bg-emerald-500/20 dark:bg-emerald-900/20'
                                 }`}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${!activeProject ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${!activeProject ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                                     </svg>
                                 </div>
                                 <div className="flex-1 text-right">
-                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100">جميع المشاريع</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">عرض البيانات من كل المشاريع</p>
+                                    <p className="font-semibold text-xs text-slate-900 dark:text-slate-100">جميع المشاريع</p>
+                                    <p className="text-[10px] text-slate-600 dark:text-slate-400">عرض كل البيانات</p>
                                 </div>
                                 {!activeProject && (
                                     <div className="flex-shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                         </svg>
                                     </div>
@@ -175,26 +175,26 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                                         <button
                                             key={project.id}
                                             onClick={() => handleSelectProject(project)}
-                                            className={`w-full flex items-center gap-3 p-4 transition-all duration-500 hover:bg-amber-900/30 hover:scale-[1.01] border-b border-white/30 dark:border-slate-700/50 last:border-b-0 ${
-                                                isActive ? 'bg-amber-900/40 scale-[1.01]' : ''
+                                            className={`w-full flex items-center gap-2 p-2.5 transition-all duration-300 hover:bg-amber-900/20 border-b border-white/20 dark:border-slate-700/30 last:border-b-0 ${
+                                                isActive ? 'bg-amber-500/10 dark:bg-amber-900/30' : ''
                                             }`}
                                         >
-                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                                                 isActive 
-                                                    ? 'bg-amber-500 shadow-md' 
-                                                    : 'bg-amber-900/30'
+                                                    ? 'bg-amber-500 shadow-sm' 
+                                                    : 'bg-amber-500/20 dark:bg-amber-900/20'
                                             }`}>
-                                                <BriefcaseIcon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-amber-400'}`} />
+                                                <BriefcaseIcon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`} />
                                             </div>
                                             <div className="flex-1 text-right min-w-0">
-                                                <p className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{project.name}</p>
+                                                <p className="font-semibold text-xs text-slate-900 dark:text-slate-100 truncate">{project.name}</p>
                                                 {project.description && (
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{project.description}</p>
+                                                    <p className="text-[10px] text-slate-600 dark:text-slate-400 truncate">{project.description}</p>
                                                 )}
                                             </div>
                                             {isActive && (
                                                 <div className="flex-shrink-0">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
                                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                                     </svg>
                                                 </div>
@@ -203,19 +203,19 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                                     );
                                 })
                             ) : (
-                                <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <div className="p-6 text-center text-slate-500 dark:text-slate-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    <p className="text-sm font-semibold">لا توجد مشاريع مطابقة</p>
-                                    <p className="text-xs mt-1">جرب كلمات بحث مختلفة</p>
+                                    <p className="text-xs font-semibold">لا توجد مشاريع</p>
+                                    <p className="text-[10px] mt-0.5">جرب البحث مرة أخرى</p>
                                 </div>
                             )}
                         </div>
 
                         {/* Footer Info */}
-                        <div className="p-3 backdrop-blur-md bg-slate-50/80 dark:bg-slate-900/60 border-t border-white/30 dark:border-slate-700/50">
-                            <div className="flex items-center justify-between text-xs">
+                        <div className="p-2 backdrop-blur-md bg-slate-50/80 dark:bg-slate-900/60 border-t border-white/30 dark:border-slate-700/50">
+                            <div className="flex items-center justify-between text-[10px]">
                                 <span className="text-slate-500 dark:text-slate-400">
                                     عدد المشاريع: <strong className="text-slate-700 dark:text-slate-300">{projects.length}</strong>
                                 </span>
