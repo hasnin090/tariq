@@ -145,27 +145,6 @@ CREATE POLICY "Allow all payments access" ON public.payments
     USING (true)
     WITH CHECK (true);
 
--- جدول المصروفات (Expenses)
-DROP POLICY IF EXISTS "Allow all expenses access" ON public.expenses;
-CREATE POLICY "Allow all expenses access" ON public.expenses
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
--- جدول المستندات (Documents)
-DROP POLICY IF EXISTS "Allow all documents access" ON public.documents;
-CREATE POLICY "Allow all documents access" ON public.documents
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
--- جدول سجل النشاطات (Activity Log)
-DROP POLICY IF EXISTS "Allow all activity_log access" ON public.activity_log;
-CREATE POLICY "Allow all activity_log access" ON public.activity_log
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
 -- ============================================================================
 -- جدول الإشعارات (Notifications)
 -- ============================================================================
