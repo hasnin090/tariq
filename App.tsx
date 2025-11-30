@@ -120,7 +120,7 @@ const App: React.FC = () => {
 
   return (
     <ProjectProvider>
-      <div dir="rtl" className="flex h-screen bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300 overflow-hidden">
+      <div dir="rtl" className="flex h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-amber-900/30 font-sans text-slate-100 transition-colors duration-300 overflow-hidden">
         {/* Scroll Progress Bar */}
         <div 
           className="scroll-progress" 

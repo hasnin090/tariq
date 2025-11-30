@@ -212,10 +212,10 @@ const Header: React.FC<{
                         <MenuIcon />
                     </button>
                     {currentUser?.role === 'Admin' && (
-                        <div className="hidden sm:flex items-center bg-gradient-to-r from-slate-100/50 to-slate-50/50 dark:from-slate-800/50 dark:to-slate-700/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div className="hidden sm:flex items-center bg-slate-800/50 p-1 rounded-xl border border-slate-700 shadow-sm">
                             <button 
                                 onClick={() => setInterfaceMode('projects')}
-                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group ${interfaceMode === 'projects' ? 'bg-gradient-to-r from-blue-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 animate-mode-slide scale-[1.02]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group ${interfaceMode === 'projects' ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg shadow-amber-500/30 animate-mode-slide scale-[1.02]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
@@ -227,7 +227,7 @@ const Header: React.FC<{
                             </button>
                              <button 
                                 onClick={() => setInterfaceMode('expenses')}
-                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group ${interfaceMode === 'expenses' ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30 animate-mode-slide scale-[1.02]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group ${interfaceMode === 'expenses' ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg shadow-amber-500/30 animate-mode-slide scale-[1.02]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
@@ -334,7 +334,7 @@ const Header: React.FC<{
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             onFocus={() => setIsSearchFocused(true)}
-                            className="w-full pr-10 pl-10 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
+                            className="w-full pr-10 pl-10 py-2.5 border border-slate-700 rounded-xl bg-slate-800/50 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-slate-100 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
                         />
                         {recognitionRef.current && (
                             <div className="absolute inset-y-0 left-0 flex items-center pl-3">
@@ -345,7 +345,7 @@ const Header: React.FC<{
                                     className={`p-1.5 rounded-full transition-all duration-300 ${
                                         isListening
                                             ? 'text-white bg-rose-500 animate-pulse shadow-lg shadow-rose-500/30'
-                                            : 'text-slate-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20'
+                                            : 'text-slate-400 hover:text-amber-500 hover:bg-amber-900/20'
                                     }`}
                                 >
                                     <MicrophoneIcon className="h-4 w-4" />
@@ -357,12 +357,12 @@ const Header: React.FC<{
                                 <ul className="py-2">
                                     {searchResults.map(result => (
                                         <li key={`${result.type}-${result.id}`}>
-                                            <button onClick={() => handleResultClick(result)} className="w-full text-right px-4 py-3 hover:bg-primary-50 dark:hover:bg-slate-700/50 transition-colors duration-200 flex items-center justify-between group">
+                                            <button onClick={() => handleResultClick(result)} className="w-full text-right px-4 py-3 hover:bg-amber-900/20 transition-colors duration-200 flex items-center justify-between group">
                                                 <div>
-                                                    <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{result.name}</p>
+                                                    <p className="font-semibold text-slate-200 group-hover:text-amber-400 transition-colors">{result.name}</p>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{result.type}</p>
                                                 </div>
-                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity text-primary-500">
+                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity text-amber-500">
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                                                 </div>
                                             </button>
@@ -409,7 +409,7 @@ const Header: React.FC<{
                             <div className="hidden md:block text-right">
                                 <span className="font-semibold text-slate-800 dark:text-slate-100 block leading-tight text-sm">{currentUser?.name}</span>
                                 {assignedProjectName ? (
-                                     <span className="text-[10px] text-primary-600 dark:text-primary-400 font-medium flex items-center justify-end gap-1 leading-tight mt-0.5">
+                                     <span className="text-[10px] text-amber-400 font-medium flex items-center justify-end gap-1 leading-tight mt-0.5">
                                         <BriefcaseIcon className="h-3 w-3" />
                                         {assignedProjectName}
                                     </span>

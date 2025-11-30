@@ -309,8 +309,8 @@ const Dashboard: React.FC = () => {
             />
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <StatCard title="إجمالي الوحدات" value={stats.totalUnits} icon={<BuildingIcon className="h-8 w-8 text-white"/>} color="bg-blue-500" />
-                <StatCard title="إجمالي العملاء" value={stats.totalCustomers} icon={<UsersIcon className="h-8 w-8 text-white"/>} color="bg-primary-500" />
+                <StatCard title="إجمالي الوحدات" value={stats.totalUnits} icon={<BuildingIcon className="h-8 w-8 text-white"/>} color="bg-amber-500" />
+                <StatCard title="إجمالي العملاء" value={stats.totalCustomers} icon={<UsersIcon className="h-8 w-8 text-white"/>} color="bg-amber-600" />
                 <StatCard title="إجمالي الإيرادات" value={formatCurrency(stats.totalRevenue)} icon={<TrendingUpIcon className="h-8 w-8 text-white"/>} color="bg-emerald-500" />
                 <StatCard title="الوحدات المتاحة" value={stats.unitsAvailable} icon={<CreditCardIcon className="h-8 w-8 text-white"/>} color="bg-amber-500" />
             </div>

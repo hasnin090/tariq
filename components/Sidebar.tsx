@@ -43,7 +43,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                     isEditMode ? 'cursor-move border-2 border-dashed border-amber-500/50' : 'cursor-pointer'
                 } ${
                     isActive && !isEditMode
-                    ? 'bg-gradient-to-l from-primary-600 via-primary-500 to-primary-600 text-white shadow-xl shadow-primary-500/30 translate-x-[-4px] scale-[1.02]' 
+                    ? 'bg-gradient-to-l from-amber-600 via-amber-500 to-amber-600 text-white shadow-xl shadow-amber-500/30 translate-x-[-4px] scale-[1.02]' 
                     : 'text-slate-400 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-slate-100 hover:translate-x-[-3px]'
                 }`}
             >
@@ -95,7 +95,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                 
                 {/* Hover Indicator */}
                 {!isActive && isHovered && (
-                    <div className="absolute inset-y-0 right-0 w-0.5 bg-gradient-to-b from-transparent via-primary-400/50 to-transparent rounded-l-full"></div>
+                    <div className="absolute inset-y-0 right-0 w-0.5 bg-gradient-to-b from-transparent via-amber-400/50 to-transparent rounded-l-full"></div>
                 )}
             </button>
         </li>
@@ -291,10 +291,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 
                 {/* Logo Area */}
                 <div className="h-24 flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary-600/20 to-transparent opacity-50"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-600/20 to-transparent opacity-50"></div>
                     <div className="relative z-10 text-center">
                         <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 tracking-tight">{systemTitle}</h1>
-                        <p className="text-xs text-primary-400 font-medium mt-1 tracking-widest uppercase opacity-80">لوحة التحكم المتطورة</p>
+                        <p className="text-xs text-amber-400 font-medium mt-1 tracking-widest uppercase opacity-80">لوحة التحكم المتطورة</p>
                     </div>
                 </div>
 
@@ -334,7 +334,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 <nav className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                     <div className="mb-6">
                         <h2 className="px-4 pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary-500"></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                             {sectionTitle}
                         </h2>
                         <ul className="space-y-1">
@@ -382,7 +382,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 {/* User Profile Summary (Optional Footer) */}
                 <div className="p-4 border-t border-white/5 bg-black/20">
                     <div className="flex items-center gap-3 px-2">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-amber-700 flex items-center justify-center text-white font-bold shadow-lg">
                             {currentUser?.username?.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
