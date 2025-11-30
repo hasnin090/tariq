@@ -113,11 +113,11 @@ const ProjectsManagement: React.FC = () => {
                     {projects.map(project => (
                         <div 
                             key={project.id} 
-                            className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-all duration-200"
+                            className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-200"
                         >
-                            <div className="bg-gradient-to-r from-primary-500 to-blue-600 p-4">
+                            <div className="bg-gradient-to-r from-amber-500/90 to-amber-600/90 p-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                                    <div className="w-12 h-12 bg-white/30 rounded-lg flex items-center justify-center backdrop-blur-sm">
                                         <BriefcaseIcon className="h-6 w-6 text-white" />
                                     </div>
                                     <div className="flex-1">
@@ -127,16 +127,16 @@ const ProjectsManagement: React.FC = () => {
                             </div>
                             
                             <div className="p-4">
-                                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-2">
+                                <p className="text-sm text-slate-200 mb-4 line-clamp-2">
                                     {project.description || 'لا يوجد وصف'}
                                 </p>
                                 
                                 {(canEdit || canDelete) && (
-                                    <div className="flex gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                    <div className="flex gap-2 pt-4 border-t border-white/20">
                                         {canEdit && (
                                             <button 
                                                 onClick={() => handleOpenModal(project)} 
-                                                className="flex-1 text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 px-4 py-2 rounded-lg font-semibold transition-colors"
+                                                className="flex-1 text-amber-400 hover:bg-amber-500/20 px-4 py-2 rounded-lg font-semibold transition-colors"
                                             >
                                                 تعديل
                                             </button>
@@ -144,7 +144,7 @@ const ProjectsManagement: React.FC = () => {
                                         {canDelete && (
                                             <button 
                                                 onClick={() => handleDelete(project)} 
-                                                className="flex-1 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 px-4 py-2 rounded-lg font-semibold transition-colors"
+                                                className="flex-1 text-rose-400 hover:bg-rose-500/20 px-4 py-2 rounded-lg font-semibold transition-colors"
                                             >
                                                 حذف
                                             </button>

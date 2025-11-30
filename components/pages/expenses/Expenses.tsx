@@ -362,9 +362,8 @@ export const Expenses: React.FC = () => {
                 }
                 await expensesService.delete(expenseId);
                 
-                // After successful database deletion, wait for animation then remove from UI
+                // Wait for animation - the subscription will automatically update allExpenses
                 await new Promise(resolve => setTimeout(resolve, 300));
-                setAllExpenses(prev => prev.filter(exp => exp.id !== expenseId));
                 
                 // Precise success message
                 addToast(`تم حذف الحركة المالية "${expenseDescription}" بمبلغ ${formatCurrency(expenseAmount)} بنجاح من قاعدة البيانات`, 'success');
