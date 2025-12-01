@@ -55,12 +55,29 @@ const App: React.FC = () => {
     const loadAccentColor = async () => {
       try {
         const { settingsService } = await import('./src/services/supabaseService');
-        const savedColor = await settingsService.get('accentColor');
-        if (savedColor) {
-          document.documentElement.setAttribute('data-accent-color', savedColor);
+        
+        // Try database first
+        let savedColor = await settingsService.get('accentColor');
+        
+        // Fallback to localStorage
+        if (!savedColor) {
+          savedColor = localStorage.getItem('accentColor');
+        }
+        
+        // Use saved color or default to amber
+        const colorToUse = savedColor || 'amber';
+        
+        console.log('🎨 Loading accent color:', colorToUse);
+        document.documentElement.setAttribute('data-accent-color', colorToUse);
+        
+        // Save to localStorage if not there
+        if (!localStorage.getItem('accentColor')) {
+          localStorage.setItem('accentColor', colorToUse);
         }
       } catch (error) {
-        console.error('Failed to load accent color:', error);
+        console.error('❌ Failed to load accent color:', error);
+        // Fallback to amber
+        document.documentElement.setAttribute('data-accent-color', 'amber');
       }
     };
 

@@ -286,19 +286,30 @@ const Customization: React.FC = () => {
     };
 
     const handleColorChange = async (newColor: string) => {
+        console.log('🎨 Changing color to:', newColor);
         setAccentColor(newColor);
         try {
+            // Save to database
             await settingsService.set('accentColor', newColor);
-            document.documentElement.setAttribute('data-accent-color', newColor);
-            logActivity('Update Accent Color', `Set system accent color to ${newColor}`);
-            addToast('تم تحديث نظام الألوان بنجاح!', 'success');
+            console.log('✅ Color saved to database');
             
-            // Force reload page to apply color changes
+            // Save to localStorage as backup
+            localStorage.setItem('accentColor', newColor);
+            
+            // Apply to DOM immediately
+            document.documentElement.setAttribute('data-accent-color', newColor);
+            console.log('✅ Color applied to DOM:', document.documentElement.getAttribute('data-accent-color'));
+            
+            logActivity('Update Accent Color', `Set system accent color to ${newColor}`);
+            addToast(`تم تحديث نظام الألوان إلى ${newColor} بنجاح!`, 'success');
+            
+            // Force reload page to apply color changes everywhere
             setTimeout(() => {
+                console.log('🔄 Reloading page...');
                 window.location.reload();
-            }, 500);
+            }, 800);
         } catch (error) {
-            console.error("Failed to save accent color setting:", error);
+            console.error("❌ Failed to save accent color setting:", error);
             addToast("فشل في حفظ إعداد اللون.", "error");
         }
     };
