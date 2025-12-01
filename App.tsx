@@ -50,7 +50,7 @@ const App: React.FC = () => {
     return (sessionStorage.getItem('interfaceMode') as InterfaceMode) || 'projects';
   });
 
-  // Load accent color on mount
+  // Load accent color and clean up invalid currency on mount
   useEffect(() => {
     const loadAccentColor = async () => {
       try {
@@ -63,7 +63,47 @@ const App: React.FC = () => {
         console.error('Failed to load accent color:', error);
       }
     };
+
+    const cleanupCurrency = async () => {
+      try {
+        // Only run once per session
+        const cleanupRan = sessionStorage.getItem('currency_cleanup_ran');
+        if (cleanupRan) return;
+
+        const { settingsService } = await import('./src/services/supabaseService');
+        
+        // Get current currency
+        const currentCurrency = await settingsService.get('systemCurrency');
+        
+        // Check if valid ISO 4217 code (3 uppercase letters)
+        const isValid = currentCurrency && /^[A-Z]{3}$/.test(currentCurrency);
+        
+        if (!isValid) {
+          console.warn(`Invalid currency code detected: "${currentCurrency}", fixing to IQD`);
+          
+          // Fix in database
+          await settingsService.set('systemCurrency', 'IQD');
+          
+          // Fix in localStorage
+          localStorage.removeItem('systemCurrency');
+          localStorage.setItem('systemCurrency', 'IQD');
+          
+          // Refresh currency cache
+          const { refreshCurrencyCache } = await import('./utils/currencyFormatter');
+          await refreshCurrencyCache();
+          
+          console.log('✅ Currency fixed to IQD');
+        }
+        
+        // Mark as done for this session
+        sessionStorage.setItem('currency_cleanup_ran', 'true');
+      } catch (error) {
+        console.error('Failed to cleanup currency:', error);
+      }
+    };
+
     loadAccentColor();
+    cleanupCurrency();
   }, []);
 
   const [activePage, setActivePage] = useState<string>(() => {
