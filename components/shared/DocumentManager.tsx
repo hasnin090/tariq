@@ -38,7 +38,8 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
       const docsWithUrls = await Promise.all(
         fetchedDocs.map(async (doc) => {
           try {
-            const signedUrl = await documentsService.getSignedUrl(doc.storagePath);
+            // Signed URL valid for 24 hours
+            const signedUrl = await documentsService.getSignedUrl(doc.storagePath, 86400);
             return { ...doc, publicUrl: signedUrl };
           } catch (error) {
             console.error('Error generating signed URL:', error);
@@ -215,7 +216,17 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
               </button>
             </div>
             <div className="flex-1 overflow-hidden p-4">
-              {previewDocument.file_type?.startsWith('image/') ? (
+              {!previewDocument.publicUrl ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                  <p className="text-slate-600 dark:text-slate-400">انتهت صلاحية رابط المستند</p>
+                  <button 
+                    onClick={() => fetchDocuments()}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
+                    إعادة التحميل
+                  </button>
+                </div>
+              ) : previewDocument.file_type?.startsWith('image/') ? (
                 <img 
                   src={previewDocument.publicUrl} 
                   alt={previewDocument.file_name}
