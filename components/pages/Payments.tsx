@@ -145,16 +145,30 @@ const Payments: React.FC = () => {
             addToast('هذه العملية متاحة للمدير فقط', 'error');
             return;
         }
+        
+        // Check if this is a booking payment (cannot be deleted)
+        if (payment.id.startsWith('booking_')) {
+            addToast('لا يمكن حذف دفعة الحجز. يجب حذف الحجز بالكامل.', 'error');
+            return;
+        }
+        
         setPaymentToDelete(payment);
     };
 
     const confirmDeletePayment = async () => {
         if (!paymentToDelete) return;
+        
+        // Double check it's not a booking payment
+        if (paymentToDelete.id.startsWith('booking_')) {
+            addToast('لا يمكن حذف دفعة الحجز', 'error');
+            setPaymentToDelete(null);
+            return;
+        }
 
         try {
             await paymentsService.delete(paymentToDelete.id);
-            logActivity('Delete Payment', `Deleted payment of ${formatCurrency(paymentToDelete.amount)} for ${paymentToDelete.customerName}`);
-            addToast('تم حذف الدفعة بنجاح', 'success');
+            logActivity('Delete Payment', `Deleted additional payment of ${formatCurrency(paymentToDelete.amount)} for ${paymentToDelete.customerName}`);
+            addToast(`تم حذف الدفعة الإضافية بمبلغ ${formatCurrency(paymentToDelete.amount)} بنجاح`, 'success');
             setPaymentToDelete(null);
             await loadAllData();
         } catch (error) {

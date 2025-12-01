@@ -513,13 +513,13 @@ export const paymentsService = {
     const { data: payments, error: paymentsError } = await supabase
       .from('payments')
       .select('*')
-      .order('payment_date', { ascending: false });
+      .order('payment_date', { ascending: false});
     if (paymentsError) throw paymentsError;
     
-    // Get all bookings to map customer data
+    // Get all bookings to map customer data and initial payment
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('id, customer_id, unit_id, customers(name), units(unit_number)');
+      .select('id, customer_id, unit_id, amount_paid, customers(name), units(unit_number)');
     if (bookingsError) throw bookingsError;
     
     // Get all units to map unit_price
@@ -543,11 +543,23 @@ export const paymentsService = {
       unitMap.set(unit.id, unit);
     });
     
+    // Calculate total paid per booking (booking amount + additional payments)
+    const totalPaidPerBooking = new Map();
+    (bookings || []).forEach((booking: any) => {
+      totalPaidPerBooking.set(booking.id, booking.amount_paid || 0);
+    });
+    
+    (payments || []).forEach((payment: any) => {
+      const current = totalPaidPerBooking.get(payment.booking_id) || 0;
+      totalPaidPerBooking.set(payment.booking_id, current + payment.amount);
+    });
+    
     // Transform payments with enriched booking and unit data
     return (payments || []).map((payment: any) => {
       const booking = bookingMap.get(payment.booking_id);
       const unit = booking ? unitMap.get(booking.unit_id) : null;
       const unitPrice = unit?.price || 0;
+      const totalPaid = totalPaidPerBooking.get(payment.booking_id) || 0;
       
       return {
         id: payment.id,
@@ -559,7 +571,7 @@ export const paymentsService = {
         amount: payment.amount,
         paymentDate: payment.payment_date,
         unitPrice: unitPrice,
-        remainingAmount: unitPrice - payment.amount,
+        remainingAmount: unitPrice - totalPaid,
         accountId: undefined,
         transactionId: undefined,
       };
@@ -574,10 +586,10 @@ export const paymentsService = {
       .order('payment_date', { ascending: false });
     if (paymentsError) throw paymentsError;
     
-    // Get all bookings to map customer_id
+    // Get all bookings to map customer_id and initial payment
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('id, customer_id, unit_id, customers(name), units(unit_number)');
+      .select('id, customer_id, unit_id, amount_paid, customers(name), units(unit_number)');
     if (bookingsError) throw bookingsError;
     
     // Get all units to map unit_price
@@ -601,6 +613,22 @@ export const paymentsService = {
       unitMap.set(unit.id, unit);
     });
     
+    // Calculate total paid per booking (booking amount + additional payments)
+    const totalPaidPerBooking = new Map();
+    (bookings || []).forEach((booking: any) => {
+      if (booking.customer_id === customerId) {
+        totalPaidPerBooking.set(booking.id, booking.amount_paid || 0);
+      }
+    });
+    
+    (payments || []).forEach((payment: any) => {
+      const booking = bookingMap.get(payment.booking_id);
+      if (booking && booking.customer_id === customerId) {
+        const current = totalPaidPerBooking.get(payment.booking_id) || 0;
+        totalPaidPerBooking.set(payment.booking_id, current + payment.amount);
+      }
+    });
+    
     // Filter payments by customer and enrich with booking and unit data
     return (payments || [])
       .filter((payment: any) => {
@@ -611,6 +639,7 @@ export const paymentsService = {
         const booking = bookingMap.get(payment.booking_id);
         const unit = booking ? unitMap.get(booking.unit_id) : null;
         const unitPrice = unit?.price || 0;
+        const totalPaid = totalPaidPerBooking.get(payment.booking_id) || 0;
         
         return {
           id: payment.id,
@@ -622,7 +651,7 @@ export const paymentsService = {
           amount: payment.amount,
           paymentDate: payment.payment_date,
           unitPrice: unitPrice,
-          remainingAmount: unitPrice - payment.amount,
+          remainingAmount: unitPrice - totalPaid,
           accountId: undefined,
           transactionId: undefined,
         };
