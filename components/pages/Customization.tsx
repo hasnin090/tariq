@@ -191,10 +191,25 @@ const Customization: React.FC = () => {
                 setUnitStatuses(unitStatusesData as UnitStatus[]);
                 setExpenseCategories(expenseCategoriesData as ExpenseCategory[]);
                 
-                if (currencyData) {
-                    setCurrency(currencyData);
-                    localStorage.setItem('systemCurrency', currencyData);
+                // Validate and clean currency data
+                let validCurrency = 'IQD';
+                if (currencyData && /^[A-Z]{3}$/.test(currencyData)) {
+                    validCurrency = currencyData;
+                } else if (currencyData && !/^[A-Z]{3}$/.test(currencyData)) {
+                    // Invalid currency detected - clean it up
+                    console.warn(`Invalid currency code detected: "${currencyData}", resetting to IQD`);
+                    await settingsService.set('systemCurrency', 'IQD');
+                    localStorage.removeItem('systemCurrency');
+                    localStorage.setItem('systemCurrency', 'IQD');
+                    addToast('تم تصحيح رمز العملة إلى IQD', 'info');
+                } else {
+                    // No currency set, use default
+                    await settingsService.set('systemCurrency', 'IQD');
+                    localStorage.setItem('systemCurrency', 'IQD');
                 }
+                setCurrency(validCurrency);
+                localStorage.setItem('systemCurrency', validCurrency);
+                
                 if (decimalPlacesData) {
                     const places = parseInt(decimalPlacesData, 10);
                     setDecimalPlaces(places);
