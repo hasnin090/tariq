@@ -108,10 +108,25 @@ const Payments: React.FC = () => {
     const mergePaymentsWithBookings = (paymentsData: Payment[], bookingsData: Booking[], unitsData: Unit[]) => {
         const combined: Payment[] = [];
         
+        // Calculate total paid per booking (booking amount + additional payments)
+        const totalPaidPerBooking = new Map<string, number>();
+        
+        bookingsData.forEach(booking => {
+            totalPaidPerBooking.set(booking.id, booking.amountPaid || 0);
+        });
+        
+        paymentsData.forEach(payment => {
+            const current = totalPaidPerBooking.get(payment.bookingId) || 0;
+            totalPaidPerBooking.set(payment.bookingId, current + payment.amount);
+        });
+        
         // Add booking initial payments
         bookingsData.forEach(booking => {
             if (booking.amountPaid > 0) {
                 const unit = unitsData.find(u => u.id === booking.unitId);
+                const unitPrice = unit?.price || 0;
+                const totalPaid = totalPaidPerBooking.get(booking.id) || 0;
+                
                 const bookingPayment: Payment = {
                     id: `booking_${booking.id}`,
                     bookingId: booking.id,
@@ -121,16 +136,22 @@ const Payments: React.FC = () => {
                     unitName: booking.unitName,
                     amount: booking.amountPaid,
                     paymentDate: booking.bookingDate,
-                    unitPrice: unit?.price || 0,
-                    remainingAmount: (unit?.price || 0) - booking.amountPaid,
+                    unitPrice: unitPrice,
+                    remainingAmount: unitPrice - totalPaid,
                     accountId: '',
                 };
                 combined.push(bookingPayment);
             }
         });
         
-        // Add additional payments
-        combined.push(...paymentsData);
+        // Add additional payments with correct remaining amount
+        paymentsData.forEach(payment => {
+            const totalPaid = totalPaidPerBooking.get(payment.bookingId) || 0;
+            combined.push({
+                ...payment,
+                remainingAmount: payment.unitPrice - totalPaid
+            });
+        });
         
         // Sort by date
         combined.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
