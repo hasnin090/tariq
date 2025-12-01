@@ -106,27 +106,31 @@ const Payments: React.FC = () => {
     };
 
     const mergePaymentsWithBookings = (paymentsData: Payment[], bookingsData: Booking[], unitsData: Unit[]) => {
-        const combined: Payment[] = [];
-        
-        // Calculate total paid per booking (booking amount + additional payments)
-        const totalPaidPerBooking = new Map<string, number>();
-        
-        bookingsData.forEach(booking => {
-            totalPaidPerBooking.set(booking.id, booking.amountPaid || 0);
-        });
+        // Group payments by booking to calculate totals
+        const paymentsByBooking = new Map<string, Payment[]>();
         
         paymentsData.forEach(payment => {
-            const current = totalPaidPerBooking.get(payment.bookingId) || 0;
-            totalPaidPerBooking.set(payment.bookingId, current + payment.amount);
+            if (!paymentsByBooking.has(payment.bookingId)) {
+                paymentsByBooking.set(payment.bookingId, []);
+            }
+            paymentsByBooking.get(payment.bookingId)!.push(payment);
         });
         
-        // Add booking initial payments
+        const combined: Payment[] = [];
+        
+        // Process each booking
         bookingsData.forEach(booking => {
-            if (booking.amountPaid > 0) {
-                const unit = unitsData.find(u => u.id === booking.unitId);
-                const unitPrice = unit?.price || 0;
-                const totalPaid = totalPaidPerBooking.get(booking.id) || 0;
-                
+            const unit = unitsData.find(u => u.id === booking.unitId);
+            const unitPrice = unit?.price || 0;
+            
+            // Calculate total paid for this booking
+            const bookingAmountPaid = booking.amountPaid || 0;
+            const additionalPayments = paymentsByBooking.get(booking.id) || [];
+            const additionalTotal = additionalPayments.reduce((sum, p) => sum + p.amount, 0);
+            const totalPaid = bookingAmountPaid + additionalTotal;
+            
+            // Add booking payment (if exists)
+            if (bookingAmountPaid > 0) {
                 const bookingPayment: Payment = {
                     id: `booking_${booking.id}`,
                     bookingId: booking.id,
@@ -134,26 +138,28 @@ const Payments: React.FC = () => {
                     customerName: booking.customerName,
                     unitId: booking.unitId,
                     unitName: booking.unitName,
-                    amount: booking.amountPaid,
+                    amount: bookingAmountPaid, // Fixed: always show booking amount
                     paymentDate: booking.bookingDate,
                     unitPrice: unitPrice,
-                    remainingAmount: unitPrice - totalPaid,
+                    remainingAmount: unitPrice - bookingAmountPaid, // After booking payment only
                     accountId: '',
                 };
                 combined.push(bookingPayment);
             }
-        });
-        
-        // Add additional payments with correct remaining amount
-        paymentsData.forEach(payment => {
-            const totalPaid = totalPaidPerBooking.get(payment.bookingId) || 0;
-            combined.push({
-                ...payment,
-                remainingAmount: payment.unitPrice - totalPaid
+            
+            // Add additional payments with cumulative remaining amount
+            let cumulativePaid = bookingAmountPaid;
+            additionalPayments.forEach(payment => {
+                cumulativePaid += payment.amount;
+                combined.push({
+                    ...payment,
+                    unitPrice: unitPrice,
+                    remainingAmount: unitPrice - cumulativePaid // Cumulative remaining
+                });
             });
         });
         
-        // Sort by date
+        // Sort by date (newest first)
         combined.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
         
         setAllPaymentsWithBooking(combined);
