@@ -380,15 +380,15 @@ const Customization: React.FC = () => {
                                     onClick={() => handleColorChange(scheme.value)}
                                     className={`group relative p-2 rounded-lg border-2 transition-all ${
                                         accentColor === scheme.value 
-                                            ? 'border-white shadow-lg scale-105' 
+                                            ? 'color-picker-selected scale-105' 
                                             : 'border-white/20 hover:border-white/40'
                                     }`}
                                     title={scheme.name}
                                 >
                                     <div className={`h-8 bg-gradient-to-r ${scheme.preview} rounded`}></div>
                                     {accentColor === scheme.value && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
-                                            <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <div className="absolute inset-0 flex items-center justify-center color-picker-icon rounded-lg">
+                                            <svg className="w-6 h-6 color-picker-check" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                             </svg>
                                         </div>

@@ -190,20 +190,20 @@ const UnitSales: React.FC = () => {
                 onSelectProject={setActiveProject} 
             />
             
-            {loading ? <p>جاري تحميل البيانات...</p> : (
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
+            {loading ? <p className="text-slate-300">جاري تحميل البيانات...</p> : (
+                <div className="glass-card overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-right min-w-[700px]">
-                        <thead><tr className="border-b-2 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm">الوحدة</th><th className="p-4 font-bold text-sm">العميل</th><th className="p-4 font-bold text-sm">تاريخ البيع</th><th className="p-4 font-bold text-sm">سعر البيع النهائي</th><th className="p-4 font-bold text-sm">المستندات</th></tr></thead>
+                        <thead><tr className="border-b-2 border-white/20 bg-white/5"><th className="p-4 font-bold text-sm text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-200">تاريخ البيع</th><th className="p-4 font-bold text-sm text-slate-200">سعر البيع النهائي</th><th className="p-4 font-bold text-sm text-slate-200">المستندات</th></tr></thead>
                         <tbody>
                             {filteredSales.map(sale => {
                                 const docs = saleDocuments.get(sale.id) || [];
                                 return (
-                                    <tr key={sale.id} className="border-b border-slate-200 dark:border-slate-700">
-                                        <td className="p-4 font-medium">{sale.unitName}</td>
-                                        <td className="p-4">{sale.customerName}</td>
-                                        <td className="p-4">{sale.saleDate}</td>
-                                        <td className="p-4 font-semibold text-emerald-600">{formatCurrency(sale.finalSalePrice)}</td>
+                                    <tr key={sale.id} className="border-b border-white/10 hover:bg-white/5">
+                                        <td className="p-4 font-medium text-slate-100">{sale.unitName}</td>
+                                        <td className="p-4 text-slate-300">{sale.customerName}</td>
+                                        <td className="p-4 text-slate-300">{sale.saleDate}</td>
+                                        <td className="p-4 font-semibold text-emerald-400">{formatCurrency(sale.finalSalePrice)}</td>
                                         <td className="p-4">
                                             {docs.length > 0 ? (
                                                 <div className="flex flex-col gap-2">
@@ -221,7 +221,7 @@ const UnitSales: React.FC = () => {
                                                                         });
                                                                     }
                                                                 }}
-                                                                className={`text-primary-600 hover:text-primary-700 hover:underline text-sm flex items-center gap-1 ${!signedUrl ? 'opacity-50 cursor-wait' : ''}`}
+                                                                className={`text-blue-300 hover:text-blue-200 hover:underline text-sm flex items-center gap-1 ${!signedUrl ? 'opacity-50 cursor-wait' : ''}`}
                                                                 disabled={!signedUrl}
                                                             >
                                                                 📄 {doc.fileName || doc.file_name}
@@ -239,7 +239,7 @@ const UnitSales: React.FC = () => {
                         </tbody>
                     </table>
                     </div>
-                    {sales.length === 0 && <p className="text-center p-8 text-slate-500 dark:text-slate-400">لا توجد عمليات بيع مسجلة.</p>}
+                    {sales.length === 0 && <p className="text-center p-8 text-slate-300">لا توجد عمليات بيع مسجلة.</p>}
                 </div>
             )}
             {isModalOpen && <SalePanel units={units.filter(u => u.status === 'Available')} customers={customers} accounts={accounts} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}

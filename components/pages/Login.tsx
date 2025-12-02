@@ -286,7 +286,7 @@ const Login: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-sm font-bold text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 transform transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="btn-primary w-full flex justify-center py-3 px-4 text-sm font-bold disabled:opacity-50"
               >
                 {loading ? 'جاري التحميل...' : isRegistering ? 'تسجيل حساب جديد' : 'تسجيل الدخول'}
               </button>
@@ -338,7 +338,7 @@ const Login: React.FC = () => {
               <button
                 onClick={handleForgotPassword}
                 disabled={loading}
-                className="flex-1 bg-gradient-to-r from-amber-600 to-amber-700 text-white px-4 py-2 rounded-lg hover:from-amber-500 hover:to-amber-600 disabled:opacity-50 transition-all"
+                className="btn-primary flex-1 disabled:opacity-50"
               >
                 {loading ? 'جاري الإرسال...' : 'إرسال الطلب'}
               </button>

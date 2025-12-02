@@ -57,9 +57,9 @@ const SalesDocuments: React.FC = () => {
             ) : (
             <div className="space-y-6">
                 {filteredSales.map(sale => (
-                    <div key={sale.id} className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        <h3 className="font-bold text-lg text-primary-700 dark:text-primary-400">{`عملية بيع: ${sale.unitName} - ${sale.customerName}`}</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{`تاريخ البيع: ${sale.saleDate}`}</p>
+                    <div key={sale.id} className="glass-card p-6">
+                        <h3 className="font-bold text-lg text-white">{`${sale.unitName} - ${sale.customerName}`}</h3>
+                        <p className="text-sm text-slate-300 mb-4">{`${sale.saleDate}`}</p>
                         <ul className="divide-y divide-slate-200 dark:divide-slate-700">
                             {(sale.documents || []).map(doc => (
                                 <li key={doc.id} className="py-3 flex items-center justify-between">
@@ -80,9 +80,9 @@ const SalesDocuments: React.FC = () => {
                     </div>
                 ))})
                  {filteredSales.length === 0 && (
-                     <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600">
-                        <h3 className="text-lg font-medium">لا توجد مستندات</h3>
-                        <p className="mt-1 text-sm text-slate-500">لم يتم رفع أي مستندات لعمليات البيع بعد.</p>
+                     <div className="text-center py-16 glass-card border-2 border-dashed border-white/20">
+                        <h3 className="text-lg font-medium text-white">لا توجد مستندات</h3>
+                        <p className="mt-1 text-sm text-slate-300">لم يتم رفع أي مستندات لعمليات البيع بعد.</p>
                     </div>
                 )}
             </div>

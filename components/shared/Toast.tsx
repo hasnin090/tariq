@@ -20,7 +20,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
 
   const baseStyle = "flex items-center w-full max-w-sm p-4 text-white rounded-2xl shadow-2xl backdrop-blur-xl border border-white/20 transition-all duration-300 ease-in-out transform hover:scale-[1.01]";
   const typeStyles = {
-    success: 'bg-amber-500/90 shadow-amber-500/20',
+    success: 'toast-success',
     error: 'bg-rose-500/90 shadow-rose-500/20',
     info: 'bg-sky-500/90 shadow-sky-500/20',
   };

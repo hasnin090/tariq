@@ -42,7 +42,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
     return (
         <div className="mb-4" ref={dropdownRef}>
             <div className="flex items-center gap-2 mb-2">
-                <BriefcaseIcon className="h-4 w-4 text-amber-500" />
+                <BriefcaseIcon className="h-4 w-4 text-accent" />
                 <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wide">المشروع النشط</h3>
             </div>
             
@@ -54,8 +54,8 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                         isOpen
                             ? 'backdrop-blur-xl bg-white/10 border-white/30 shadow-md text-white'
                             : activeProject
-                            ? 'backdrop-blur-xl bg-gradient-to-br from-amber-600/80 to-amber-700/80 border-white/20 text-white shadow-md shadow-amber-500/10 hover:shadow-lg'
-                            : 'backdrop-blur-xl bg-gradient-to-br from-amber-500/80 to-amber-600/80 border-white/20 text-white shadow-md shadow-amber-500/10 hover:shadow-lg'
+                            ? 'project-selector-active hover:shadow-lg'
+                            : 'project-selector-hover hover:shadow-lg'
                     }`}
                 >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -65,9 +65,9 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                                 : 'bg-white/20 backdrop-blur-sm'
                         }`}>
                             {activeProject ? (
-                                <BriefcaseIcon className={`h-5 w-5 ${isOpen ? 'text-amber-400' : 'text-white'}`} />
+                                <BriefcaseIcon className={`h-5 w-5 ${isOpen ? 'text-accent' : 'text-white'}`} />
                             ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${isOpen ? 'text-amber-600 dark:text-amber-400' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${isOpen ? 'project-icon-text-inactive' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                                 </svg>
                             )}
@@ -147,7 +147,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                             >
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                                     !activeProject 
-                                        ? 'bg-amber-500 shadow-sm' 
+                                        ? 'project-icon-bg-active shadow-sm' 
                                         : 'bg-white/20 backdrop-blur-sm'
                                 }`}>
                                     <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${!activeProject ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -160,7 +160,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                                 </div>
                                 {!activeProject && (
                                     <div className="flex-shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 project-checkmark" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                         </svg>
                                     </div>
@@ -181,10 +181,10 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                                         >
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                                                 isActive 
-                                                    ? 'bg-amber-500 shadow-sm' 
+                                                    ? 'project-icon-bg-active shadow-sm' 
                                                     : 'bg-white/20 backdrop-blur-sm'
                                             }`}>
-                                                <BriefcaseIcon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`} />
+                                                <BriefcaseIcon className={`h-4 w-4 ${isActive ? 'text-white' : 'project-icon-text-inactive'}`} />
                                             </div>
                                             <div className="flex-1 text-right min-w-0">
                                                 <p className="font-semibold text-xs text-slate-100 truncate">{project.name}</p>
@@ -194,7 +194,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
                                             </div>
                                             {isActive && (
                                                 <div className="flex-shrink-0">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 project-checkmark" viewBox="0 0 20 20" fill="currentColor">
                                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                                     </svg>
                                                 </div>

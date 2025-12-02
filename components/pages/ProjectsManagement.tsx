@@ -115,7 +115,7 @@ const ProjectsManagement: React.FC = () => {
                             key={project.id} 
                             className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-200"
                         >
-                            <div className="bg-gradient-to-r from-amber-500/90 to-amber-600/90 p-4">
+                            <div className="project-card-header p-4">
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 bg-white/30 rounded-lg flex items-center justify-center backdrop-blur-sm">
                                         <BriefcaseIcon className="h-6 w-6 text-white" />

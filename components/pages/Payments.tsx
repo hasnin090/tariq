@@ -444,15 +444,15 @@ const Payments: React.FC = () => {
             />
 
             {/* Search Box */}
-            <div className="mb-6 bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 border border-slate-200 dark:border-slate-700">
+            <div className="mb-6 glass-card p-6">
                 <label className="block">
-                    <span className="text-slate-700 dark:text-slate-200 font-medium mb-2 block">البحث عن اسم العميل أو رقم الوحدة</span>
+                    <span className="text-slate-200 font-medium mb-2 block">البحث</span>
                     <input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="ابحث باسم العميل أو رقم الوحدة..."
-                        className="w-full p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        className="input-field"
                     />
                 </label>
             </div>
@@ -460,19 +460,19 @@ const Payments: React.FC = () => {
             {/* Add Payment Modal */}
             {showAddPayment && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 pt-20">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="glass-card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="p-6">
-                            <h3 className="text-2xl font-bold mb-6 text-slate-900 dark:text-slate-100">إضافة دفعة جديدة</h3>
+                            <h3 className="text-2xl font-bold mb-6 text-white">إضافة دفعة جديدة</h3>
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-slate-700 dark:text-slate-200 font-medium mb-2">
+                                    <label className="block text-slate-200 font-medium mb-2">
                                         الحجز
                                     </label>
                                     <select
                                         value={newPayment.bookingId}
                                         onChange={(e) => setNewPayment({ ...newPayment, bookingId: e.target.value })}
-                                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg"
+                                        className="input-field"
                                     >
                                         <option value="">اختر حجز</option>
                                         {bookings.map(b => (
@@ -484,14 +484,14 @@ const Payments: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-slate-700 dark:text-slate-200 font-medium mb-2">
+                                    <label className="block text-slate-200 font-medium mb-2">
                                         المبلغ المدفوع
                                     </label>
                                     <input
                                         type="number"
                                         value={newPayment.amount || ''}
                                         onChange={(e) => setNewPayment({ ...newPayment, amount: parseFloat(e.target.value) || 0 })}
-                                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg"
+                                        className="input-field"
                                         placeholder="أدخل المبلغ"
                                         step="0.01"
                                         min="0"
@@ -499,14 +499,14 @@ const Payments: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-slate-700 dark:text-slate-200 font-medium mb-2">
+                                    <label className="block text-slate-200 font-medium mb-2">
                                         تاريخ الدفع
                                     </label>
                                     <input
                                         type="date"
                                         value={newPayment.paymentDate}
                                         onChange={(e) => setNewPayment({ ...newPayment, paymentDate: e.target.value })}
-                                        className="w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg"
+                                        className="input-field"
                                     />
                                 </div>
                             </div>
@@ -514,13 +514,13 @@ const Payments: React.FC = () => {
                             <div className="flex gap-3 mt-6">
                                 <button
                                     onClick={handleSavePayment}
-                                    className="flex-1 bg-primary-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-primary-700 transition-colors"
+                                    className="btn-primary flex-1"
                                 >
                                     حفظ
                                 </button>
                                 <button
                                     onClick={() => setShowAddPayment(false)}
-                                    className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-6 py-2.5 rounded-lg font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                                    className="flex-1 bg-white/10 text-slate-200 px-6 py-2.5 rounded-lg font-semibold hover:bg-white/20 transition-colors border border-white/20"
                                 >
                                     إلغاء
                                 </button>
@@ -532,37 +532,37 @@ const Payments: React.FC = () => {
 
             {showCustomerPayments && selectedCustomer ? (
                 <div>
-                    <button onClick={() => setShowCustomerPayments(false)} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg">العودة</button>
+                    <button onClick={() => setShowCustomerPayments(false)} className="mb-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-slate-200 rounded-lg border border-white/20 transition-colors">العودة</button>
                     <div className="glass-card overflow-hidden mb-6">
                         <div className="p-6">
-                            <h3 className="text-xl font-bold mb-4">دفعات العميل</h3>
+                            <h3 className="text-xl font-bold mb-4 text-white">دفعات العميل</h3>
                             {customerPayments.length > 0 ? (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-right min-w-[700px]">
                                     <thead>
-                                        <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الدفعة</th>
-                                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th>
-                                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">سعر الوحدة</th>
-                                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المدفوع</th>
-                                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المتبقي</th>
+                                        <tr className="border-b-2 border-white/20 bg-white/5">
+                                            <th className="p-4 font-bold text-sm text-slate-200">تاريخ الدفعة</th>
+                                            <th className="p-4 font-bold text-sm text-slate-200">الوحدة</th>
+                                            <th className="p-4 font-bold text-sm text-slate-200">سعر الوحدة</th>
+                                            <th className="p-4 font-bold text-sm text-slate-200">المبلغ المدفوع</th>
+                                            <th className="p-4 font-bold text-sm text-slate-200">المبلغ المتبقي</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {customerPayments.map(payment => (
-                                            <tr key={payment.id} className="border-b border-slate-200 dark:border-slate-700">
-                                                <td className="p-4 text-slate-600 dark:text-slate-300">{payment.paymentDate}</td>
-                                                <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{payment.unitName}</td>
-                                                <td className="p-4 font-semibold text-slate-800 dark:text-slate-100">{formatCurrency(payment.unitPrice)}</td>
-                                                <td className="p-4 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</td>
-                                                <td className="p-4 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(payment.remainingAmount)}</td>
+                                            <tr key={payment.id} className="border-b border-white/10 hover:bg-white/5">
+                                                <td className="p-4 text-slate-300">{payment.paymentDate}</td>
+                                                <td className="p-4 font-medium text-slate-100">{payment.unitName}</td>
+                                                <td className="p-4 font-semibold text-slate-100">{formatCurrency(payment.unitPrice)}</td>
+                                                <td className="p-4 font-semibold text-emerald-400">{formatCurrency(payment.amount)}</td>
+                                                <td className="p-4 font-semibold text-amber-400">{formatCurrency(payment.remainingAmount)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                                 </div>
                             ) : (
-                                <p className="text-slate-600 dark:text-slate-300">لا توجد دفعات لهذا العميل</p>
+                                <p className="text-slate-300">لا توجد دفعات لهذا العميل</p>
                             )}
                         </div>
                     </div>
@@ -570,46 +570,46 @@ const Payments: React.FC = () => {
             ) : (
                 <>
                     {allPaymentsWithBooking.length > 0 ? (
-                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
+                        <div className="glass-card overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-right min-w-[800px]">
                                 <thead>
-                                    <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الدفعة</th>
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">النوع</th>
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th>
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th>
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المدفوع</th>
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المتبقي</th>
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>
+                                    <tr className="border-b-2 border-white/20 bg-white/5">
+                                        <th className="p-4 font-bold text-sm text-slate-200">تاريخ الدفعة</th>
+                                        <th className="p-4 font-bold text-sm text-slate-200">النوع</th>
+                                        <th className="p-4 font-bold text-sm text-slate-200">العميل</th>
+                                        <th className="p-4 font-bold text-sm text-slate-200">الوحدة</th>
+                                        <th className="p-4 font-bold text-sm text-slate-200">المبلغ المدفوع</th>
+                                        <th className="p-4 font-bold text-sm text-slate-200">المبلغ المتبقي</th>
+                                        <th className="p-4 font-bold text-sm text-slate-200">إجراءات</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filteredAllPayments.map(payment => {
                                         const isBookingPayment = payment.id.startsWith('booking_');
                                         return (
-                                            <tr key={payment.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
-                                                <td className="p-4 text-slate-600 dark:text-slate-300">{payment.paymentDate}</td>
+                                            <tr key={payment.id} className="border-b border-white/10 hover:bg-white/5 transition-colors duration-200">
+                                                <td className="p-4 text-slate-300">{payment.paymentDate}</td>
                                                 <td className="p-4">
                                                     <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
                                                         isBookingPayment 
-                                                            ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100' 
-                                                            : 'bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100'
+                                                            ? 'bg-blue-500/20 text-blue-200' 
+                                                            : 'bg-emerald-500/20 text-emerald-200'
                                                     }`}>
                                                         {isBookingPayment ? 'دفعة حجز' : 'دفعة إضافية'}
                                                     </span>
                                                 </td>
-                                                <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{payment.customerName}</td>
-                                                <td className="p-4 text-slate-600 dark:text-slate-300">{payment.unitName}</td>
-                                                <td className="p-4 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</td>
-                                                <td className="p-4 font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(payment.remainingAmount)}</td>
+                                                <td className="p-4 font-medium text-slate-100">{payment.customerName}</td>
+                                                <td className="p-4 text-slate-300">{payment.unitName}</td>
+                                                <td className="p-4 font-semibold text-emerald-400">{formatCurrency(payment.amount)}</td>
+                                                <td className="p-4 font-semibold text-amber-400">{formatCurrency(payment.remainingAmount)}</td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-3">
-                                                        <button onClick={() => handleViewCustomerPayments(payment.customerId)} className="text-primary-600 hover:underline font-semibold">عرض الكل</button>
+                                                        <button onClick={() => handleViewCustomerPayments(payment.customerId)} className="text-blue-300 hover:text-blue-200 hover:underline font-semibold">عرض الكل</button>
                                                         {currentUser?.role === 'Admin' && !isBookingPayment && (
                                                             <button
                                                                 onClick={() => handleDeletePayment(payment)}
-                                                                className="text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300"
+                                                                className="text-rose-400 hover:text-rose-300"
                                                                 title="حذف الدفعة"
                                                             >
                                                                 <TrashIcon className="h-5 w-5" />
@@ -625,10 +625,10 @@ const Payments: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <div className="text-center py-16 glass-card">
                             <CreditCardIcon className="mx-auto h-12 w-12 text-slate-400" />
-                            <h3 className="mt-2 text-lg font-medium text-slate-900 dark:text-slate-100">لا توجد دفعات</h3>
-                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">لم يتم تسجيل أي دفعات من العملاء بعد.</p>
+                            <h3 className="mt-2 text-lg font-medium text-white">لا توجد دفعات</h3>
+                            <p className="mt-1 text-sm text-slate-300">لم يتم تسجيل أي دفعات من العملاء بعد.</p>
                         </div>
                     )}
                 </>

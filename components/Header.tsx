@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import { InterfaceMode, Unit, Customer, Booking, Expense, Payment, SearchResult, Project } from '../types';
 import { pageNames } from '../utils/pageNames';
 import { unitsService, customersService, bookingsService, expensesService, paymentsService, projectsService } from '../src/services/supabaseService';
-import { CalendarIcon, BriefcaseIcon, BellIcon, MicrophoneIcon } from './shared/Icons';
+import { CalendarIcon, BriefcaseIcon, BellIcon } from './shared/Icons';
 import { supabase } from '../src/lib/supabase';
 
 const Header: React.FC<{
@@ -15,7 +14,6 @@ const Header: React.FC<{
     onToggleSidebar: () => void;
 }> = ({ activePage, interfaceMode, setInterfaceMode, setActivePage, onToggleSidebar }) => {
     const { currentUser, logout } = useAuth();
-    const { theme, toggleTheme } = useTheme();
     const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -24,12 +22,11 @@ const Header: React.FC<{
     const [currentDate, setCurrentDate] = useState('الثلاثاء، 4 نوفمبر 2025');
     const userMenuRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLDivElement>(null);
-    const [isListening, setIsListening] = useState(false);
-    const recognitionRef = useRef<any | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
     const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
     const [showConnectionTooltip, setShowConnectionTooltip] = useState(false);
     const connectionCheckInterval = useRef<NodeJS.Timeout | null>(null);
+    const [unreadNotifications, setUnreadNotifications] = useState(0);
     
     const pageName = useMemo(() => {
         let modeName = interfaceMode === 'projects' ? 'إدارة المبيعات' : 'الإدارة المحاسبية';
@@ -93,42 +90,30 @@ const Header: React.FC<{
         };
     }, []);
 
+    // Fetch unread notifications count
     useEffect(() => {
-        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            console.warn("Speech recognition not supported by this browser.");
-            return;
-        }
-    
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.lang = 'ar-EG';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-    
-        recognition.onresult = (event: any) => {
-            const voiceTranscript = event.results[0][0].transcript;
-            setSearchTerm(voiceTranscript);
-            setIsSearchFocused(true);
-        };
-    
-        recognition.onerror = (event: any) => {
-            console.error("Speech recognition error:", event.error);
-            setIsListening(false);
-        };
-    
-        recognition.onend = () => {
-            setIsListening(false);
-        };
-    
-        recognitionRef.current = recognition;
-    
-        return () => {
-            if (recognitionRef.current) {
-                recognitionRef.current.stop();
+        const fetchNotifications = async () => {
+            if (!currentUser?.id) return;
+            try {
+                const { data, error } = await supabase
+                    .from('notifications')
+                    .select('id')
+                    .eq('userId', currentUser.id)
+                    .eq('isRead', false);
+                
+                if (!error && data) {
+                    setUnreadNotifications(data.length);
+                }
+            } catch (error) {
+                console.error('Error fetching notifications:', error);
             }
         };
-    }, []);
+
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 30000); // Check every 30 seconds
+
+        return () => clearInterval(interval);
+    }, [currentUser]);
 
     const assignedProjectName = useMemo(() => {
         if (currentUser?.assignedProjectId) {
@@ -136,16 +121,6 @@ const Header: React.FC<{
         }
         return null;
     }, [currentUser, projects]);
-    
-    const handleVoiceSearch = useCallback(() => {
-        if (!recognitionRef.current) return;
-        if (isListening) {
-            recognitionRef.current.stop();
-        } else {
-            recognitionRef.current.start();
-            setIsListening(true);
-        }
-    }, [isListening]);
 
     useEffect(() => {
         if (searchTerm.trim() === '') {
@@ -190,16 +165,6 @@ const Header: React.FC<{
     };
 
     const SearchIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
-    const [isThemeAnimating, setIsThemeAnimating] = useState(false);
-    
-    const handleThemeToggle = () => {
-        setIsThemeAnimating(true);
-        toggleTheme();
-        setTimeout(() => setIsThemeAnimating(false), 600);
-    };
-    
-    const SunIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
-    const MoonIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>;
     const LogoutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
     const MenuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>;
 
@@ -215,7 +180,7 @@ const Header: React.FC<{
                         <div className="hidden sm:flex items-center bg-slate-800/50 p-1 rounded-xl border border-slate-700 shadow-sm">
                             <button 
                                 onClick={() => setInterfaceMode('projects')}
-                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group ${interfaceMode === 'projects' ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg shadow-amber-500/30 animate-mode-slide scale-[1.02]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group mode-switcher-btn ${interfaceMode === 'projects' ? 'mode-active' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
@@ -227,7 +192,7 @@ const Header: React.FC<{
                             </button>
                              <button 
                                 onClick={() => setInterfaceMode('expenses')}
-                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group ${interfaceMode === 'expenses' ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg shadow-amber-500/30 animate-mode-slide scale-[1.02]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group mode-switcher-btn ${interfaceMode === 'expenses' ? 'mode-active' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
@@ -273,10 +238,16 @@ const Header: React.FC<{
                         >
                             {connectionStatus === 'connected' && (
                                 <div className="relative">
-                                    <svg className="h-6 w-6 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <svg className={`h-6 w-6 ${connectionLatency && connectionLatency < 100 ? 'text-emerald-500' : connectionLatency && connectionLatency < 300 ? 'text-amber-500' : 'text-orange-500'}`} fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
                                     </svg>
-                                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                                    {connectionLatency && connectionLatency >= 300 && (
+                                        <span className="absolute -top-1 -right-1 flex items-center justify-center">
+                                            <svg className="h-3 w-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                        </span>
+                                    )}
                                 </div>
                             )}
                             {connectionStatus === 'disconnected' && (
@@ -285,11 +256,15 @@ const Header: React.FC<{
                                         <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
                                         <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                                     </svg>
-                                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-400 rounded-full animate-pulse"></span>
+                                    <span className="absolute -top-1 -right-1 flex items-center justify-center">
+                                        <svg className="h-3.5 w-3.5 text-rose-500 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        </svg>
+                                    </span>
                                 </div>
                             )}
                             {connectionStatus === 'checking' && (
-                                <svg className="h-6 w-6 text-amber-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <svg className="h-6 w-6 text-slate-400 animate-spin" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
@@ -334,35 +309,19 @@ const Header: React.FC<{
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             onFocus={() => setIsSearchFocused(true)}
-                            className="w-full pr-10 pl-10 py-2.5 border border-slate-700 rounded-xl bg-slate-800/50 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-slate-100 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
+                            className="w-full pr-10 pl-3 py-2.5 border border-slate-700 rounded-xl bg-slate-800/50 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-slate-100 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
                         />
-                        {recognitionRef.current && (
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                               <button
-                                    type="button"
-                                    onClick={handleVoiceSearch}
-                                    title="البحث الصوتي"
-                                    className={`p-1.5 rounded-full transition-all duration-300 ${
-                                        isListening
-                                            ? 'text-white bg-rose-500 animate-pulse shadow-lg shadow-rose-500/30'
-                                            : 'text-slate-400 hover:text-amber-500 hover:bg-amber-900/20'
-                                    }`}
-                                >
-                                    <MicrophoneIcon className="h-4 w-4" />
-                                </button>
-                            </div>
-                        )}
                          {isSearchFocused && searchResults.length > 0 && (
                             <div className="absolute top-full mt-2 w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 text-right max-h-80 overflow-y-auto z-50">
                                 <ul className="py-2">
                                     {searchResults.map(result => (
                                         <li key={`${result.type}-${result.id}`}>
-                                            <button onClick={() => handleResultClick(result)} className="w-full text-right px-4 py-3 hover:bg-amber-900/20 transition-colors duration-200 flex items-center justify-between group">
+                                            <button onClick={() => handleResultClick(result)} className="w-full text-right px-4 py-3 search-result-hover transition-colors duration-200 flex items-center justify-between group">
                                                 <div>
-                                                    <p className="font-semibold text-slate-200 group-hover:text-amber-400 transition-colors">{result.name}</p>
+                                                    <p className="font-semibold text-slate-200 search-result-text transition-colors">{result.name}</p>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{result.type}</p>
                                                 </div>
-                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity text-amber-500">
+                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity text-accent">
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                                                 </div>
                                             </button>
@@ -374,21 +333,7 @@ const Header: React.FC<{
                     </div>
                     
                     <button 
-                        onClick={handleThemeToggle} 
-                        className={`text-slate-500 dark:text-slate-400 p-2.5 rounded-xl transition-all duration-200 ease-in-out border relative overflow-hidden group hover:scale-[1.02] active:scale-[0.98] ${
-                            theme === 'light' 
-                                ? 'hover:bg-slate-800 hover:text-amber-300 hover:border-slate-700 hover:shadow-md hover:shadow-slate-800/20' 
-                                : 'hover:bg-amber-100 hover:text-amber-600 hover:border-amber-200 hover:shadow-md hover:shadow-amber-500/20'
-                        } ${isThemeAnimating ? 'animate-theme-pulse' : 'border-transparent'}`}
-                        title={theme === 'light' ? 'التبديل إلى الوضع المظلم' : 'التبديل إلى الوضع الفاتح'}
-                    >
-                        <span className={`relative z-10 flex items-center justify-center ${isThemeAnimating ? 'animate-theme-rotate' : ''}`}>
-                            {theme === 'light' ? <MoonIcon /> : <SunIcon />}
-                        </span>
-                        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-                    </button>
-                    
-                    <button 
+                        onClick={() => setActivePage('notifications')}
                         className="text-slate-500 dark:text-slate-400 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 ease-in-out border border-transparent hover:border-slate-200 dark:hover:border-slate-700 relative group hover:scale-[1.02] active:scale-[0.98]"
                         onMouseEnter={(e) => {
                             const bell = e.currentTarget.querySelector('.bell-icon');
@@ -397,8 +342,12 @@ const Header: React.FC<{
                         }}
                     >
                         <BellIcon className="h-6 w-6 bell-icon transition-transform duration-300 group-hover:rotate-12"/>
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800 animate-pulse"></span>
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
+                        {unreadNotifications > 0 && (
+                            <>
+                                <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-800 animate-pulse"></span>
+                                <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
+                            </>
+                        )}
                     </button>
 
                     <div className="relative" ref={userMenuRef}>
@@ -409,7 +358,7 @@ const Header: React.FC<{
                             <div className="hidden md:block text-right">
                                 <span className="font-semibold text-slate-800 dark:text-slate-100 block leading-tight text-sm">{currentUser?.name}</span>
                                 {assignedProjectName ? (
-                                     <span className="text-[10px] text-amber-400 font-medium flex items-center justify-end gap-1 leading-tight mt-0.5">
+                                     <span className="text-[10px] text-accent font-medium flex items-center justify-end gap-1 leading-tight mt-0.5">
                                         <BriefcaseIcon className="h-3 w-3" />
                                         {assignedProjectName}
                                     </span>

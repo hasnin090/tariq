@@ -201,16 +201,16 @@ const ProjectUserManagement: React.FC = () => {
                         const accountingUser = getAccountingUser(project);
 
                         return (
-                            <div key={project.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-shadow duration-200">
+                            <div key={project.id} className="glass-card overflow-hidden hover:shadow-xl transition-shadow duration-200">
                                 <div className="p-6">
                                     <div className="flex items-start justify-between mb-4">
                                         <div>
-                                            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">{project.name}</h3>
-                                            <p className="text-sm text-slate-600 dark:text-slate-400">{project.description}</p>
+                                            <h3 className="text-xl font-bold text-white mb-1">{project.name}</h3>
+                                            <p className="text-sm text-slate-300">{project.description}</p>
                                         </div>
                                         <button
                                             onClick={() => handleOpenAssignModal(project)}
-                                            className="bg-primary-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm text-sm"
+                                            className="btn-primary text-sm"
                                         >
                                             + تعيين مستخدم
                                         </button>

@@ -44,6 +44,60 @@
     @apply from-teal-600/90 to-teal-700/90 shadow-teal-500/10 hover:shadow-teal-500/20 hover:from-teal-500 hover:to-teal-600;
   }
 
+  /* Mode switcher buttons (Header) */
+  .mode-switcher-btn.mode-active {
+    @apply bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg shadow-amber-500/30 animate-mode-slide scale-[1.02];
+  }
+  
+  [data-accent-color="blue"] .mode-switcher-btn.mode-active {
+    @apply from-blue-600 to-blue-700 shadow-blue-500/30;
+  }
+  [data-accent-color="emerald"] .mode-switcher-btn.mode-active {
+    @apply from-emerald-600 to-emerald-700 shadow-emerald-500/30;
+  }
+  [data-accent-color="purple"] .mode-switcher-btn.mode-active {
+    @apply from-purple-600 to-purple-700 shadow-purple-500/30;
+  }
+  [data-accent-color="rose"] .mode-switcher-btn.mode-active {
+    @apply from-rose-600 to-rose-700 shadow-rose-500/30;
+  }
+  [data-accent-color="cyan"] .mode-switcher-btn.mode-active {
+    @apply from-cyan-600 to-cyan-700 shadow-cyan-500/30;
+  }
+  [data-accent-color="indigo"] .mode-switcher-btn.mode-active {
+    @apply from-indigo-600 to-indigo-700 shadow-indigo-500/30;
+  }
+  [data-accent-color="teal"] .mode-switcher-btn.mode-active {
+    @apply from-teal-600 to-teal-700 shadow-teal-500/30;
+  }
+
+  /* Sidebar active item */
+  .sidebar-item-active {
+    @apply bg-gradient-to-l from-amber-600/90 via-amber-500/90 to-amber-600/90 text-white shadow-md shadow-amber-500/10;
+  }
+  
+  [data-accent-color="blue"] .sidebar-item-active {
+    @apply from-blue-600/90 via-blue-500/90 to-blue-600/90 shadow-blue-500/10;
+  }
+  [data-accent-color="emerald"] .sidebar-item-active {
+    @apply from-emerald-600/90 via-emerald-500/90 to-emerald-600/90 shadow-emerald-500/10;
+  }
+  [data-accent-color="purple"] .sidebar-item-active {
+    @apply from-purple-600/90 via-purple-500/90 to-purple-600/90 shadow-purple-500/10;
+  }
+  [data-accent-color="rose"] .sidebar-item-active {
+    @apply from-rose-600/90 via-rose-500/90 to-rose-600/90 shadow-rose-500/10;
+  }
+  [data-accent-color="cyan"] .sidebar-item-active {
+    @apply from-cyan-600/90 via-cyan-500/90 to-cyan-600/90 shadow-cyan-500/10;
+  }
+  [data-accent-color="indigo"] .sidebar-item-active {
+    @apply from-indigo-600/90 via-indigo-500/90 to-indigo-600/90 shadow-indigo-500/10;
+  }
+  [data-accent-color="teal"] .sidebar-item-active {
+    @apply from-teal-600/90 via-teal-500/90 to-teal-600/90 shadow-teal-500/10;
+  }
+
   .btn-secondary {
     @apply backdrop-blur-lg bg-slate-800/80 
            text-slate-200 
@@ -82,6 +136,446 @@
   }
   [data-accent-color="teal"] .input-field:focus {
     @apply ring-teal-500/50 border-teal-500;
+  }
+
+  /* Project selector active button */
+  .project-selector-active {
+    @apply backdrop-blur-xl bg-gradient-to-br from-amber-600/80 to-amber-700/80 border-white/20 text-white shadow-md shadow-amber-500/10;
+  }
+  
+  [data-accent-color="blue"] .project-selector-active {
+    @apply from-blue-600/80 to-blue-700/80 shadow-blue-500/10;
+  }
+  [data-accent-color="emerald"] .project-selector-active {
+    @apply from-emerald-600/80 to-emerald-700/80 shadow-emerald-500/10;
+  }
+  [data-accent-color="purple"] .project-selector-active {
+    @apply from-purple-600/80 to-purple-700/80 shadow-purple-500/10;
+  }
+  [data-accent-color="rose"] .project-selector-active {
+    @apply from-rose-600/80 to-rose-700/80 shadow-rose-500/10;
+  }
+  [data-accent-color="cyan"] .project-selector-active {
+    @apply from-cyan-600/80 to-cyan-700/80 shadow-cyan-500/10;
+  }
+  [data-accent-color="indigo"] .project-selector-active {
+    @apply from-indigo-600/80 to-indigo-700/80 shadow-indigo-500/10;
+  }
+  [data-accent-color="teal"] .project-selector-active {
+    @apply from-teal-600/80 to-teal-700/80 shadow-teal-500/10;
+  }
+
+  /* Project selector hover button */
+  .project-selector-hover {
+    @apply backdrop-blur-xl bg-gradient-to-br from-amber-500/80 to-amber-600/80 border-white/20 text-white shadow-md shadow-amber-500/10;
+  }
+  
+  [data-accent-color="blue"] .project-selector-hover {
+    @apply from-blue-500/80 to-blue-600/80 shadow-blue-500/10;
+  }
+  [data-accent-color="emerald"] .project-selector-hover {
+    @apply from-emerald-500/80 to-emerald-600/80 shadow-emerald-500/10;
+  }
+  [data-accent-color="purple"] .project-selector-hover {
+    @apply from-purple-500/80 to-purple-600/80 shadow-purple-500/10;
+  }
+  [data-accent-color="rose"] .project-selector-hover {
+    @apply from-rose-500/80 to-rose-600/80 shadow-rose-500/10;
+  }
+  [data-accent-color="cyan"] .project-selector-hover {
+    @apply from-cyan-500/80 to-cyan-600/80 shadow-cyan-500/10;
+  }
+  [data-accent-color="indigo"] .project-selector-hover {
+    @apply from-indigo-500/80 to-indigo-600/80 shadow-indigo-500/10;
+  }
+  [data-accent-color="teal"] .project-selector-hover {
+    @apply from-teal-500/80 to-teal-600/80 shadow-teal-500/10;
+  }
+
+  /* Toast success notification */
+  .toast-success {
+    @apply bg-amber-500/90 shadow-amber-500/20;
+  }
+  
+  [data-accent-color="blue"] .toast-success {
+    @apply bg-blue-500/90 shadow-blue-500/20;
+  }
+  [data-accent-color="emerald"] .toast-success {
+    @apply bg-emerald-500/90 shadow-emerald-500/20;
+  }
+  [data-accent-color="purple"] .toast-success {
+    @apply bg-purple-500/90 shadow-purple-500/20;
+  }
+  [data-accent-color="rose"] .toast-success {
+    @apply bg-rose-500/90 shadow-rose-500/20;
+  }
+  [data-accent-color="cyan"] .toast-success {
+    @apply bg-cyan-500/90 shadow-cyan-500/20;
+  }
+  [data-accent-color="indigo"] .toast-success {
+    @apply bg-indigo-500/90 shadow-indigo-500/20;
+  }
+  [data-accent-color="teal"] .toast-success {
+    @apply bg-teal-500/90 shadow-teal-500/20;
+  }
+
+  /* Accent text colors */
+  .text-accent {
+    @apply text-amber-500;
+  }
+  
+  [data-accent-color="blue"] .text-accent {
+    @apply text-blue-500;
+  }
+  [data-accent-color="emerald"] .text-accent {
+    @apply text-emerald-500;
+  }
+  [data-accent-color="purple"] .text-accent {
+    @apply text-purple-500;
+  }
+  [data-accent-color="rose"] .text-accent {
+    @apply text-rose-500;
+  }
+  [data-accent-color="cyan"] .text-accent {
+    @apply text-cyan-500;
+  }
+  [data-accent-color="indigo"] .text-accent {
+    @apply text-indigo-500;
+  }
+  [data-accent-color="teal"] .text-accent {
+    @apply text-teal-500;
+  }
+
+  /* Accent background colors */
+  .bg-accent {
+    @apply bg-amber-500;
+  }
+  
+  [data-accent-color="blue"] .bg-accent {
+    @apply bg-blue-500;
+  }
+  [data-accent-color="emerald"] .bg-accent {
+    @apply bg-emerald-500;
+  }
+  [data-accent-color="purple"] .bg-accent {
+    @apply bg-purple-500;
+  }
+  [data-accent-color="rose"] .bg-accent {
+    @apply bg-rose-500;
+  }
+  [data-accent-color="cyan"] .bg-accent {
+    @apply bg-cyan-500;
+  }
+  [data-accent-color="indigo"] .bg-accent {
+    @apply bg-indigo-500;
+  }
+  [data-accent-color="teal"] .bg-accent {
+    @apply bg-teal-500;
+  }
+
+  /* Accent dots and small elements */
+  .dot-accent {
+    @apply bg-amber-400;
+  }
+  
+  [data-accent-color="blue"] .dot-accent {
+    @apply bg-blue-400;
+  }
+  [data-accent-color="emerald"] .dot-accent {
+    @apply bg-emerald-400;
+  }
+  [data-accent-color="purple"] .dot-accent {
+    @apply bg-purple-400;
+  }
+  [data-accent-color="rose"] .dot-accent {
+    @apply bg-rose-400;
+  }
+  [data-accent-color="cyan"] .dot-accent {
+    @apply bg-cyan-400;
+  }
+  [data-accent-color="indigo"] .dot-accent {
+    @apply bg-indigo-400;
+  }
+  [data-accent-color="teal"] .dot-accent {
+    @apply bg-teal-400;
+  }
+
+  /* Search result hover */
+  .search-result-hover {
+    @apply hover:bg-amber-900/20;
+  }
+  
+  [data-accent-color="blue"] .search-result-hover {
+    @apply hover:bg-blue-900/20;
+  }
+  [data-accent-color="emerald"] .search-result-hover {
+    @apply hover:bg-emerald-900/20;
+  }
+  [data-accent-color="purple"] .search-result-hover {
+    @apply hover:bg-purple-900/20;
+  }
+  [data-accent-color="rose"] .search-result-hover {
+    @apply hover:bg-rose-900/20;
+  }
+  [data-accent-color="cyan"] .search-result-hover {
+    @apply hover:bg-cyan-900/20;
+  }
+  [data-accent-color="indigo"] .search-result-hover {
+    @apply hover:bg-indigo-900/20;
+  }
+  [data-accent-color="teal"] .search-result-hover {
+    @apply hover:bg-teal-900/20;
+  }
+
+  /* Search result text */
+  .search-result-text {
+    @apply group-hover:text-amber-400;
+  }
+  
+  [data-accent-color="blue"] .search-result-text {
+    @apply group-hover:text-blue-400;
+  }
+  [data-accent-color="emerald"] .search-result-text {
+    @apply group-hover:text-emerald-400;
+  }
+  [data-accent-color="purple"] .search-result-text {
+    @apply group-hover:text-purple-400;
+  }
+  [data-accent-color="rose"] .search-result-text {
+    @apply group-hover:text-rose-400;
+  }
+  [data-accent-color="cyan"] .search-result-text {
+    @apply group-hover:text-cyan-400;
+  }
+  [data-accent-color="indigo"] .search-result-text {
+    @apply group-hover:text-indigo-400;
+  }
+  [data-accent-color="teal"] .search-result-text {
+    @apply group-hover:text-teal-400;
+  }
+
+  /* Dashboard stat cards */
+  .stat-card-amber {
+    @apply bg-amber-500;
+  }
+  
+  [data-accent-color="blue"] .stat-card-amber {
+    @apply bg-blue-500;
+  }
+  [data-accent-color="emerald"] .stat-card-amber {
+    @apply bg-emerald-500;
+  }
+  [data-accent-color="purple"] .stat-card-amber {
+    @apply bg-purple-500;
+  }
+  [data-accent-color="rose"] .stat-card-amber {
+    @apply bg-rose-500;
+  }
+  [data-accent-color="cyan"] .stat-card-amber {
+    @apply bg-cyan-500;
+  }
+  [data-accent-color="indigo"] .stat-card-amber {
+    @apply bg-indigo-500;
+  }
+  [data-accent-color="teal"] .stat-card-amber {
+    @apply bg-teal-500;
+  }
+
+  /* Dashboard stat cards variant */
+  .stat-card-amber-600 {
+    @apply bg-amber-600;
+  }
+  
+  [data-accent-color="blue"] .stat-card-amber-600 {
+    @apply bg-blue-600;
+  }
+  [data-accent-color="emerald"] .stat-card-amber-600 {
+    @apply bg-emerald-600;
+  }
+  [data-accent-color="purple"] .stat-card-amber-600 {
+    @apply bg-purple-600;
+  }
+  [data-accent-color="rose"] .stat-card-amber-600 {
+    @apply bg-rose-600;
+  }
+  [data-accent-color="cyan"] .stat-card-amber-600 {
+    @apply bg-cyan-600;
+  }
+  [data-accent-color="indigo"] .stat-card-amber-600 {
+    @apply bg-indigo-600;
+  }
+  [data-accent-color="teal"] .stat-card-amber-600 {
+    @apply bg-teal-600;
+  }
+
+  /* Project card header */
+  .project-card-header {
+    @apply bg-gradient-to-r from-amber-500/90 to-amber-600/90;
+  }
+  
+  [data-accent-color="blue"] .project-card-header {
+    @apply from-blue-500/90 to-blue-600/90;
+  }
+  [data-accent-color="emerald"] .project-card-header {
+    @apply from-emerald-500/90 to-emerald-600/90;
+  }
+  [data-accent-color="purple"] .project-card-header {
+    @apply from-purple-500/90 to-purple-600/90;
+  }
+  [data-accent-color="rose"] .project-card-header {
+    @apply from-rose-500/90 to-rose-600/90;
+  }
+  [data-accent-color="cyan"] .project-card-header {
+    @apply from-cyan-500/90 to-cyan-600/90;
+  }
+  [data-accent-color="indigo"] .project-card-header {
+    @apply from-indigo-500/90 to-indigo-600/90;
+  }
+  [data-accent-color="teal"] .project-card-header {
+    @apply from-teal-500/90 to-teal-600/90;
+  }
+
+  /* Color picker icon overlay */
+  .color-picker-icon {
+    @apply bg-black/30;
+  }
+  
+  /* Color picker checkmark */
+  .color-picker-check {
+    @apply text-white;
+  }
+  
+  [data-accent-color="amber"] .color-picker-check {
+    @apply text-amber-100;
+  }
+  [data-accent-color="blue"] .color-picker-check {
+    @apply text-blue-100;
+  }
+  [data-accent-color="emerald"] .color-picker-check {
+    @apply text-emerald-100;
+  }
+  [data-accent-color="purple"] .color-picker-check {
+    @apply text-purple-100;
+  }
+  [data-accent-color="rose"] .color-picker-check {
+    @apply text-rose-100;
+  }
+  [data-accent-color="cyan"] .color-picker-check {
+    @apply text-cyan-100;
+  }
+  [data-accent-color="indigo"] .color-picker-check {
+    @apply text-indigo-100;
+  }
+  [data-accent-color="teal"] .color-picker-check {
+    @apply text-teal-100;
+  }
+
+  /* Color picker selected border */
+  .color-picker-selected {
+    @apply border-amber-400 shadow-lg shadow-amber-500/30;
+  }
+  
+  [data-accent-color="blue"] .color-picker-selected {
+    @apply border-blue-400 shadow-blue-500/30;
+  }
+  [data-accent-color="emerald"] .color-picker-selected {
+    @apply border-emerald-400 shadow-emerald-500/30;
+  }
+  [data-accent-color="purple"] .color-picker-selected {
+    @apply border-purple-400 shadow-purple-500/30;
+  }
+  [data-accent-color="rose"] .color-picker-selected {
+    @apply border-rose-400 shadow-rose-500/30;
+  }
+  [data-accent-color="cyan"] .color-picker-selected {
+    @apply border-cyan-400 shadow-cyan-500/30;
+  }
+  [data-accent-color="indigo"] .color-picker-selected {
+    @apply border-indigo-400 shadow-indigo-500/30;
+  }
+  [data-accent-color="teal"] .color-picker-selected {
+    @apply border-teal-400 shadow-teal-500/30;
+  }
+
+  /* Project selector icon background (active) */
+  .project-icon-bg-active {
+    @apply bg-amber-500;
+  }
+  
+  [data-accent-color="blue"] .project-icon-bg-active {
+    @apply bg-blue-500;
+  }
+  [data-accent-color="emerald"] .project-icon-bg-active {
+    @apply bg-emerald-500;
+  }
+  [data-accent-color="purple"] .project-icon-bg-active {
+    @apply bg-purple-500;
+  }
+  [data-accent-color="rose"] .project-icon-bg-active {
+    @apply bg-rose-500;
+  }
+  [data-accent-color="cyan"] .project-icon-bg-active {
+    @apply bg-cyan-500;
+  }
+  [data-accent-color="indigo"] .project-icon-bg-active {
+    @apply bg-indigo-500;
+  }
+  [data-accent-color="teal"] .project-icon-bg-active {
+    @apply bg-teal-500;
+  }
+
+  /* Project selector icon text (inactive) */
+  .project-icon-text-inactive {
+    @apply text-amber-600 dark:text-amber-400;
+  }
+  
+  [data-accent-color="blue"] .project-icon-text-inactive {
+    @apply text-blue-600 dark:text-blue-400;
+  }
+  [data-accent-color="emerald"] .project-icon-text-inactive {
+    @apply text-emerald-600 dark:text-emerald-400;
+  }
+  [data-accent-color="purple"] .project-icon-text-inactive {
+    @apply text-purple-600 dark:text-purple-400;
+  }
+  [data-accent-color="rose"] .project-icon-text-inactive {
+    @apply text-rose-600 dark:text-rose-400;
+  }
+  [data-accent-color="cyan"] .project-icon-text-inactive {
+    @apply text-cyan-600 dark:text-cyan-400;
+  }
+  [data-accent-color="indigo"] .project-icon-text-inactive {
+    @apply text-indigo-600 dark:text-indigo-400;
+  }
+  [data-accent-color="teal"] .project-icon-text-inactive {
+    @apply text-teal-600 dark:text-teal-400;
+  }
+
+  /* Project selector checkmark */
+  .project-checkmark {
+    @apply text-amber-500;
+  }
+  
+  [data-accent-color="blue"] .project-checkmark {
+    @apply text-blue-500;
+  }
+  [data-accent-color="emerald"] .project-checkmark {
+    @apply text-emerald-500;
+  }
+  [data-accent-color="purple"] .project-checkmark {
+    @apply text-purple-500;
+  }
+  [data-accent-color="rose"] .project-checkmark {
+    @apply text-rose-500;
+  }
+  [data-accent-color="cyan"] .project-checkmark {
+    @apply text-cyan-500;
+  }
+  [data-accent-color="indigo"] .project-checkmark {
+    @apply text-indigo-500;
+  }
+  [data-accent-color="teal"] .project-checkmark {
+    @apply text-teal-500;
   }
 
   .card {

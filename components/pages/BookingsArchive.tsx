@@ -94,25 +94,25 @@ const BookingsArchive: React.FC = () => {
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">أرشيف الحجوزات الملغاة</h2>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="glass-card overflow-hidden">
                 {cancelledBookings.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="w-full text-right">
                             <thead>
-                                <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المدفوع</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الإلغاء</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>
+                                <tr className="border-b-2 border-white/20 bg-white/5">
+                                    <th className="p-4 font-bold text-sm text-slate-200">التاريخ</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">الوحدة</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">العميل</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">المبلغ المدفوع</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">تاريخ الإلغاء</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">إجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {cancelledBookings.map(booking => (
-                                    <tr key={booking.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                                        <td className="p-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">{booking.bookingDate}</td>
-                                        <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{booking.unitName}</td>
+                                    <tr key={booking.id} className="border-b border-white/10 hover:bg-white/5">
+                                        <td className="p-4 text-slate-300 whitespace-nowrap">{booking.bookingDate}</td>
+                                        <td className="p-4 font-medium text-slate-100">{booking.unitName}</td>
                                         <td className="p-4 text-slate-600 dark:text-slate-300">{booking.customerName}</td>
                                         <td className="p-4 font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(booking.amountPaid)}</td>
                                         <td className="p-4 text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">

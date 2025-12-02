@@ -219,19 +219,19 @@ const GeneralArchive: React.FC = () => {
                 </button>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="glass-card overflow-hidden">
                 {filteredItems.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="w-full text-right">
                             <thead>
-                                <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">النوع</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوصف</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الأرشفة</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">أرشفه</th>
-                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>
+                                <tr className="border-b-2 border-white/20 bg-white/5">
+                                    <th className="p-4 font-bold text-sm text-slate-200">التاريخ</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">النوع</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">الوصف</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">المبلغ</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">تاريخ الأرشفة</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">أرشفه</th>
+                                    <th className="p-4 font-bold text-sm text-slate-200">إجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>

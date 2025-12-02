@@ -43,7 +43,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                     isEditMode ? 'cursor-move border-2 border-dashed border-amber-500/50' : 'cursor-pointer'
                 } ${
                     isActive && !isEditMode
-                    ? 'bg-gradient-to-l from-amber-600/90 via-amber-500/90 to-amber-600/90 text-white shadow-md shadow-amber-500/10 translate-x-[-4px] scale-[1.02]' 
+                    ? 'sidebar-item-active translate-x-[-4px] scale-[1.02]' 
                     : 'text-slate-300 hover:bg-gradient-to-l hover:from-white/10 hover:to-white/5 hover:text-white hover:translate-x-[-3px]'
                 }`}
             >
@@ -61,13 +61,13 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
                 )}
                 
-                <div className={`p-2 rounded-lg transition-all duration-500 transform ${
+                <div className={`p-2 rounded-lg transition-all duration-500 transform flex items-center justify-center flex-shrink-0 ${
                     isActive 
                     ? 'bg-white/25 shadow-lg rotate-0 scale-105' 
                     : 'bg-white/5 group-hover:bg-white/15 group-hover:scale-105 group-hover:rotate-3'
                 }`}>
                     {React.cloneElement<{ className: string }>(icon, { 
-                        className: `h-5 w-5 transition-all duration-500 ${
+                        className: `h-5 w-5 flex-shrink-0 transition-all duration-500 ${
                             isActive 
                             ? 'text-white drop-shadow-lg' 
                             : 'text-slate-400 group-hover:text-white group-hover:drop-shadow-md'
@@ -82,9 +82,9 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                 {/* Drag Indicator */}
                 {isEditMode && (
                     <div className="mr-auto flex gap-0.5">
-                        <div className="w-1 h-1 rounded-full bg-amber-400"></div>
-                        <div className="w-1 h-1 rounded-full bg-amber-400"></div>
-                        <div className="w-1 h-1 rounded-full bg-amber-400"></div>
+                        <div className="w-1 h-1 rounded-full dot-accent"></div>
+                        <div className="w-1 h-1 rounded-full dot-accent"></div>
+                        <div className="w-1 h-1 rounded-full dot-accent"></div>
                     </div>
                 )}
                 
@@ -291,10 +291,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 
                 {/* Logo Area */}
                 <div className="h-24 flex items-center justify-center relative overflow-hidden border-b border-white/20">
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-600/10 to-transparent opacity-30"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-transparent opacity-30"></div>
                     <div className="relative z-10 text-center px-4">
                         <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 tracking-tight">{systemTitle}</h1>
-                        <p className="text-xs text-amber-400 font-medium mt-1 tracking-widest uppercase opacity-80">لوحة التحكم المتطورة</p>
                     </div>
                 </div>
 
@@ -306,7 +305,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                                 onClick={() => setIsEditMode(!isEditMode)}
                                 className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
                                     isEditMode 
-                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' 
+                                    ? 'bg-accent/20 text-accent border border-accent/50' 
                                     : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
                                 }`}
                             >
@@ -322,11 +321,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                                 </button>
                             )}
                         </div>
-                        {isEditMode && (
-                            <p className="text-[10px] text-amber-400/70 text-center mt-2 animate-pulse">
-                                اسحب العناصر لإعادة ترتيبها
-                            </p>
-                        )}
+
                     </div>
                 )}
 
@@ -334,7 +329,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 <nav className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                     <div className="mb-6">
                         <h2 className="px-4 pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                            <span className="w-1.5 h-1.5 rounded-full dot-accent"></span>
                             {sectionTitle}
                         </h2>
                         <ul className="space-y-1">
@@ -357,7 +352,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                     {isAdmin && (
                         <div>
                             <h2 className="px-4 pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span className="w-1.5 h-1.5 rounded-full dot-accent"></span>
                                 النظام
                             </h2>
                             <ul className="space-y-1">

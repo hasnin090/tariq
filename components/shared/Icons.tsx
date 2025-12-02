@@ -136,16 +136,16 @@ export const ChartPieIcon = (props: React.SVGProps<SVGSVGElement>) => <PieChart 
 
 
 // Documents & Reports
-export const ChartBarIcon = (props: React.SVGProps<SVGSVGElement>) => <BarChart3 strokeWidth={2} {...props} />;
-export const DocumentTextIcon = (props: React.SVGProps<SVGSVGElement>) => <FileText strokeWidth={2} {...props} />;
-export const BriefcaseIcon = (props: React.SVGProps<SVGSVGElement>) => <Briefcase strokeWidth={2} {...props} />;
-export const ArchiveIcon = (props: React.SVGProps<SVGSVGElement>) => <FileArchive strokeWidth={2} {...props} />;
-export const DocumentReportIcon = (props: React.SVGProps<SVGSVGElement>) => <BarChart strokeWidth={2} {...props} />;
-export const DownloadIcon = (props: React.SVGProps<SVGSVGElement>) => <Download strokeWidth={2} {...props} />;
-export const PrinterIcon = (props: React.SVGProps<SVGSVGElement>) => <Printer strokeWidth={2} {...props} />;
-export const UploadIcon = (props: React.SVGProps<SVGSVGElement>) => <Upload strokeWidth={2} {...props} />;
-export const RefreshIcon = (props: React.SVGProps<SVGSVGElement>) => <RefreshCw strokeWidth={2} {...props} />;
-export const TrashIcon = (props: React.SVGProps<SVGSVGElement>) => <Trash2 strokeWidth={2} {...props} />;
+export const ChartBarIcon = (props: React.SVGProps<SVGSVGElement>) => <BarChart3 strokeWidth={1.5} {...props} />;
+export const DocumentTextIcon = (props: React.SVGProps<SVGSVGElement>) => <FileText strokeWidth={1.5} {...props} />;
+export const BriefcaseIcon = (props: React.SVGProps<SVGSVGElement>) => <Briefcase strokeWidth={1.5} {...props} />;
+export const ArchiveIcon = (props: React.SVGProps<SVGSVGElement>) => <FileArchive strokeWidth={1.5} {...props} />;
+export const DocumentReportIcon = (props: React.SVGProps<SVGSVGElement>) => <BarChart strokeWidth={1.5} {...props} />;
+export const DownloadIcon = (props: React.SVGProps<SVGSVGElement>) => <Download strokeWidth={1.5} {...props} />;
+export const PrinterIcon = (props: React.SVGProps<SVGSVGElement>) => <Printer strokeWidth={1.5} {...props} />;
+export const UploadIcon = (props: React.SVGProps<SVGSVGElement>) => <Upload strokeWidth={1.5} {...props} />;
+export const RefreshIcon = (props: React.SVGProps<SVGSVGElement>) => <RefreshCw strokeWidth={1.5} {...props} />;
+export const TrashIcon = (props: React.SVGProps<SVGSVGElement>) => <Trash2 strokeWidth={1.5} {...props} />;
 
 export const SpinnerIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <Loader2 className={`animate-spin h-6 w-6 ${props.className || ''}`} {...props} />
@@ -153,27 +153,27 @@ export const SpinnerIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export const FileIcon = ({ mimeType, ...props }: { mimeType?: string } & React.SVGProps<SVGSVGElement>) => {
   if (mimeType?.startsWith('image/')) {
-    return <FileImage className="h-5 w-5 text-sky-500" strokeWidth={2} {...props} />;
+    return <FileImage className="h-5 w-5 text-sky-500" strokeWidth={1.5} {...props} />;
   }
   if (mimeType === 'application/pdf') {
-    return <File className="h-5 w-5 text-rose-500" strokeWidth={2} {...props} />;
+    return <File className="h-5 w-5 text-rose-500" strokeWidth={1.5} {...props} />;
   }
-  return <File className="h-5 w-5 text-slate-500" strokeWidth={2} {...props} />;
+  return <File className="h-5 w-5 text-slate-500" strokeWidth={1.5} {...props} />;
 };
 
 // Misc & Other
-export const CalendarIcon = (props: React.SVGProps<SVGSVGElement>) => <Calendar strokeWidth={2} {...props} />;
-export const ClockIcon = (props: React.SVGProps<SVGSVGElement>) => <Clock strokeWidth={2} {...props} />;
-export const CheckCircleIcon = (props: React.SVGProps<SVGSVGElement>) => <CheckCircle strokeWidth={2} {...props} />;
-export const ArrowUpIcon = (props: React.SVGProps<SVGSVGElement>) => <ArrowUp strokeWidth={2} {...props} />;
-export const ArrowDownIcon = (props: React.SVGProps<SVGSVGElement>) => <ArrowDown strokeWidth={2} {...props} />;
+export const CalendarIcon = (props: React.SVGProps<SVGSVGElement>) => <Calendar strokeWidth={1.5} {...props} />;
+export const ClockIcon = (props: React.SVGProps<SVGSVGElement>) => <Clock strokeWidth={1.5} {...props} />;
+export const CheckCircleIcon = (props: React.SVGProps<SVGSVGElement>) => <CheckCircle strokeWidth={1.5} {...props} />;
+export const ArrowUpIcon = (props: React.SVGProps<SVGSVGElement>) => <ArrowUp strokeWidth={1.5} {...props} />;
+export const ArrowDownIcon = (props: React.SVGProps<SVGSVGElement>) => <ArrowDown strokeWidth={1.5} {...props} />;
 export const SuccessIcon = (props: React.SVGProps<SVGSVGElement>) => <CheckCircle fill="currentColor" {...props} />;
 export const ErrorIcon = (props: React.SVGProps<SVGSVGElement>) => <XCircle fill="currentColor" {...props} />;
-export const WarningIcon = (props: React.SVGProps<SVGSVGElement>) => <AlertTriangle strokeWidth={2} {...props} />;
-export const QuestionIcon = (props: React.SVGProps<SVGSVGElement>) => <HelpCircle strokeWidth={2} {...props} />;
+export const WarningIcon = (props: React.SVGProps<SVGSVGElement>) => <AlertTriangle strokeWidth={1.5} {...props} />;
+export const QuestionIcon = (props: React.SVGProps<SVGSVGElement>) => <HelpCircle strokeWidth={1.5} {...props} />;
 export const UnitsEmptyIcon = (props: React.SVGProps<SVGSVGElement>) => <Building strokeWidth={1.5} {...props} />;
 export const CustomersEmptyIcon = (props: React.SVGProps<SVGSVGElement>) => <UserCircle2 strokeWidth={1.5} {...props} />;
-export const BankIcon = (props: React.SVGProps<SVGSVGElement>) => <Building2 strokeWidth={2} {...props} />;
+export const BankIcon = (props: React.SVGProps<SVGSVGElement>) => <Building2 strokeWidth={1.5} {...props} />;
 
 // Modern Icons
 export const SparklesIcon = (props: React.SVGProps<SVGSVGElement>) => <Sparkles strokeWidth={1.5} {...props} />;

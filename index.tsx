@@ -5,7 +5,6 @@ import App from './App.tsx';
 import './src/index.css';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { ToastProvider } from './contexts/ToastContext.tsx';
-import { ThemeProvider } from './contexts/ThemeContext.tsx';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -16,11 +15,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <AuthProvider>
-      <ThemeProvider>
-        <ToastProvider>
+      <ToastProvider>
           <App />
         </ToastProvider>
-      </ThemeProvider>
     </AuthProvider>
   </React.StrictMode>
 );
