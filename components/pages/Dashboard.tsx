@@ -4,6 +4,7 @@ import { formatCurrency } from '../../utils/currencyFormatter.ts';
 import { BuildingIcon, UsersIcon, TrendingUpIcon, CreditCardIcon } from '../shared/Icons.tsx';
 import { unitsService, customersService, unitStatusesService, paymentsService, bookingsService } from '../../src/services/supabaseService';
 import { useProject } from '../../contexts/ProjectContext.tsx';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 import ProjectSelector from '../shared/ProjectSelector.tsx';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
@@ -136,6 +137,7 @@ const DonutChart: React.FC<{ data: { label: string; value: number; color: string
 };
 
 const Dashboard: React.FC = () => {
+    const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
     const [stats, setStats] = useState({
         totalUnits: 0,
@@ -302,16 +304,22 @@ const Dashboard: React.FC = () => {
             <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">لوحة التحكم الرئيسية</h2>
             
             {/* Project Selector */}
-            <ProjectSelector 
-                projects={availableProjects}
-                activeProject={activeProject}
-                onSelectProject={setActiveProject}
-            />
+            {!currentUser?.assignedProjectId && (
+                <ProjectSelector 
+                    projects={availableProjects}
+                    activeProject={activeProject}
+                    onSelectProject={setActiveProject}
+                />
+            )}
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${currentUser?.role === 'Admin' ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-6 mb-6`}>
                 <StatCard title="إجمالي الوحدات" value={stats.totalUnits} icon={<BuildingIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" />
-                <StatCard title="إجمالي العملاء" value={stats.totalCustomers} icon={<UsersIcon className="h-8 w-8 text-white"/>} color="stat-card-amber-600" />
-                <StatCard title="إجمالي الإيرادات" value={formatCurrency(stats.totalRevenue)} icon={<TrendingUpIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" />
+                {currentUser?.role === 'Admin' && (
+                    <StatCard title="إجمالي العملاء" value={stats.totalCustomers} icon={<UsersIcon className="h-8 w-8 text-white"/>} color="stat-card-amber-600" />
+                )}
+                {currentUser?.role === 'Admin' && (
+                    <StatCard title="إجمالي الإيرادات" value={formatCurrency(stats.totalRevenue)} icon={<TrendingUpIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" />
+                )}
                 <StatCard title="الوحدات المتاحة" value={stats.unitsAvailable} icon={<CreditCardIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" />
             </div>
 

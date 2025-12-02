@@ -15,7 +15,17 @@ const generateUniqueId = (prefix: string): string => {
  * HELPER: Generate UUID v4
  */
 const generateUUID = (): string => {
-  return crypto.randomUUID();
+  // Fallback for browsers that don't support crypto.randomUUID()
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  
+  // Manual UUID v4 generation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 };
 
 /**
@@ -57,8 +67,10 @@ export const usersService = {
   },
 
   async create(user: Omit<User, 'id'>) {
+    console.log('🔧 usersService.create called with:', user);
     // Generate UUID for user (users table uses UUID type)
     const id = generateUUID();
+    console.log('🆔 Generated UUID:', id);
     
     // Extract fields
     const { password, projectAssignments, permissions, ...userWithoutPassword } = user as any;
@@ -72,6 +84,8 @@ export const usersService = {
       password: password || '123456' // Default password if not provided
     };
     
+    console.log('🧹 Clean user data to insert:', cleanUserData);
+    
     const { data, error } = await supabase
       .from('users')
       .insert([{ ...cleanUserData, id }])
@@ -79,7 +93,7 @@ export const usersService = {
       .single();
     
     if (error) {
-      console.error('Supabase create user error:', error);
+      console.error('❌ Supabase create user error:', error);
       
       // Handle duplicate username error
       if (error.code === '23505' && error.message.includes('users_username_key')) {
@@ -88,6 +102,8 @@ export const usersService = {
       
       throw error;
     }
+    
+    console.log('✅ User created successfully in DB:', data);
     
     // Add permissions based on role for the returned data
     return {

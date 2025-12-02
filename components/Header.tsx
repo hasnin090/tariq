@@ -98,8 +98,8 @@ const Header: React.FC<{
                 const { data, error } = await supabase
                     .from('notifications')
                     .select('id')
-                    .eq('userId', currentUser.id)
-                    .eq('isRead', false);
+                    .eq('user_id', currentUser.id)
+                    .eq('is_read', false);
                 
                 if (!error && data) {
                     setUnreadNotifications(data.length);
@@ -238,12 +238,17 @@ const Header: React.FC<{
                         >
                             {connectionStatus === 'connected' && (
                                 <div className="relative">
-                                    <svg className={`h-6 w-6 ${connectionLatency && connectionLatency < 100 ? 'text-emerald-500' : connectionLatency && connectionLatency < 300 ? 'text-amber-500' : 'text-orange-500'}`} fill="currentColor" viewBox="0 0 24 24">
+                                    <svg className={`h-6 w-6 ${
+                                        connectionLatency && connectionLatency <= 160 ? 'text-emerald-500' : 
+                                        connectionLatency && connectionLatency <= 200 ? 'text-green-500' : 
+                                        connectionLatency && connectionLatency <= 250 ? 'text-amber-500' : 
+                                        'text-rose-500'
+                                    }`} fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
                                     </svg>
-                                    {connectionLatency && connectionLatency >= 300 && (
+                                    {connectionLatency && connectionLatency > 250 && (
                                         <span className="absolute -top-1 -right-1 flex items-center justify-center">
-                                            <svg className="h-3 w-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                                            <svg className="h-3 w-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                             </svg>
                                         </span>
@@ -283,11 +288,16 @@ const Header: React.FC<{
                                     {connectionLatency !== null && (
                                         <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                                             <p className="text-xs text-slate-600 dark:text-slate-300">زمن الاستجابة</p>
-                                            <p className={`text-lg font-bold ${connectionLatency < 100 ? 'text-emerald-600 dark:text-emerald-400' : connectionLatency < 300 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                            <p className={`text-lg font-bold ${
+                                                connectionLatency <= 160 ? 'text-emerald-600 dark:text-emerald-400' : 
+                                                connectionLatency <= 200 ? 'text-green-600 dark:text-green-400' : 
+                                                connectionLatency <= 250 ? 'text-amber-600 dark:text-amber-400' : 
+                                                'text-rose-600 dark:text-rose-400'
+                                            }`}>
                                                 {connectionLatency} ms
                                             </p>
                                             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                                                {connectionLatency < 100 ? 'ممتاز' : connectionLatency < 300 ? 'جيد' : 'بطيء'}
+                                                {connectionLatency <= 160 ? 'ممتاز' : connectionLatency <= 200 ? 'جيد' : connectionLatency <= 250 ? 'متوسط' : 'بطيء'}
                                             </p>
                                         </div>
                                     )}

@@ -208,12 +208,19 @@ export const Expenses: React.FC = () => {
             if(filters.projectId && expense.projectId !== filters.projectId) return false;
             if(filters.minAmount && expense.amount < parseFloat(filters.minAmount)) return false;
             if(filters.maxAmount && expense.amount > parseFloat(filters.maxAmount)) return false;
+            
+            // Filter by activeProject for non-assigned users, or by assignedProjectId for assigned users
+            if (currentUser?.assignedProjectId) {
+                if (expense.projectId !== currentUser.assignedProjectId) return false;
+            } else if (activeProject && expense.projectId !== activeProject.id) {
+                return false;
+            }
     
             return true;
         });
         setFilteredExpenses(filtered);
         setCurrentPage(1); // Reset to first page when filters change
-    }, [filters, allExpenses]);
+    }, [filters, allExpenses, activeProject, currentUser]);
 
     const totalPages = Math.ceil(filteredExpenses.length / ITEMS_PER_PAGE);
     const paginatedExpenses = useMemo(() => {
@@ -266,7 +273,8 @@ export const Expenses: React.FC = () => {
                 const { documents, ...expenseDataWithoutDocs } = expenseData;
                 
                 const updatedExpense = await expensesService.update(editingExpense.id, expenseDataWithoutDocs);
-                if (updatedExpense && updatedExpense.transactionId) {
+                // Only update transaction if it exists and user is not assigned to a project
+                if (updatedExpense && updatedExpense.transactionId && !currentUser?.assignedProjectId) {
                     await transactionsService.update(updatedExpense.transactionId, {
                         accountId: expenseData.accountId,
                         accountName: '', // Account name will be populated by the backend
@@ -278,7 +286,7 @@ export const Expenses: React.FC = () => {
                 addToast(`تم تحديث الحركة المالية "${expenseData.description}" بمبلغ ${formatCurrency(expenseData.amount)} بنجاح`, 'success');
                 logActivity('Update Expense', `Updated expense: ${expenseData.description} (Amount: ${expenseData.amount})`);
             } else {
-                if (!expenseData.accountId) {
+                if (!currentUser?.assignedProjectId && !expenseData.accountId) {
                     addToast('الحساب المحدد غير صالح.', 'error');
                     setIsSaving(false);
                     return;
@@ -289,32 +297,38 @@ export const Expenses: React.FC = () => {
                 const tempExpense = { ...expenseData, id: tempId };
                 setAllExpenses(prev => [tempExpense, ...prev]);
                 
-                // Create transaction first to get its ID
-                const newTransaction = await transactionsService.create({
-                    accountId: expenseData.accountId,
-                    accountName: '', // Account name will be populated by the backend
-                    type: 'Withdrawal',
-                    date: expenseData.date,
-                    description: expenseData.description,
-                    amount: expenseData.amount,
-                    sourceType: 'Expense',
-                });
+                let newTransaction = null;
+                
+                // Only create transaction if user is not assigned to a project (expenses for project users deduct from project revenue)
+                if (!currentUser?.assignedProjectId && expenseData.accountId) {
+                    newTransaction = await transactionsService.create({
+                        accountId: expenseData.accountId,
+                        accountName: '', // Account name will be populated by the backend
+                        type: 'Withdrawal',
+                        date: expenseData.date,
+                        description: expenseData.description,
+                        amount: expenseData.amount,
+                        sourceType: 'Expense',
+                    });
 
-                if (!newTransaction) {
-                    throw new Error("Failed to create transaction");
+                    if (!newTransaction) {
+                        throw new Error("Failed to create transaction");
+                    }
                 }
 
                 // Remove documents field before creating expense (documents are stored separately)
                 const { documents, ...expenseDataWithoutDocs } = expenseData;
 
-                // Then create expense and link it to the transaction
+                // Then create expense and link it to the transaction (if exists)
                 const newExpense = await expensesService.create({ 
                     ...expenseDataWithoutDocs, 
-                    transactionId: newTransaction.id 
+                    transactionId: newTransaction?.id || null 
                 });
 
-                // Update transaction with the sourceId
-                await transactionsService.update(newTransaction.id, { sourceId: newExpense.id });
+                // Update transaction with the sourceId (if transaction exists)
+                if (newTransaction) {
+                    await transactionsService.update(newTransaction.id, { sourceId: newExpense.id });
+                }
 
                 // Replace temp expense with real one
                 setAllExpenses(prev => prev.map(exp => 
@@ -387,10 +401,6 @@ export const Expenses: React.FC = () => {
     const FilterBar = () => (
         <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl mb-6 border border-slate-200 dark:border-slate-700">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <select name="projectId" value={filters.projectId} onChange={handleFilterChange} className={selectStyle}>
-                    <option value="">كل المشاريع</option>
-                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
                 <select name="categoryId" value={filters.categoryId} onChange={handleFilterChange} className={selectStyle}>
                     <option value="">كل الفئات</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -441,11 +451,13 @@ export const Expenses: React.FC = () => {
                 </div>
             </div>
             
-            <ProjectSelector 
-                projects={availableProjects} 
-                activeProject={activeProject} 
-                onSelectProject={setActiveProject} 
-            />
+            {!currentUser?.assignedProjectId && (
+                <ProjectSelector 
+                    projects={availableProjects} 
+                    activeProject={activeProject} 
+                    onSelectProject={setActiveProject} 
+                />
+            )}
             
             {showFilters && <FilterBar />}
              {filteredExpenses.length > 0 ? (
@@ -541,12 +553,13 @@ interface PanelProps {
 
 const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, accounts, onClose, onSave, isSaving }) => {
     const { addToast } = useToast();
+    const { currentUser } = useAuth();
     const [formData, setFormData] = useState({
         date: expense?.date || new Date().toISOString().split('T')[0],
         description: expense?.description || '',
         amount: expense?.amount || 0,
         categoryId: expense?.categoryId || '',
-        projectId: expense?.projectId || '',
+        projectId: expense?.projectId || currentUser?.assignedProjectId || '',
         accountId: expense?.accountId || '',
     });
     const [document, setDocument] = useState<SaleDocument | null>(expense?.documents?.[0] || null);
@@ -572,7 +585,8 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
     
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.description || formData.amount <= 0 || !formData.categoryId || !formData.accountId) {
+        const accountRequired = !currentUser?.assignedProjectId;
+        if (!formData.description || formData.amount <= 0 || !formData.categoryId || (accountRequired && !formData.accountId)) {
             addToast('يرجى ملء الحقول الإلزامية.', 'error');
             return;
         }
@@ -602,12 +616,22 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
                             <input type="date" name="date" value={formData.date} onChange={handleChange} className={inputStyle} required />
                             <input type="number" name="amount" placeholder="المبلغ" value={formData.amount || ''} onChange={handleChange} className={inputStyle} required min="0.01" step="0.01" />
                         </div>
-                        <select name="accountId" value={formData.accountId} onChange={handleChange} className={selectStyle} required>
-                            <option value="">اختر الحساب</option>
-                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({a.type === 'Bank' ? 'بنك' : 'نقدي'})</option>)}
-                        </select>
+                        {!currentUser?.assignedProjectId && (
+                            <select name="accountId" value={formData.accountId} onChange={handleChange} className={selectStyle} required>
+                                <option value="">اختر الحساب</option>
+                                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({a.type === 'Bank' ? 'بنك' : 'نقدي'})</option>)}
+                            </select>
+                        )}
                         <select name="categoryId" value={formData.categoryId} onChange={handleChange} className={selectStyle} required><option value="">اختر فئة</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                        <select name="projectId" value={formData.projectId} onChange={handleChange} className={selectStyle}><option value="">اختر مشروع (اختياري)</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                        {currentUser?.assignedProjectId ? (
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                                <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                                    المشروع: {projects.find(p => p.id === currentUser.assignedProjectId)?.name || 'غير محدد'}
+                                </p>
+                            </div>
+                        ) : (
+                            <select name="projectId" value={formData.projectId} onChange={handleChange} className={selectStyle}><option value="">اختر مشروع (اختياري)</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                        )}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">إرفاق مستند (اختياري)</label>
                             <input type="file" onChange={handleFileChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-500/10 dark:file:text-primary-300 dark:hover:file:bg-primary-500/20"/>

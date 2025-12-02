@@ -55,30 +55,38 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave }) =>
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('📋 Form submitted with data:', formData);
+        
         if (!formData.name.trim() || !formData.role) {
+            console.log('❌ Validation failed: name or role missing');
             addToast('الاسم والدور حقول إلزامية.', 'error');
             return;
         }
         if (!formData.username.trim()) {
+            console.log('❌ Validation failed: username missing');
             addToast('اسم المستخدم مطلوب.', 'error');
             return;
         }
-        // Username validation (only letters, numbers, underscore)
-        const usernameRegex = /^[a-zA-Z0-9_]+$/;
+        // Username validation (allow Arabic, English letters, numbers, underscore)
+        const usernameRegex = /^[\u0600-\u06FFa-zA-Z0-9_]+$/;
         if (!usernameRegex.test(formData.username)) {
-            addToast('اسم المستخدم يجب أن يحتوي على حروف وأرقام و _ فقط.', 'error');
+            console.log('❌ Validation failed: invalid username format');
+            addToast('اسم المستخدم يجب أن يحتوي على حروف أو أرقام أو _ فقط.', 'error');
             return;
         }
         if (!isEditing && !formData.password) {
+            console.log('❌ Validation failed: password required for new user');
             addToast('كلمة المرور مطلوبة للمستخدمين الجدد.', 'error');
             return;
         }
         if (formData.password && formData.password !== formData.confirmPassword) {
+            console.log('❌ Validation failed: passwords do not match');
             addToast('كلمتا المرور غير متطابقتين.', 'error');
             return;
         }
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { confirmPassword, ...dataToSave } = formData;
+        console.log('✅ All validations passed, calling onSave with:', dataToSave);
         onSave(dataToSave);
     };
     
@@ -90,58 +98,71 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave }) =>
 
     return (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 pt-20 animate-drawer-overlay-show" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl animate-fade-in-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="glass-card w-full max-w-2xl animate-fade-in-scale-up" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit} className="flex flex-col h-full">
-                    <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start">
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{isEditing ? 'تعديل مستخدم' : 'إضافة مستخدم جديد'}</h2>
-                        <button type="button" onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"><CloseIcon className="h-6 w-6"/></button>
+                    <div className="p-5 border-b border-white/20 flex justify-between items-start">
+                        <h2 className="text-xl font-bold text-white">{isEditing ? 'تعديل مستخدم' : 'إضافة مستخدم جديد'}</h2>
+                        <button type="button" onClick={onClose} className="p-1 rounded-full text-slate-300 hover:bg-white/10"><CloseIcon className="h-6 w-6"/></button>
                     </div>
                     <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                        <input type="text" name="name" placeholder="الاسم الكامل" value={formData.name} onChange={handleChange} className={inputStyle} required />
-                        <input type="text" name="username" placeholder="اسم المستخدم (للدخول)" value={formData.username} onChange={handleChange} className={inputStyle} required disabled={isEditing} />
-                        <select name="role" value={formData.role} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
-                            <option value="Sales">Sales</option>
-                            <option value="Accounting">Accounting</option>
-                            <option value="Admin">Admin</option>
+                        <input type="text" name="name" placeholder="الاسم الكامل" value={formData.name} onChange={handleChange} className="input-field" required />
+                        <input type="text" name="username" placeholder="اسم المستخدم (للدخول)" value={formData.username} onChange={handleChange} className="input-field" required disabled={isEditing} />
+                        <select name="role" value={formData.role} onChange={handleChange} className="input-field" required>
+                            <option value="Sales">Sales - مبيعات</option>
+                            <option value="Accounting">Accounting - محاسبة</option>
+                            <option value="Admin">Admin - مدير</option>
                         </select>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">كلمة المرور {isEditing && '(اتركها فارغة إذا لم ترد التغيير)'}</label>
+                            <label className="text-sm font-medium text-slate-200">كلمة المرور {isEditing && '(اتركها فارغة إذا لم ترد التغيير)'}</label>
                             <div className="grid grid-cols-2 gap-4">
-                                <input type="password" name="password" placeholder={isEditing ? 'كلمة مرور جديدة' : 'كلمة المرور'} value={formData.password} onChange={handleChange} className={inputStyle} />
-                                <input type="password" name="confirmPassword" placeholder="تأكيد كلمة المرور" value={formData.confirmPassword} onChange={handleChange} className={inputStyle} />
+                                <input type="password" name="password" placeholder={isEditing ? 'كلمة مرور جديدة' : 'كلمة المرور'} value={formData.password} onChange={handleChange} className="input-field" />
+                                <input type="password" name="confirmPassword" placeholder="تأكيد كلمة المرور" value={formData.confirmPassword} onChange={handleChange} className="input-field" />
                             </div>
                         </div>
                         <div className="grid grid-cols-1 gap-4 hidden">
                         </div>
-                        {formData.role === 'Accounting' && (
-                             <select name="assignedProjectId" value={formData.assignedProjectId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}>
-                                <option value="">تعيين مشروع (اختياري)</option>
-                                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                            </select>
+                        {(formData.role === 'Accounting' || formData.role === 'Sales') && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-200">تعيين مشروع (اختياري)</label>
+                                <select name="assignedProjectId" value={formData.assignedProjectId} onChange={handleChange} className="input-field">
+                                    <option value="">بدون تعيين</option>
+                                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                                <p className="text-xs text-slate-400">يمكن تعيين مشروع رئيسي للمستخدم. يمكن إضافة مشاريع إضافية من صفحة "ربط المشاريع والمستخدمين"</p>
+                            </div>
                         )}
                         {formData.role !== 'Admin' && (
-                            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                                <h3 className="text-md font-semibold text-slate-800 dark:text-slate-200 mb-3">الصلاحيات الخاصة</h3>
-                                <div className="flex items-center gap-6">
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
-                                        <input type="checkbox" checked={formData.permissions.canView} onChange={() => handlePermissionChange('canView')} className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
-                                        عرض
+                            <div className="pt-4 border-t border-white/20">
+                                <h3 className="text-md font-semibold text-white mb-3">الصلاحيات الخاصة</h3>
+                                <div className="space-y-3">
+                                    <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-slate-200 hover:text-white transition-colors">
+                                        <input type="checkbox" checked={formData.permissions.canView} onChange={() => handlePermissionChange('canView')} className="h-5 w-5 rounded border-white/30 bg-white/10 text-accent focus:ring-accent" />
+                                        <div>
+                                            <div>عرض البيانات</div>
+                                            <div className="text-xs text-slate-400">يمكن المستخدم من عرض جميع البيانات</div>
+                                        </div>
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
-                                        <input type="checkbox" checked={formData.permissions.canEdit} onChange={() => handlePermissionChange('canEdit')} className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
-                                        تعديل
+                                    <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-slate-200 hover:text-white transition-colors">
+                                        <input type="checkbox" checked={formData.permissions.canEdit} onChange={() => handlePermissionChange('canEdit')} className="h-5 w-5 rounded border-white/30 bg-white/10 text-accent focus:ring-accent" />
+                                        <div>
+                                            <div>تعديل البيانات</div>
+                                            <div className="text-xs text-slate-400">يمكن المستخدم من تعديل وتحديث البيانات</div>
+                                        </div>
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
-                                        <input type="checkbox" checked={formData.permissions.canDelete} onChange={() => handlePermissionChange('canDelete')} className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
-                                        حذف
+                                    <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-slate-200 hover:text-white transition-colors">
+                                        <input type="checkbox" checked={formData.permissions.canDelete} onChange={() => handlePermissionChange('canDelete')} className="h-5 w-5 rounded border-white/30 bg-white/10 text-accent focus:ring-accent" />
+                                        <div>
+                                            <div>حذف البيانات</div>
+                                            <div className="text-xs text-slate-400">يمكن المستخدم من حذف البيانات بشكل نهائي</div>
+                                        </div>
                                     </label>
                                 </div>
                             </div>
                         )}
                     </div>
-                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4">
-                        <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold">إلغاء</button>
-                        <button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm">حفظ</button>
+                    <div className="px-6 py-4 border-t border-white/20 flex justify-end gap-4">
+                        <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 border border-white/20 font-semibold transition-colors">إلغاء</button>
+                        <button type="submit" className="btn-primary px-8 py-2">حفظ</button>
                     </div>
                 </form>
             </div>
@@ -188,6 +209,7 @@ const Users: React.FC = () => {
 
     const handleSave = async (userData: Omit<User, 'id'> & { assignedProjectId?: string }) => {
         const isEditing = !!editingUser;
+        console.log('💾 Saving user data:', userData);
         try {
             const { assignedProjectId, ...rest } = userData;
             
@@ -201,9 +223,11 @@ const Users: React.FC = () => {
                 permissions: rest.permissions
             };
             
+            console.log('📝 Core user data:', coreUserData);
             let userToSave: User;
 
             if (isEditing) {
+                console.log('✏️ Editing existing user');
                 // Admin can change password even during edit
                 const updateData = { ...coreUserData };
                 if (!updateData.password) {
@@ -211,11 +235,13 @@ const Users: React.FC = () => {
                 }
                 userToSave = await usersService.update(editingUser.id, updateData);
             } else {
+                console.log('➕ Creating new user');
                 if (!coreUserData.password) {
                     addToast('كلمة المرور مطلوبة للمستخدمين الجدد.', 'error');
                     return;
                 }
                 userToSave = await usersService.create(coreUserData);
+                console.log('✅ User created:', userToSave);
             }
 
             // Handle project assignment
@@ -279,14 +305,14 @@ const Users: React.FC = () => {
 
             <div className="glass-card p-4 mb-6">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-full">
+                    <div className="flex items-center gap-2 p-1 bg-white/10 rounded-full">
                         {(['All', 'Admin', 'Sales', 'Accounting'] as const).map(role => (
                             <button
                                 key={role}
                                 onClick={() => setRoleFilter(role)}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-full transition-colors ${roleFilter === role ? 'bg-white dark:bg-slate-700 text-primary-600 shadow-sm' : 'text-slate-600 dark:text-slate-300'}`}
+                                className={`px-4 py-1.5 text-sm font-bold rounded-full transition-colors ${roleFilter === role ? 'mode-active' : 'text-slate-300 hover:text-white hover:bg-white/10'}`}
                             >
-                                {role === 'All' ? 'الكل' : role}
+                                {role === 'All' ? 'الكل' : role === 'Admin' ? 'مدير' : role === 'Sales' ? 'مبيعات' : 'محاسبة'}
                             </button>
                         ))}
                     </div>
@@ -299,48 +325,61 @@ const Users: React.FC = () => {
                             placeholder="بحث بالاسم..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full md:w-64 pr-10 pl-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary-500"
+                            className="input-field w-full md:w-64 pr-10 pl-4"
                         />
                     </div>
                 </div>
             </div>
 
             <div className="glass-card overflow-hidden">
-                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
-                    <table className="w-full text-right min-w-[600px]">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-right min-w-[700px]">
                     <thead>
-                        <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الاسم</th>
-                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الدور</th>
-                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المشروع المسؤول عنه</th>
-                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الصلاحيات</th>
-                            <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>
+                        <tr className="border-b-2 border-white/20 bg-white/5">
+                            <th className="p-4 font-bold text-sm text-slate-200">الاسم</th>
+                            <th className="p-4 font-bold text-sm text-slate-200">اسم المستخدم</th>
+                            <th className="p-4 font-bold text-sm text-slate-200">الدور</th>
+                            <th className="p-4 font-bold text-sm text-slate-200">المشروع الرئيسي</th>
+                            <th className="p-4 font-bold text-sm text-slate-200">الصلاحيات</th>
+                            <th className="p-4 font-bold text-sm text-slate-200">إجراءات</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filteredUsers.map(user => {
                             const assignedProject = projects.find(p => p.assignedUserId === user.id);
                             return (
-                                <tr key={user.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
-                                    <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{user.name}</td>
+                                <tr key={user.id} className="border-b border-white/10 hover:bg-white/5 transition-colors duration-200">
+                                    <td className="p-4 font-medium text-slate-100">{user.name}</td>
+                                    <td className="p-4 text-slate-300">{user.username}</td>
                                     <td className="p-4"><RoleBadge role={user.role} /></td>
-                                    <td className="p-4 text-slate-600 dark:text-slate-300">{assignedProject?.name || '—'}</td>
+                                    <td className="p-4 text-slate-300">{assignedProject?.name || <span className="text-slate-500">—</span>}</td>
                                     <td className="p-4">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             {user.role === 'Admin' ? (
-                                                <span className="text-sm font-semibold text-slate-500">كل الصلاحيات</span>
+                                                <span className="text-sm font-semibold text-emerald-400">كل الصلاحيات</span>
                                             ) : (
                                                 <>
                                                     {user.permissions?.canView && <PermissionBadge type="view" />}
                                                     {user.permissions?.canEdit && <PermissionBadge type="edit" />}
                                                     {user.permissions?.canDelete && <PermissionBadge type="delete" />}
+                                                    {!user.permissions?.canView && !user.permissions?.canEdit && !user.permissions?.canDelete && (
+                                                        <span className="text-sm text-slate-500">بدون صلاحيات</span>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
                                     </td>
                                     <td className="p-4">
-                                        <button onClick={() => { setEditingUser(user); setIsModalOpen(true); }} className="text-primary-600 hover:underline font-semibold">تعديل</button>
-                                        {user.role !== 'Admin' && <button onClick={() => handleDeleteRequest(user)} className="text-rose-600 hover:underline mr-4 font-semibold">حذف</button>}
+                                        <div className="flex items-center gap-3">
+                                            <button onClick={() => { setEditingUser(user); setIsModalOpen(true); }} className="text-blue-300 hover:text-blue-200 font-semibold transition-colors">
+                                                <EditIcon className="h-5 w-5" />
+                                            </button>
+                                            {user.role !== 'Admin' && (
+                                                <button onClick={() => handleDeleteRequest(user)} className="text-rose-400 hover:text-rose-300 font-semibold transition-colors">
+                                                    <TrashIcon className="h-5 w-5" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             );
@@ -349,7 +388,7 @@ const Users: React.FC = () => {
                 </table>
                 </div>
                  {filteredUsers.length === 0 && (
-                     <div className="text-center p-8 text-slate-500 dark:text-slate-400">
+                     <div className="text-center p-12 text-slate-300">
                         <UserGroupIcon className="h-12 w-12 mx-auto text-slate-400" />
                         <p className="mt-4 font-semibold">لا يوجد مستخدمون يطابقون البحث.</p>
                     </div>

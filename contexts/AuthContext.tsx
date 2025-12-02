@@ -59,9 +59,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { error: new Error('كلمة المرور غير صحيحة') };
       }
 
+      // Find assigned project for this user
+      let assignedProjectId = null;
+      if (user.role === 'Accounting' || user.role === 'Sales') {
+        const { data: projects } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('assigned_user_id', user.id)
+          .limit(1);
+        
+        if (projects && projects.length > 0) {
+          assignedProjectId = projects[0].id;
+        }
+      }
+
       // Add permissions based on role
       const userWithPermissions = {
         ...user,
+        assignedProjectId,
         permissions: user.role === 'Admin'
           ? { canView: true, canEdit: true, canDelete: true }
           : { canView: true, canEdit: false, canDelete: false }

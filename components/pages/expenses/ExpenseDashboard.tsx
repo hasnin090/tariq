@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { UnitSaleRecord, Payment, Expense, Project, ExpenseCategory } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { CalculatorIcon, BriefcaseIcon, ChartPieIcon } from '../../shared/Icons';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const NewStatCard: React.FC<{
   title: string;
@@ -66,23 +67,36 @@ const ProjectExpenseCard: React.FC<{ project: Project; totalExpense: number; exp
 };
 
 const ExpenseDashboard: React.FC = () => {
-    const [filter, setFilter] = useState<'main_fund' | 'projects'>('main_fund');
-    const [stats, setStats] = useState({ totalRevenue: 0, totalExpenses: 0, netIncome: 0 });
+    const { currentUser } = useAuth();
+    // Set initial filter to 'projects' for assigned users, 'main_fund' for others
+    const [filter, setFilter] = useState<'main_fund' | 'projects'>(currentUser?.assignedProjectId ? 'projects' : 'main_fund');
+    const [stats, setStats] = useState({ totalRevenue: 0, totalExpenses: 0, netIncome: 0, transactionCount: 0 });
     const [projectData, setProjectData] = useState<{ project: Project; totalExpense: number; expensesByCategory: { name: string; amount: number }[] }[]>([]);
 
     useEffect(() => {
         const sales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
         const payments: Payment[] = JSON.parse(localStorage.getItem('payments') || '[]');
-        const allExpenses: Expense[] = JSON.parse(localStorage.getItem('expenses') || '[]');
+        let allExpenses: Expense[] = JSON.parse(localStorage.getItem('expenses') || '[]');
         const projects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
         const categories: ExpenseCategory[] = JSON.parse(localStorage.getItem('expenseCategories') || '[]');
+        
+        // Filter expenses by assigned project for project users
+        if (currentUser?.assignedProjectId) {
+            allExpenses = allExpenses.filter(e => e.projectId === currentUser.assignedProjectId);
+        }
         
         const totalRevenue = sales.reduce((sum, s) => sum + s.finalSalePrice, 0) + payments.reduce((sum, p) => sum + p.amount, 0);
         const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
         const netIncome = totalRevenue - totalExpenses;
-        setStats({ totalRevenue, totalExpenses, netIncome });
+        const transactionCount = allExpenses.length;
+        setStats({ totalRevenue, totalExpenses, netIncome, transactionCount });
 
-        const projectsWithExpenses = projects.map(project => {
+        // Filter projects by assigned project for project users
+        const relevantProjects = currentUser?.assignedProjectId 
+            ? projects.filter(p => p.id === currentUser.assignedProjectId)
+            : projects;
+        
+        const projectsWithExpenses = relevantProjects.map(project => {
             const projectExpenses = allExpenses.filter(e => e.projectId === project.id);
             const totalExpense = projectExpenses.reduce((sum, e) => sum + e.amount, 0);
             const byCategory: { [key: string]: number } = {};
@@ -96,7 +110,7 @@ const ExpenseDashboard: React.FC = () => {
             return { project, totalExpense, expensesByCategory };
         });
         setProjectData(projectsWithExpenses);
-    }, []);
+    }, [currentUser]);
 
     const RevenueIcon = () => <div className="bg-green-500/80 p-2 rounded-md"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v12" /></svg></div>;
     const ExpenseIcon = () => <div className="bg-rose-500/80 p-2 rounded-md"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg></div>;
@@ -104,45 +118,61 @@ const ExpenseDashboard: React.FC = () => {
 
     return (
         <div className="text-slate-900 dark:text-white">
-            <div className="flex justify-start mb-6">
-                <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-full self-start border border-slate-200 dark:border-slate-700">
-                    <button onClick={() => setFilter('main_fund')} className={`px-5 py-2 text-sm font-bold rounded-full transition-colors ${filter === 'main_fund' ? 'bg-blue-500 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
-                        الصندوق الرئيسي
-                    </button>
-                    <button onClick={() => setFilter('projects')} className={`px-5 py-2 text-sm font-bold rounded-full transition-colors ${filter === 'projects' ? 'bg-blue-500 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
-                        المشاريع
-                    </button>
+            {!currentUser?.assignedProjectId && (
+                <div className="flex justify-start mb-6">
+                    <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-full self-start border border-slate-200 dark:border-slate-700">
+                        <button onClick={() => setFilter('main_fund')} className={`px-5 py-2 text-sm font-bold rounded-full transition-colors ${filter === 'main_fund' ? 'bg-blue-500 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
+                            الصندوق الرئيسي
+                        </button>
+                        <button onClick={() => setFilter('projects')} className={`px-5 py-2 text-sm font-bold rounded-full transition-colors ${filter === 'projects' ? 'bg-blue-500 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
+                            المشاريع
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                <NewStatCard 
-                    title="إجمالي الإيرادات"
-                    value={formatCurrency(stats.totalRevenue)}
-                    icon={<RevenueIcon />}
-                    description="إجمالي إيرادات الصندوق الرئيسي"
-                    borderColor="border-emerald-500"
-                    progressColor="bg-emerald-500"
-                    progress={stats.totalRevenue > 0 ? (stats.netIncome / stats.totalRevenue) * 100 : 0}
-                />
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${currentUser?.role === 'Admin' ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-6 mb-6`}>
+                {currentUser?.role === 'Admin' && (
+                    <NewStatCard 
+                        title="إجمالي الإيرادات"
+                        value={formatCurrency(stats.totalRevenue)}
+                        icon={<RevenueIcon />}
+                        description="إجمالي إيرادات الصندوق الرئيسي"
+                        borderColor="border-emerald-500"
+                        progressColor="bg-emerald-500"
+                        progress={stats.totalRevenue > 0 ? (stats.netIncome / stats.totalRevenue) * 100 : 0}
+                    />
+                )}
                 <NewStatCard 
                     title="إجمالي المصروفات"
                     value={formatCurrency(stats.totalExpenses)}
                     icon={<ExpenseIcon />}
-                    description="إجمالي مصروفات الصندوق الرئيسي"
+                    description={currentUser?.role === 'Admin' ? "إجمالي مصروفات الصندوق الرئيسي" : "إجمالي المصروفات التي قمت بإدخالها"}
                     borderColor="border-rose-500"
                     progressColor="bg-rose-500"
                     progress={stats.totalRevenue > 0 ? (stats.totalExpenses / stats.totalRevenue) * 100 : 0}
                 />
-                <NewStatCard 
-                    title="صافي الربح"
-                    value={formatCurrency(stats.netIncome)}
-                    icon={<ProfitIcon />}
-                    description="الفرق بين إيرادات ومصروفات الصندوق الرئيسي"
-                    borderColor="border-sky-500"
-                    progressColor="bg-sky-500"
-                    progress={50} 
-                />
+                {currentUser?.role === 'Admin' ? (
+                    <NewStatCard 
+                        title="صافي الربح"
+                        value={formatCurrency(stats.netIncome)}
+                        icon={<ProfitIcon />}
+                        description="الفرق بين إيرادات ومصروفات الصندوق الرئيسي"
+                        borderColor="border-sky-500"
+                        progressColor="bg-sky-500"
+                        progress={50} 
+                    />
+                ) : (
+                    <NewStatCard 
+                        title="عدد الحركات المالية"
+                        value={stats.transactionCount.toString()}
+                        icon={<CalculatorIcon className="h-6 w-6 text-white" strokeWidth={2} />}
+                        description="عدد المصروفات التي قمت بإدخالها"
+                        borderColor="border-sky-500"
+                        progressColor="bg-sky-500"
+                        progress={50} 
+                    />
+                )}
             </div>
             
             {filter === 'main_fund' ? (

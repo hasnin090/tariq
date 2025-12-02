@@ -3,6 +3,7 @@ import { UnitSaleRecord, Payment, Expense, ExpenseCategory } from '../../../type
 import { formatCurrency } from '../../../utils/currencyFormatter';
 // FIX: Replaced non-existent PresentationChartLineIcon with ChartBarIcon.
 import { TrendingUpIcon, ScaleIcon, BanknotesIcon, ChartBarIcon } from '../../shared/Icons';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const StatCard: React.FC<{ 
     title: string; 
@@ -147,6 +148,7 @@ const DonutChart: React.FC<{ data: { label: string; value: number; color: string
 }
 
 const FinancialDashboard: React.FC = () => {
+    const { currentUser } = useAuth();
     const [sales, setSales] = useState<UnitSaleRecord[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -159,12 +161,17 @@ const FinancialDashboard: React.FC = () => {
                 setIsLoading(true);
                 const { unitSalesService, paymentsService, expensesService, expenseCategoriesService } = await import('../../../src/services/supabaseService');
                 
-                const [salesData, paymentsData, expensesData, categoriesData] = await Promise.all([
+                let [salesData, paymentsData, expensesData, categoriesData] = await Promise.all([
                     unitSalesService.getAll(),
                     paymentsService.getAll(),
                     expensesService.getAll(),
                     expenseCategoriesService.getAll()
                 ]);
+                
+                // Filter expenses by assigned project for project users
+                if (currentUser?.assignedProjectId) {
+                    expensesData = expensesData.filter(e => e.projectId === currentUser.assignedProjectId);
+                }
                 
                 setSales(salesData);
                 setPayments(paymentsData);
@@ -178,7 +185,7 @@ const FinancialDashboard: React.FC = () => {
         };
         
         fetchData();
-    }, []);
+    }, [currentUser]);
 
     const kpiData = useMemo(() => {
         const totalRevenue = sales.reduce((sum, s) => sum + s.finalSalePrice, 0) + payments.reduce((sum, p) => sum + p.amount, 0);
@@ -299,15 +306,17 @@ const FinancialDashboard: React.FC = () => {
                 <p className="text-slate-600 dark:text-slate-400">نظرة شاملة على الإيرادات والمصروفات</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard 
-                    title="إجمالي الإيرادات" 
-                    value={formatCurrency(kpiData.totalRevenue)} 
-                    icon={<TrendingUpIcon />} 
-                    color="text-emerald-600 dark:text-emerald-400"
-                    bgGradient="bg-gradient-to-br from-emerald-400 to-teal-500"
-                    iconBg="bg-gradient-to-br from-emerald-500 to-teal-600"
-                />
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${currentUser?.role === 'Admin' ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-6 mb-8`}>
+                {currentUser?.role === 'Admin' && (
+                    <StatCard 
+                        title="إجمالي الإيرادات" 
+                        value={formatCurrency(kpiData.totalRevenue)} 
+                        icon={<TrendingUpIcon />} 
+                        color="text-emerald-600 dark:text-emerald-400"
+                        bgGradient="bg-gradient-to-br from-emerald-400 to-teal-500"
+                        iconBg="bg-gradient-to-br from-emerald-500 to-teal-600"
+                    />
+                )}
                 <StatCard 
                     title="إجمالي المصروفات" 
                     value={formatCurrency(kpiData.totalExpenses)} 
@@ -316,14 +325,16 @@ const FinancialDashboard: React.FC = () => {
                     bgGradient="bg-gradient-to-br from-rose-400 to-pink-500"
                     iconBg="bg-gradient-to-br from-rose-500 to-pink-600"
                 />
-                <StatCard 
-                    title="صافي الدخل" 
-                    value={formatCurrency(kpiData.netIncome)} 
-                    icon={<BanknotesIcon />} 
-                    color="text-blue-600 dark:text-blue-400"
-                    bgGradient="bg-gradient-to-br from-blue-400 to-indigo-500"
-                    iconBg="bg-gradient-to-br from-blue-500 to-indigo-600"
-                />
+                {currentUser?.role === 'Admin' && (
+                    <StatCard 
+                        title="صافي الدخل" 
+                        value={formatCurrency(kpiData.netIncome)} 
+                        icon={<BanknotesIcon />} 
+                        color="text-blue-600 dark:text-blue-400"
+                        bgGradient="bg-gradient-to-br from-blue-400 to-indigo-500"
+                        iconBg="bg-gradient-to-br from-blue-500 to-indigo-600"
+                    />
+                )}
                 <StatCard 
                     title="عدد الحركات المالية" 
                     value={kpiData.totalTransactions} 
