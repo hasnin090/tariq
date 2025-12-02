@@ -78,14 +78,11 @@ const EyeOffIcon = ({ size = 18, className = "" }: { size?: number, className?: 
 );
 
 const Login: React.FC = () => {
-  const { login, signUp } = useAuth();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<'Admin' | 'Sales' | 'Accounting'>('Sales');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -96,9 +93,7 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = isRegistering
-        ? await signUp(username, password, name, role)
-        : await login(username, password);
+      const { error } = await login(username, password);
 
       if (error) {
         setError(error.message);
@@ -153,60 +148,11 @@ const Login: React.FC = () => {
         <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-8 shadow-2xl shadow-black/50">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-white">
-              {isRegistering ? 'إنشاء حساب جديد' : 'تسجيل الدخول'}
+              تسجيل الدخول
             </h2>
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {isRegistering && (
-              <>
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1">
-                    الاسم الكامل
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                      <UserIcon size={18} />
-                    </div>
-                    <input
-                      id="name"
-                      name="name"
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full pr-10 pl-3 py-3 bg-slate-800/50 border border-slate-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 placeholder-slate-500 transition-all"
-                      placeholder="أحمد محمد"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="role" className="block text-sm font-medium text-slate-300 mb-1">
-                    الدور الوظيفي
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="role"
-                      name="role"
-                      required
-                      value={role}
-                      onChange={(e) => setRole(e.target.value as 'Admin' | 'Sales' | 'Accounting')}
-                      className="w-full px-3 py-3 bg-slate-800/50 border border-slate-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 appearance-none transition-all"
-                    >
-                      <option value="Sales" className="bg-slate-800 text-white">مبيعات</option>
-                      <option value="Accounting" className="bg-slate-800 text-white">محاسبة</option>
-                      <option value="Admin" className="bg-slate-800 text-white">مدير</option>
-                    </select>
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
 
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-1">
@@ -243,7 +189,7 @@ const Login: React.FC = () => {
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  autoComplete={isRegistering ? 'new-password' : 'current-password'}
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -259,17 +205,15 @@ const Login: React.FC = () => {
                   {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                 </button>
               </div>
-              {!isRegistering && (
-                <div className="mt-2 text-left">
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(true)}
-                    className="text-sm text-slate-400 hover:text-white transition-colors"
-                  >
-                    نسيت كلمة المرور؟
-                  </button>
-                </div>
-              )}
+              <div className="mt-2 text-left">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-slate-400 hover:text-white transition-colors"
+                >
+                  نسيت كلمة المرور؟
+                </button>
+              </div>
             </div>
 
             {error && (
@@ -288,17 +232,7 @@ const Login: React.FC = () => {
                 disabled={loading}
                 className="btn-primary w-full flex justify-center py-3 px-4 text-sm font-bold disabled:opacity-50"
               >
-                {loading ? 'جاري التحميل...' : isRegistering ? 'تسجيل حساب جديد' : 'تسجيل الدخول'}
-              </button>
-            </div>
-
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={() => setIsRegistering(!isRegistering)}
-                className="text-slate-400 hover:text-white text-sm font-medium focus:outline-none transition-colors"
-              >
-                {isRegistering ? 'لديك حساب بالفعل؟ سجل دخولك' : 'إنشاء حساب جديد'}
+                {loading ? 'جاري التحميل...' : 'تسجيل الدخول'}
               </button>
             </div>
           </form>

@@ -4,7 +4,6 @@ import { User } from '../types';
 interface AuthContextType {
   currentUser: User | null;
   login: (username: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (username: string, password: string, name: string, role: 'Admin' | 'Sales' | 'Accounting') => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -92,29 +91,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const signUp = async (username: string, password: string, name: string, role: 'Admin' | 'Sales' | 'Accounting') => {
-    try {
-      const { usersService } = await import('../src/services/supabaseService');
-
-      // Create new user
-      const newUser = await usersService.create({
-        name,
-        username,
-        role,
-        password,
-        email: undefined
-      });
-
-      // Auto-login after signup
-      setCurrentUser(newUser);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
-
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
-    }
-  };
-
   const logout = async () => {
     try {
       setCurrentUser(null);
@@ -127,7 +103,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value = {
     currentUser,
     login,
-    signUp,
     logout,
     loading,
   };
