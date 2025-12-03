@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ExpenseCategory, Expense, Project } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { TagIcon, BriefcaseIcon, ArrowRightIcon } from '../../shared/Icons';
+import { expensesService } from '../../../src/services/supabaseService';
 
 const CategoryAccounting: React.FC = () => {
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -11,10 +12,21 @@ const CategoryAccounting: React.FC = () => {
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
     useEffect(() => {
-        setCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
-        setExpenses(JSON.parse(localStorage.getItem('expenses') || '[]'));
-        setProjects(JSON.parse(localStorage.getItem('projects') || '[]'));
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        try {
+            setCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
+            setProjects(JSON.parse(localStorage.getItem('projects') || '[]'));
+            
+            // Fetch expenses from Supabase
+            const expensesData = await expensesService.getAll();
+            setExpenses(expensesData);
+        } catch (error) {
+            console.error('Error loading category accounting data:', error);
+        }
+    };
 
     const categoryData = useMemo(() => {
         const categoryMap = new Map<string, { name: string; totalAmount: number; transactionCount: number }>();

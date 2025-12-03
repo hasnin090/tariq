@@ -130,7 +130,9 @@ export const Expenses: React.FC = () => {
     });
 
     const [currentPage, setCurrentPage] = useState(1);
-    const ITEMS_PER_PAGE = 50;
+    const ITEMS_PER_PAGE = 100;
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
     const canEdit = currentUser?.role === 'Admin';
     const canDelete = currentUser?.role === 'Admin';
@@ -163,7 +165,11 @@ export const Expenses: React.FC = () => {
                 if (currentUser?.assignedProjectId) {
                     expensesData = expensesData.filter(e => e.projectId === currentUser.assignedProjectId);
                 }
-                setAllExpenses(expensesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                // Sort based on sortOrder
+                const sorted = sortOrder === 'newest' 
+                    ? expensesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    : expensesData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                setAllExpenses(sorted);
             } catch (error) {
                 addToast('Failed to fetch expenses.', 'error');
             }
@@ -188,13 +194,16 @@ export const Expenses: React.FC = () => {
         fetchRelatedData();
 
         const expenseSubscription = expensesService.subscribe((newExpenses) => {
-            setAllExpenses(newExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+            const sorted = sortOrder === 'newest'
+                ? newExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                : newExpenses.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            setAllExpenses(sorted);
         });
 
         return () => {
             expenseSubscription.unsubscribe();
         };
-    }, [currentUser, addToast]);
+    }, [currentUser, addToast, sortOrder]);
 
     useEffect(() => {
         const filtered = allExpenses.filter(expense => {
@@ -209,6 +218,9 @@ export const Expenses: React.FC = () => {
             if(filters.minAmount && expense.amount < parseFloat(filters.minAmount)) return false;
             if(filters.maxAmount && expense.amount > parseFloat(filters.maxAmount)) return false;
             
+            // Search filter
+            if(searchQuery && !expense.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            
             // Filter by activeProject for non-assigned users, or by assignedProjectId for assigned users
             if (currentUser?.assignedProjectId) {
                 if (expense.projectId !== currentUser.assignedProjectId) return false;
@@ -220,7 +232,7 @@ export const Expenses: React.FC = () => {
         });
         setFilteredExpenses(filtered);
         setCurrentPage(1); // Reset to first page when filters change
-    }, [filters, allExpenses, activeProject, currentUser]);
+    }, [filters, allExpenses, activeProject, currentUser, searchQuery]);
 
     const totalPages = Math.ceil(filteredExpenses.length / ITEMS_PER_PAGE);
     const paginatedExpenses = useMemo(() => {
@@ -248,6 +260,7 @@ export const Expenses: React.FC = () => {
             minAmount: '',
             maxAmount: '',
         });
+        setSearchQuery('');
     };
 
     const handleOpenModal = (expense: Expense | null) => {
@@ -400,6 +413,17 @@ export const Expenses: React.FC = () => {
     
     const FilterBar = () => (
         <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl mb-6 border border-slate-200 dark:border-slate-700">
+            {/* Search Bar */}
+            <div className="mb-4">
+                <input 
+                    type="text" 
+                    placeholder="🔍 البحث في الوصف..." 
+                    value={searchQuery} 
+                    onChange={(e) => setSearchQuery(e.target.value)} 
+                    className={`${inputStyle} text-base`}
+                />
+            </div>
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 <select name="categoryId" value={filters.categoryId} onChange={handleFilterChange} className={selectStyle}>
                     <option value="">كل الفئات</option>
@@ -413,7 +437,7 @@ export const Expenses: React.FC = () => {
             <div className="mt-4 flex justify-end">
                 <button onClick={clearFilters} className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-rose-500 dark:hover:text-rose-400">
                     <XCircleIcon className="h-5 w-5" />
-                    <span>مسح الفلاتر</span>
+                    <span>مسح الفلاتر والبحث</span>
                 </button>
             </div>
         </div>
@@ -426,11 +450,16 @@ export const Expenses: React.FC = () => {
                     <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">الحركات المالية (المصروفات)</h2>
                     <div className="flex items-center gap-4 mt-2">
                         <p className="text-sm text-slate-600 dark:text-slate-400">
-                            العدد: <span className="font-bold text-primary-600 dark:text-primary-400">{filteredExpenses.length}</span>
-                            {filteredExpenses.length !== allExpenses.length && (
-                                <span className="mr-1 text-slate-500">من {allExpenses.length}</span>
-                            )}
+                            العدد الكلي: <span className="font-bold text-primary-600 dark:text-primary-400">{allExpenses.length}</span>
                         </p>
+                        {filteredExpenses.length !== allExpenses.length && (
+                            <>
+                                <span className="text-slate-300 dark:text-slate-600">|</span>
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                    المعروض: <span className="font-bold text-primary-600 dark:text-primary-400">{filteredExpenses.length}</span>
+                                </p>
+                            </>
+                        )}
                         <span className="text-slate-300 dark:text-slate-600">|</span>
                         <p className="text-sm text-slate-600 dark:text-slate-400">
                             المجموع: <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalExpensesAmount)}</span>
@@ -438,6 +467,14 @@ export const Expenses: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    <select 
+                        value={sortOrder} 
+                        onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
+                        className="bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-semibold border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm cursor-pointer"
+                    >
+                        <option value="newest">الأحدث أولاً</option>
+                        <option value="oldest">الأقدم أولاً</option>
+                    </select>
                     <button onClick={() => setShowFilters(prev => !prev)} className="bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-semibold border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm flex items-center gap-2">
                         <FilterIcon className="h-5 w-5" />
                         <span>تصفية</span>

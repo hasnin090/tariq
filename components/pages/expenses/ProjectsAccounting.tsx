@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Project, Expense, ExpenseCategory, Booking, Payment, UnitSaleRecord, Unit, Customer } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { BriefcaseIcon, ArrowLeftIcon } from '../../shared/Icons';
-import { bookingsService, paymentsService, unitsService, customersService } from '../../../src/services/supabaseService';
+import { bookingsService, paymentsService, unitsService, customersService, expensesService } from '../../../src/services/supabaseService';
 
 type ViewMode = 'projects' | 'project-details' | 'revenues' | 'expenses';
 
@@ -27,22 +27,23 @@ const ProjectsAccounting: React.FC = () => {
             // Load local data
             const loadedProjects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
             setProjects(loadedProjects);
-            setExpenses(JSON.parse(localStorage.getItem('expenses') || '[]'));
             setCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
             setUnitSales(JSON.parse(localStorage.getItem('unitSales') || '[]'));
             
             // Load Supabase data
-            const [bookingsData, paymentsData, unitsData, customersData] = await Promise.all([
+            const [bookingsData, paymentsData, unitsData, customersData, expensesData] = await Promise.all([
                 bookingsService.getAll(),
                 paymentsService.getAll(),
                 unitsService.getAll(),
-                customersService.getAll()
+                customersService.getAll(),
+                expensesService.getAll()
             ]);
             
             setBookings(bookingsData);
             setPayments(paymentsData);
             setUnits(unitsData);
             setCustomers(customersData);
+            setExpenses(expensesData);
         } catch (error) {
             console.error('Error loading data:', error);
         }

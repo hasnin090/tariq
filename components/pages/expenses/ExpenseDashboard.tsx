@@ -3,6 +3,7 @@ import { UnitSaleRecord, Payment, Expense, Project, ExpenseCategory } from '../.
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { CalculatorIcon, BriefcaseIcon, ChartPieIcon } from '../../shared/Icons';
 import { useAuth } from '../../../contexts/AuthContext';
+import { expensesService } from '../../../src/services/supabaseService';
 
 const NewStatCard: React.FC<{
   title: string;
@@ -72,45 +73,58 @@ const ExpenseDashboard: React.FC = () => {
     const [filter, setFilter] = useState<'main_fund' | 'projects'>(currentUser?.assignedProjectId ? 'projects' : 'main_fund');
     const [stats, setStats] = useState({ totalRevenue: 0, totalExpenses: 0, netIncome: 0, transactionCount: 0 });
     const [projectData, setProjectData] = useState<{ project: Project; totalExpense: number; expensesByCategory: { name: string; amount: number }[] }[]>([]);
+    const [expenses, setExpenses] = useState<Expense[]>([]);
 
     useEffect(() => {
-        const sales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
-        const payments: Payment[] = JSON.parse(localStorage.getItem('payments') || '[]');
-        let allExpenses: Expense[] = JSON.parse(localStorage.getItem('expenses') || '[]');
-        const projects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
-        const categories: ExpenseCategory[] = JSON.parse(localStorage.getItem('expenseCategories') || '[]');
-        
-        // Filter expenses by assigned project for project users
-        if (currentUser?.assignedProjectId) {
-            allExpenses = allExpenses.filter(e => e.projectId === currentUser.assignedProjectId);
-        }
-        
-        const totalRevenue = sales.reduce((sum, s) => sum + s.finalSalePrice, 0) + payments.reduce((sum, p) => sum + p.amount, 0);
-        const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
-        const netIncome = totalRevenue - totalExpenses;
-        const transactionCount = allExpenses.length;
-        setStats({ totalRevenue, totalExpenses, netIncome, transactionCount });
-
-        // Filter projects by assigned project for project users
-        const relevantProjects = currentUser?.assignedProjectId 
-            ? projects.filter(p => p.id === currentUser.assignedProjectId)
-            : projects;
-        
-        const projectsWithExpenses = relevantProjects.map(project => {
-            const projectExpenses = allExpenses.filter(e => e.projectId === project.id);
-            const totalExpense = projectExpenses.reduce((sum, e) => sum + e.amount, 0);
-            const byCategory: { [key: string]: number } = {};
-            projectExpenses.forEach(expense => {
-                byCategory[expense.categoryId] = (byCategory[expense.categoryId] || 0) + expense.amount;
-            });
-            const expensesByCategory = Object.entries(byCategory).map(([categoryId, amount]) => ({
-                name: categories.find(c => c.id === categoryId)?.name || 'غير مصنف',
-                amount,
-            }));
-            return { project, totalExpense, expensesByCategory };
-        });
-        setProjectData(projectsWithExpenses);
+        loadData();
     }, [currentUser]);
+
+    const loadData = async () => {
+        try {
+            const sales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
+            const payments: Payment[] = JSON.parse(localStorage.getItem('payments') || '[]');
+            const projects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
+            const categories: ExpenseCategory[] = JSON.parse(localStorage.getItem('expenseCategories') || '[]');
+            
+            // Fetch expenses from Supabase
+            const expensesData = await expensesService.getAll();
+            
+            // Filter expenses by assigned project for project users
+            let allExpenses = currentUser?.assignedProjectId 
+                ? expensesData.filter(e => e.projectId === currentUser.assignedProjectId)
+                : expensesData;
+            
+            setExpenses(allExpenses);
+            
+            const totalRevenue = sales.reduce((sum, s) => sum + s.finalSalePrice, 0) + payments.reduce((sum, p) => sum + p.amount, 0);
+            const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
+            const netIncome = totalRevenue - totalExpenses;
+            const transactionCount = allExpenses.length;
+            setStats({ totalRevenue, totalExpenses, netIncome, transactionCount });
+
+            // Filter projects by assigned project for project users
+            const relevantProjects = currentUser?.assignedProjectId 
+                ? projects.filter(p => p.id === currentUser.assignedProjectId)
+                : projects;
+            
+            const projectsWithExpenses = relevantProjects.map(project => {
+                const projectExpenses = allExpenses.filter(e => e.projectId === project.id);
+                const totalExpense = projectExpenses.reduce((sum, e) => sum + e.amount, 0);
+                const byCategory: { [key: string]: number } = {};
+                projectExpenses.forEach(expense => {
+                    byCategory[expense.categoryId] = (byCategory[expense.categoryId] || 0) + expense.amount;
+                });
+                const expensesByCategory = Object.entries(byCategory).map(([categoryId, amount]) => ({
+                    name: categories.find(c => c.id === categoryId)?.name || 'غير مصنف',
+                    amount,
+                }));
+                return { project, totalExpense, expensesByCategory };
+            });
+            setProjectData(projectsWithExpenses);
+        } catch (error) {
+            console.error('Error loading expense dashboard data:', error);
+        }
+    };
 
     const RevenueIcon = () => <div className="bg-green-500/80 p-2 rounded-md"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v12" /></svg></div>;
     const ExpenseIcon = () => <div className="bg-rose-500/80 p-2 rounded-md"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg></div>;

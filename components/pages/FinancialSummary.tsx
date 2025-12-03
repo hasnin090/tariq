@@ -4,7 +4,7 @@ import { formatCurrency } from '../../utils/currencyFormatter';
 import { useProject } from '../../contexts/ProjectContext';
 import ProjectSelector from '../shared/ProjectSelector';
 import { calculateProjectStats } from '../../utils/projectFilters';
-import { unitsService, paymentsService, bookingsService } from '../../src/services/supabaseService';
+import { unitsService, paymentsService, bookingsService, expensesService } from '../../src/services/supabaseService';
 import { TrendingUpIcon, ScaleIcon, BanknotesIcon } from '../shared/Icons';
 
 const SummaryCard: React.FC<{ title: string; value: string; icon: React.ReactElement; }> = ({ title, value, icon }) => (
@@ -26,6 +26,7 @@ const FinancialSummary: React.FC = () => {
     const [units, setUnits] = useState<Unit[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
+    const [expenses, setExpenses] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -35,14 +36,16 @@ const FinancialSummary: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [unitsData, paymentsData, bookingsData] = await Promise.all([
+            const [unitsData, paymentsData, bookingsData, expensesData] = await Promise.all([
                 unitsService.getAll(),
                 paymentsService.getAll(),
-                bookingsService.getAll()
+                bookingsService.getAll(),
+                expensesService.getAll()
             ]);
             setUnits(unitsData);
             setPayments(paymentsData);
             setBookings(bookingsData);
+            setExpenses(expensesData);
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
@@ -52,8 +55,13 @@ const FinancialSummary: React.FC = () => {
 
     const summary = useMemo(() => {
         const stats = calculateProjectStats(units, bookings, payments, activeProject?.id || null);
-        const expenses: Expense[] = JSON.parse(localStorage.getItem('expenses') || '[]');
-        const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
+        
+        // Filter expenses by active project
+        const projectExpenses = activeProject 
+            ? expenses.filter(e => e.projectId === activeProject.id)
+            : expenses;
+        
+        const totalExpenses = projectExpenses.reduce((acc, e) => acc + e.amount, 0);
         const netProfit = stats.totalRevenue - totalExpenses;
 
         return {
@@ -61,9 +69,10 @@ const FinancialSummary: React.FC = () => {
             totalPaymentsReceived: formatCurrency(stats.totalRevenue),
             totalExpenses: formatCurrency(totalExpenses),
             netProfit: formatCurrency(netProfit),
+            expensesCount: projectExpenses.length,
             ...stats
         };
-    }, [units, bookings, payments, activeProject]);
+    }, [units, bookings, payments, expenses, activeProject]);
 
     return (
         <div className="container mx-auto">

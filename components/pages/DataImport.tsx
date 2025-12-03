@@ -236,16 +236,38 @@ const DataImport: React.FC = () => {
     );
   };
 
+  // Helper function to convert Arabic numerals to English and clean special characters
+  const arabicToEnglishNumerals = (str: string): string => {
+    const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const englishNumerals = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    
+    let result = str;
+    
+    // Convert Arabic numerals to English
+    arabicNumerals.forEach((arabic, index) => {
+      result = result.replace(new RegExp(arabic, 'g'), englishNumerals[index]);
+    });
+    
+    // Remove invisible Unicode characters (like Arabic formatting marks)
+    // Keep only digits, letters, spaces, and common punctuation
+    result = result.replace(/[\u200E\u200F\u202A\u202B\u202C\u202D\u202E]/g, '');
+    
+    return result;
+  };
+
   const convertValue = (value: string, type: 'text' | 'number' | 'date' | 'boolean'): any => {
     if (!value || value.trim() === '') return null;
     
+    // Convert Arabic numerals to English first
+    const normalizedValue = arabicToEnglishNumerals(value);
+    
     switch (type) {
       case 'number':
-        const num = parseFloat(value.replace(/[^\d.-]/g, ''));
+        const num = parseFloat(normalizedValue.replace(/[^\d.-]/g, ''));
         return isNaN(num) ? null : num;
       case 'date':
         // Try different date formats
-        const dateStr = value.trim();
+        const dateStr = normalizedValue.trim();
         // Format: DD/MM/YYYY or DD-MM-YYYY
         const ddmmyyyy = dateStr.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
         if (ddmmyyyy) {

@@ -800,14 +800,32 @@ export const paymentsService = {
  */
 export const expensesService = {
   async getAll(): Promise<Expense[]> {
-    const { data, error } = await supabase
-      .from('expenses')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+    let allData: any[] = [];
+    let from = 0;
+    const limit = 1000;
+    let hasMore = true;
+
+    // Fetch all records in batches to bypass the 1000 row limit
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + limit - 1);
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        allData = allData.concat(data);
+        from += limit;
+        hasMore = data.length === limit;
+      } else {
+        hasMore = false;
+      }
+    }
     
     // Map database fields to frontend fields
-    return (data || []).map(exp => ({
+    return allData.map(exp => ({
       id: exp.id,
       date: exp.expense_date,
       description: exp.description,
@@ -816,6 +834,9 @@ export const expensesService = {
       projectId: exp.project_id,
       accountId: exp.account_id,
       vendorId: exp.vendor_id,
+      transactionId: exp.transaction_id,
+      deferredPaymentInstallmentId: exp.deferred_payment_installment_id,
+      employeeId: exp.employee_id,
     }));
   },
 
@@ -832,15 +853,37 @@ export const expensesService = {
       project_id: expense.projectId || null,
       account_id: expense.accountId || null,   // Convert empty string to null
       vendor_id: expense.vendorId || null,
+      transaction_id: expense.transactionId || null,
+      deferred_payment_installment_id: expense.deferredPaymentInstallmentId || null,
+      employee_id: expense.employeeId || null,
     };
     
-    const { data, error } = await supabase
-      .from('expenses')
-      .insert([dbExpense])
-      .select();
-    if (error) throw error;
+    console.log('🔵 Creating expense with data:', dbExpense);
     
-    const exp = data?.[0];
+    const { error } = await supabase
+      .from('expenses')
+      .insert(dbExpense);
+    
+    if (error) {
+      console.error('❌ Supabase insert error:', error);
+      throw error;
+    }
+    
+    console.log('✅ Expense inserted successfully, fetching data...');
+    
+    // Fetch the inserted record
+    const { data: fetchedData, error: fetchError } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError) {
+      console.error('❌ Error fetching inserted expense:', fetchError);
+      throw fetchError;
+    }
+    
+    const exp = fetchedData;
     return exp ? {
       id: exp.id,
       date: exp.expense_date,
@@ -850,7 +893,9 @@ export const expensesService = {
       projectId: exp.project_id,
       accountId: exp.account_id,
       vendorId: exp.vendor_id,
-      transactionId: expense.transactionId, // Keep from input for frontend use
+      transactionId: exp.transaction_id,
+      deferredPaymentInstallmentId: exp.deferred_payment_installment_id,
+      employeeId: exp.employee_id,
     } : null;
   },
 
@@ -864,6 +909,9 @@ export const expensesService = {
     if (expense.projectId !== undefined) dbUpdate.project_id = expense.projectId;
     if (expense.accountId !== undefined) dbUpdate.account_id = expense.accountId;
     if (expense.vendorId !== undefined) dbUpdate.vendor_id = expense.vendorId;
+    if (expense.transactionId !== undefined) dbUpdate.transaction_id = expense.transactionId;
+    if (expense.deferredPaymentInstallmentId !== undefined) dbUpdate.deferred_payment_installment_id = expense.deferredPaymentInstallmentId;
+    if (expense.employeeId !== undefined) dbUpdate.employee_id = expense.employeeId;
     
     const { data, error } = await supabase
       .from('expenses')
@@ -882,6 +930,9 @@ export const expensesService = {
       projectId: exp.project_id,
       accountId: exp.account_id,
       vendorId: exp.vendor_id,
+      transactionId: exp.transaction_id,
+      deferredPaymentInstallmentId: exp.deferred_payment_installment_id,
+      employeeId: exp.employee_id,
     } : null;
   },
 
@@ -1108,27 +1159,81 @@ export const projectsService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    // Map snake_case to camelCase
+    return (data || []).map(proj => ({
+      ...proj,
+      assignedUserId: proj.assigned_user_id,
+      salesUserId: proj.sales_user_id,
+      accountingUserId: proj.accounting_user_id,
+    }));
   },
 
   async create(project: Omit<Project, 'id'>) {
     const id = generateUniqueId('project');
+    
+    // Convert camelCase to snake_case for database
+    const dbProject = {
+      ...project,
+      id,
+      assigned_user_id: project.assignedUserId || null,
+      sales_user_id: project.salesUserId || null,
+      accounting_user_id: project.accountingUserId || null,
+    };
+    
+    // Remove camelCase fields before insert
+    delete (dbProject as any).assignedUserId;
+    delete (dbProject as any).salesUserId;
+    delete (dbProject as any).accountingUserId;
+    
     const { data, error } = await supabase
       .from('projects')
-      .insert([{ ...project, id }])
+      .insert([dbProject])
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    // Map back to camelCase
+    const result = data?.[0];
+    return result ? {
+      ...result,
+      assignedUserId: result.assigned_user_id,
+      salesUserId: result.sales_user_id,
+      accountingUserId: result.accounting_user_id,
+    } : result;
   },
 
   async update(id: string, project: Partial<Project>) {
+    // Convert camelCase to snake_case for database
+    const dbProject: any = { ...project };
+    
+    if ('assignedUserId' in project) {
+      dbProject.assigned_user_id = project.assignedUserId || null;
+      delete dbProject.assignedUserId;
+    }
+    if ('salesUserId' in project) {
+      dbProject.sales_user_id = project.salesUserId || null;
+      delete dbProject.salesUserId;
+    }
+    if ('accountingUserId' in project) {
+      dbProject.accounting_user_id = project.accountingUserId || null;
+      delete dbProject.accountingUserId;
+    }
+    
     const { data, error } = await supabase
       .from('projects')
-      .update(project)
+      .update(dbProject)
       .eq('id', id)
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    // Map back to camelCase
+    const result = data?.[0];
+    return result ? {
+      ...result,
+      assignedUserId: result.assigned_user_id,
+      salesUserId: result.sales_user_id,
+      accountingUserId: result.accounting_user_id,
+    } : result;
   },
 
   async delete(id: string) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Budget, ExpenseCategory, Expense } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { useToast } from '../../../contexts/ToastContext';
+import { expensesService } from '../../../src/services/supabaseService';
 
 const Budgets: React.FC = () => {
     const { addToast } = useToast();
@@ -11,10 +12,21 @@ const Budgets: React.FC = () => {
     const [newBudget, setNewBudget] = useState({ categoryId: '', amount: 0 });
 
     useEffect(() => {
-        setBudgets(JSON.parse(localStorage.getItem('budgets') || '[]'));
-        setCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
-        setExpenses(JSON.parse(localStorage.getItem('expenses') || '[]'));
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        try {
+            setBudgets(JSON.parse(localStorage.getItem('budgets') || '[]'));
+            setCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
+            
+            // Fetch expenses from Supabase
+            const expensesData = await expensesService.getAll();
+            setExpenses(expensesData);
+        } catch (error) {
+            console.error('Error loading budget data:', error);
+        }
+    };
 
     const handleAddBudget = () => {
         if (!newBudget.categoryId || newBudget.amount <= 0) {

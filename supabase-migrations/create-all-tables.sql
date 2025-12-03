@@ -74,6 +74,9 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     project_id TEXT REFERENCES public.projects(id),
     account_id TEXT,
     vendor_id TEXT,
+    transaction_id TEXT,
+    deferred_payment_installment_id TEXT,
+    employee_id TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
