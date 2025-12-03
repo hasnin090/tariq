@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { InterfaceMode } from '../types.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
+import { canAccessPage } from '../utils/permissions';
 import { 
     HomeIcon, BuildingIcon, UsersIcon, CreditCardIcon, TrendingUpIcon, 
     DocumentTextIcon, ChartBarIcon, CogIcon, UserGroupIcon, ReceiptIcon, 
@@ -261,17 +262,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     let currentSection: 'projects' | 'expenses' = 'projects';
 
     if (currentUser?.role === 'Sales') {
-        linksToShow = projectsLinks;
+        linksToShow = projectsLinks.filter(link => 
+            currentUser && canAccessPage(currentUser.role, link.page)
+        );
         sectionTitle = 'إدارة المبيعات';
         systemTitle = 'نظام عقاري';
         currentSection = 'projects';
     } else if (currentUser?.role === 'Accounting') {
-        linksToShow = expensesLinks;
+        linksToShow = expensesLinks.filter(link => 
+            currentUser && canAccessPage(currentUser.role, link.page)
+        );
         sectionTitle = 'الإدارة المحاسبية';
         systemTitle = 'نظام محاسبي';
         currentSection = 'expenses';
     } else if (isAdmin) {
         linksToShow = interfaceMode === 'projects' ? projectsLinks : expensesLinks;
+        // Admin يرى كل الصفحات
         sectionTitle = interfaceMode === 'projects' ? 'إدارة المبيعات' : 'الإدارة المحاسبية';
         systemTitle = interfaceMode === 'projects' ? 'نظام عقاري' : 'نظام محاسبي';
         currentSection = interfaceMode === 'projects' ? 'projects' : 'expenses';
@@ -349,14 +355,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                         </ul>
                     </div>
 
-                    {isAdmin && (
+                    {/* قائمة النظام - مفلترة حسب الصلاحيات */}
+                    {currentUser && systemLinks.filter(link => 
+                        canAccessPage(currentUser.role, link.page)
+                    ).length > 0 && (
                         <div>
                             <h2 className="px-4 pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full dot-accent"></span>
                                 النظام
                             </h2>
                             <ul className="space-y-1">
-                                {systemLinks.filter(link => !link.adminOnly || isAdmin).map((link, index) => (
+                                {systemLinks.filter(link => 
+                                    currentUser && canAccessPage(currentUser.role, link.page)
+                                ).map((link, index) => (
                                     <NavLink 
                                         key={link.page} 
                                         {...link} 

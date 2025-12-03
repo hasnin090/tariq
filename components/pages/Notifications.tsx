@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Notification, User } from '../../types';
 import { notificationsService, usersService } from '../../src/services/supabaseService';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { BellIcon, CheckIcon, TrashIcon, KeyIcon, CloseIcon } from '../shared/Icons';
 import logActivity from '../../utils/activityLogger';
 
@@ -12,6 +13,7 @@ const Notifications: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const { addToast } = useToast();
+  const { currentUser } = useAuth();
 
   useEffect(() => {
     loadNotifications();
@@ -20,7 +22,18 @@ const Notifications: React.FC = () => {
   const loadNotifications = async () => {
     try {
       const data = await notificationsService.getAll();
-      setNotifications(data);
+      
+      // فلترة الإشعارات حسب صلاحيات المستخدم
+      let filteredData = data;
+      if (currentUser?.role === 'Accounting' || currentUser?.role === 'Sales') {
+        // المستخدمون غير الإداريين يرون فقط إشعاراتهم الخاصة
+        filteredData = data.filter(notification => 
+          notification.user_id === currentUser.id
+        );
+      }
+      // Admin يرى جميع الإشعارات
+      
+      setNotifications(filteredData);
     } catch (error) {
       console.error('Error loading notifications:', error);
       addToast('فشل تحميل الإشعارات', 'error');

@@ -7,6 +7,8 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Login from './components/pages/Login';
 import { useScrollProgress } from './utils/scrollAnimations';
+import { canAccessPage, getDefaultPage } from './utils/permissions';
+import ProtectedRoute from './components/shared/ProtectedRoute';
 
 // Projects Interface Pages
 import Dashboard from './components/pages/Dashboard';
@@ -145,6 +147,14 @@ const App: React.FC = () => {
   };
 
   const renderPage = () => {
+    // التحقق من صلاحية الوصول للصفحة
+    if (currentUser && !canAccessPage(currentUser.role, activePage)) {
+      // إعادة التوجيه للصفحة الافتراضية إذا لم يكن لديه صلاحية
+      const defaultPage = getDefaultPage(currentUser.role);
+      setActivePage(defaultPage);
+      return null;
+    }
+
     switch (activePage) {
       // Projects
       case 'dashboard': return <Dashboard />;
@@ -169,19 +179,48 @@ const App: React.FC = () => {
       case 'documents-accounting': return <DocumentsAccounting />;
       case 'activity-log': return <ActivityLog />;
 
-      // System
-      case 'customization': return <Customization />;
-      case 'users': return <Users />;
+      // System - Protected Pages
+      case 'customization': 
+        return (
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <Customization />
+          </ProtectedRoute>
+        );
+      
+      case 'users': 
+        return (
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <Users />
+          </ProtectedRoute>
+        );
+      
       case 'notifications': return <Notifications />;
-      case 'project-user-management': return <ProjectUserManagement />;
-      case 'projects-management': return <ProjectsManagement />;
+      
+      case 'project-user-management': 
+        return (
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <ProjectUserManagement />
+          </ProtectedRoute>
+        );
+      
+      case 'projects-management': 
+        return (
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <ProjectsManagement />
+          </ProtectedRoute>
+        );
       
       // Archive
       case 'bookings-archive': return <BookingsArchive />;
       case 'general-archive': return <GeneralArchive />;
       
       // Admin Tools
-      case 'data-import': return <DataImport />;
+      case 'data-import': 
+        return (
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <DataImport />
+          </ProtectedRoute>
+        );
       
       default: return <Dashboard />;
     }

@@ -244,12 +244,17 @@ const Users: React.FC = () => {
                 console.log('✅ User created:', userToSave);
             }
 
-            // Handle project assignment
-            if (userToSave.role === 'Accounting' && assignedProjectId) {
-                await projectsService.update(assignedProjectId, { assignedUserId: userToSave.id });
-            } else if (isEditing && editingUser.role === 'Accounting' && editingUser.assignedProjectId && editingUser.assignedProjectId !== assignedProjectId) {
-                // Unassign from old project if changed
-                await projectsService.update(editingUser.assignedProjectId, { assignedUserId: undefined });
+            // Handle project assignment (with error handling for missing column)
+            try {
+                if (userToSave.role === 'Accounting' && assignedProjectId) {
+                    await projectsService.update(assignedProjectId, { assignedUserId: userToSave.id });
+                } else if (isEditing && editingUser.role === 'Accounting' && editingUser.assignedProjectId && editingUser.assignedProjectId !== assignedProjectId) {
+                    // Unassign from old project if changed
+                    await projectsService.update(editingUser.assignedProjectId, { assignedUserId: null });
+                }
+            } catch (projectError: any) {
+                console.warn('Could not update project assignment (column may not exist):', projectError);
+                // لا نوقف حفظ المستخدم إذا فشل تعيين المشروع
             }
 
             const updatedUsers = await usersService.getAll();
@@ -270,18 +275,38 @@ const Users: React.FC = () => {
         setUserToDelete(user);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (userToDelete) {
-            const updatedUsers = users.filter(u => u.id !== userToDelete.id);
-            saveUsers(updatedUsers);
+            try {
+                // حذف المستخدم من قاعدة البيانات
+                await usersService.delete(userToDelete.id);
+                
+                // تحديث القائمة المحلية
+                const updatedUsers = users.filter(u => u.id !== userToDelete.id);
+                setUsers(updatedUsers);
+                saveUsers(updatedUsers);
 
-            let currentProjects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
-            currentProjects = currentProjects.map(p => p.assignedUserId === userToDelete.id ? { ...p, assignedUserId: undefined } : p);
-            saveProjects(currentProjects);
+                // إلغاء تعيين المستخدم من المشاريع
+                try {
+                    const currentProjects = await projectsService.getAll();
+                    for (const project of currentProjects) {
+                        if (project.assignedUserId === userToDelete.id) {
+                            // تحديث فقط حقل assignedUserId
+                            await projectsService.update(project.id, { assignedUserId: null });
+                        }
+                    }
+                } catch (projectError) {
+                    console.error('Error updating projects:', projectError);
+                    // لا نوقف العملية إذا فشل تحديث المشاريع
+                }
 
-            addToast('تم حذف المستخدم بنجاح.', 'success');
-            logActivity('Delete User', `Deleted user: ${userToDelete.name}`);
-            setUserToDelete(null);
+                addToast('تم حذف المستخدم بنجاح من قاعدة البيانات.', 'success');
+                logActivity('Delete User', `Deleted user: ${userToDelete.name}`);
+                setUserToDelete(null);
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                addToast('فشل حذف المستخدم. الرجاء المحاولة مرة أخرى.', 'error');
+            }
         }
     };
     
