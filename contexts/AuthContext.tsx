@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { User } from '../types';
+import { verifyPassword } from '../utils/passwordUtils';
+import { rateLimiter } from '../utils/rateLimiter';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -33,6 +35,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string) => {
     try {
+      // التحقق من Rate Limiting
+      const rateLimitCheck = rateLimiter.canAttemptLogin(username);
+      if (!rateLimitCheck.allowed) {
+        return { 
+          error: new Error(
+            `تم حظر تسجيل الدخول مؤقتاً. الرجاء المحاولة بعد ${rateLimitCheck.remainingTime} دقيقة`
+          ) 
+        };
+      }
+
       // Fetch user from database
       const { supabase } = await import('../src/lib/supabase');
       const { data: user, error } = await supabase
@@ -42,20 +54,72 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .single();
 
       if (error || !user) {
+        // تسجيل محاولة فاشلة
+        rateLimiter.recordFailedAttempt(username);
+        
+        const attemptsLeft = rateLimitCheck.attemptsLeft! - 1;
+        const message = attemptsLeft > 0 
+          ? `اسم المستخدم غير موجود. المحاولات المتبقية: ${attemptsLeft}`
+          : 'اسم المستخدم غير موجود';
+        
         console.error('Login error:', error);
-        return { error: new Error('اسم المستخدم غير موجود') };
+        return { error: new Error(message) };
       }
 
       // Check if password field exists
       if (!user.password) {
+        rateLimiter.recordFailedAttempt(username);
         console.error('Password field missing for user:', username);
         return { error: new Error('خطأ في إعدادات المستخدم. الرجاء التواصل مع المدير.') };
       }
 
-      // Note: In production, password should be hashed and verified securely on the server
-      // For now, we're doing simple comparison (THIS IS NOT SECURE FOR PRODUCTION)
-      if (user.password !== password) {
-        return { error: new Error('كلمة المرور غير صحيحة') };
+      // التحقق من كلمة المرور
+      let isPasswordValid = false;
+      let needsPasswordUpdate = false;
+      
+      // التحقق إذا كانت كلمة المرور مشفرة بـ bcrypt (تبدأ بـ $2a$ أو $2b$)
+      const isBcryptHash = user.password.startsWith('$2a$') || user.password.startsWith('$2b$');
+      
+      if (isBcryptHash) {
+        // كلمة مرور مشفرة - استخدام bcrypt للمقارنة
+        isPasswordValid = await verifyPassword(password, user.password);
+      } else {
+        // كلمة مرور قديمة (نص عادي) - مقارنة مباشرة
+        isPasswordValid = password === user.password;
+        needsPasswordUpdate = isPasswordValid; // تحديث كلمة المرور إذا كانت صحيحة
+      }
+      
+      if (!isPasswordValid) {
+        // تسجيل محاولة فاشلة
+        rateLimiter.recordFailedAttempt(username);
+        
+        const attemptsLeft = rateLimitCheck.attemptsLeft! - 1;
+        const message = attemptsLeft > 0 
+          ? `كلمة المرور غير صحيحة. المحاولات المتبقية: ${attemptsLeft}`
+          : 'كلمة المرور غير صحيحة';
+        
+        return { error: new Error(message) };
+      }
+
+      // تسجيل دخول ناجح - مسح المحاولات الفاشلة
+      rateLimiter.clearAttempts(username);
+
+      // تحديث كلمة المرور إلى bcrypt إذا كانت نصاً عادياً
+      if (needsPasswordUpdate) {
+        try {
+          const { hashPassword } = await import('../utils/passwordUtils');
+          const hashedPassword = await hashPassword(password);
+          
+          await supabase
+            .from('users')
+            .update({ password: hashedPassword })
+            .eq('id', user.id);
+          
+          console.log('تم تحديث كلمة المرور بنجاح إلى bcrypt');
+        } catch (error) {
+          console.error('فشل تحديث كلمة المرور:', error);
+          // لا نوقف تسجيل الدخول - فقط نسجل الخطأ
+        }
       }
 
       // Find assigned project for this user
@@ -72,9 +136,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
 
+      // Remove password from user object before storing (SECURITY)
+      const { password: _, ...userWithoutPassword } = user;
+      
       // Add permissions based on role
       const userWithPermissions = {
-        ...user,
+        ...userWithoutPassword,
         assignedProjectId,
         permissions: user.role === 'Admin'
           ? { canView: true, canEdit: true, canDelete: true }
@@ -82,6 +149,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
 
       setCurrentUser(userWithPermissions);
+      // Store user data WITHOUT password in localStorage
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userWithPermissions));
 
       return { error: null };

@@ -116,7 +116,7 @@ const Notifications: React.FC = () => {
       </div>
 
       {notifications.length === 0 ? (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-12 text-center">
+        <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-2xl shadow-lg border border-white/20 dark:border-white/10 p-12 text-center">
           <BellIcon className="h-16 w-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
           <p className="text-slate-500 dark:text-slate-400 text-lg">لا توجد إشعارات</p>
         </div>
@@ -125,7 +125,7 @@ const Notifications: React.FC = () => {
           {notifications.map((notification) => (
             <div
               key={notification.id}
-              className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border-r-4 transition-all ${
+              className={`backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-xl shadow-lg p-5 border-r-4 border-t border-b border-l border-white/20 dark:border-white/10 transition-all ${
                 notification.is_read
                   ? 'border-slate-200 dark:border-slate-700'
                   : 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/10'

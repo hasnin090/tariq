@@ -420,14 +420,14 @@ const DataImport: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
+      <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-2xl shadow-lg p-6 border border-white/20 dark:border-white/10">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl shadow-lg">
             <UploadIcon className="h-8 w-8 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white">استيراد البيانات</h1>
-            <p className="text-slate-500 dark:text-slate-400">رفع ملفات CSV واستيرادها إلى النظام</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">استيراد البيانات</h1>
+            <p className="text-slate-600 dark:text-slate-300">رفع ملفات CSV واستيرادها إلى النظام</p>
           </div>
         </div>
 
@@ -470,7 +470,7 @@ const DataImport: React.FC = () => {
 
       {/* Step 1: Upload */}
       {step === 'upload' && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
+        <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-2xl shadow-lg p-6 border border-white/20 dark:border-white/10">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">1. اختر نوع البيانات</h2>
           
           {/* Project Info */}
@@ -551,7 +551,7 @@ const DataImport: React.FC = () => {
 
       {/* Step 2: Map Fields */}
       {step === 'map' && csvData && selectedTarget && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
+        <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-2xl shadow-lg p-6 border border-white/20 dark:border-white/10">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">ربط الأعمدة</h2>
           <p className="text-slate-500 dark:text-slate-400 mb-6">اختر عمود CSV المناسب لكل حقل في النظام</p>
           
@@ -629,7 +629,7 @@ const DataImport: React.FC = () => {
 
       {/* Step 3: Preview */}
       {step === 'preview' && csvData && selectedTarget && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
+        <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-2xl shadow-lg p-6 border border-white/20 dark:border-white/10">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">معاينة البيانات</h2>
           <p className="text-slate-500 dark:text-slate-400 mb-6">
             سيتم استيراد <span className="font-bold text-primary-600">{csvData.rows.length}</span> صف إلى جدول <span className="font-bold">{selectedTarget.arabicName}</span>
@@ -698,7 +698,7 @@ const DataImport: React.FC = () => {
 
       {/* Step 4: Result */}
       {step === 'result' && importResults && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
+        <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-2xl shadow-lg p-6 border border-white/20 dark:border-white/10">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">نتيجة الاستيراد</h2>
           
           <div className="grid grid-cols-2 gap-4 mb-6">

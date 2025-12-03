@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Budget, ExpenseCategory, Expense } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { useToast } from '../../../contexts/ToastContext';
-import { expensesService } from '../../../src/services/supabaseService';
+import { expensesService, expenseCategoriesService } from '../../../src/services/supabaseService';
 
 const Budgets: React.FC = () => {
     const { addToast } = useToast();
@@ -18,10 +18,14 @@ const Budgets: React.FC = () => {
     const loadData = async () => {
         try {
             setBudgets(JSON.parse(localStorage.getItem('budgets') || '[]'));
-            setCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
             
-            // Fetch expenses from Supabase
-            const expensesData = await expensesService.getAll();
+            // Fetch data from Supabase
+            const [categoriesData, expensesData] = await Promise.all([
+                expenseCategoriesService.getAll(),
+                expensesService.getAll()
+            ]);
+            
+            setCategories(categoriesData as ExpenseCategory[]);
             setExpenses(expensesData);
         } catch (error) {
             console.error('Error loading budget data:', error);
@@ -70,7 +74,7 @@ const Budgets: React.FC = () => {
                         const spent = spentByCategory[budget.categoryId] || 0;
                         const percentage = (spent / budget.amount) * 100;
                         return (
-                             <div key={budget.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                             <div key={budget.id} className="backdrop-blur-xl bg-white/10 dark:bg-white/5 p-4 rounded-xl shadow-lg border border-white/20 dark:border-white/10">
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="font-bold text-slate-800 dark:text-slate-100">{budget.categoryName}</span>
                                     <div><span className="font-semibold">{formatCurrency(spent)}</span> / {formatCurrency(budget.amount)}</div>
@@ -82,7 +86,7 @@ const Budgets: React.FC = () => {
                         );
                     })}
                 </div>
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 self-start">
+                <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 p-6 rounded-xl shadow-lg border border-white/20 dark:border-white/10 self-start">
                     <h3 className="font-bold text-lg mb-4">إضافة/تعديل ميزانية</h3>
                     <div className="space-y-4">
                         <select value={newBudget.categoryId} onChange={e => setNewBudget({ ...newBudget, categoryId: e.target.value })} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700">

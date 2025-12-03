@@ -63,6 +63,7 @@ export interface Customer {
   email: string;
   documents?: Document[];
   unitId?: string;
+  projectId?: string;
 }
 
 export interface Booking {

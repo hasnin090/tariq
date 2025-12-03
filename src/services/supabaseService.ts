@@ -1,5 +1,17 @@
 import { supabase } from '../lib/supabase';
 import { Customer, Unit, Booking, Payment, Expense, Transaction, Employee, UnitSaleRecord, Project, Vendor, ExpenseCategory, Account, User, UnitType, UnitStatus, Document } from '../../types';
+import { hashPassword } from '../../utils/passwordUtils';
+import { 
+  validateEmail, 
+  validateUsername, 
+  validateName, 
+  validatePhone, 
+  validateAmount, 
+  validateDate,
+  validateText,
+  sanitizeText,
+  ValidationError 
+} from '../../utils/validation';
 
 /**
  * HELPER: Generate unique ID
@@ -68,6 +80,19 @@ export const usersService = {
 
   async create(user: Omit<User, 'id'>) {
     console.log('🔧 usersService.create called with:', user);
+    
+    // Validation
+    const nameValidation = validateName(user.name);
+    if (!nameValidation.valid) throw new ValidationError(nameValidation.error!);
+    
+    const usernameValidation = validateUsername(user.username);
+    if (!usernameValidation.valid) throw new ValidationError(usernameValidation.error!);
+    
+    if (user.email) {
+      const emailValidation = validateEmail(user.email);
+      if (!emailValidation.valid) throw new ValidationError(emailValidation.error!);
+    }
+    
     // Generate UUID for user (users table uses UUID type)
     const id = generateUUID();
     console.log('🆔 Generated UUID:', id);
@@ -75,13 +100,17 @@ export const usersService = {
     // Extract fields
     const { password, projectAssignments, permissions, ...userWithoutPassword } = user as any;
     
+    // Hash password before storing (use default password if not provided)
+    const plainPassword = password || '123456';
+    const hashedPassword = await hashPassword(plainPassword);
+    
     // Only include valid database columns (permissions is not stored in DB, derived from role)
     const cleanUserData = {
-      name: userWithoutPassword.name,
-      username: userWithoutPassword.username,
-      email: userWithoutPassword.email || null,
+      name: sanitizeText(userWithoutPassword.name),
+      username: sanitizeText(userWithoutPassword.username),
+      email: userWithoutPassword.email ? sanitizeText(userWithoutPassword.email) : null,
       role: userWithoutPassword.role,
-      password: password || '123456' // Default password if not provided
+      password: hashedPassword
     };
     
     console.log('🧹 Clean user data to insert:', cleanUserData);
@@ -143,10 +172,10 @@ export const usersService = {
     // Extract fields
     const { password, permissions, projectAssignments, ...userWithoutPassword } = user as any;
     
-    // Build update data (include password if provided)
+    // Build update data (include hashed password if provided)
     const updateData: any = { ...userWithoutPassword };
     if (password && password.trim()) {
-      updateData.password = password;
+      updateData.password = await hashPassword(password);
     }
     
     const { data, error } = await supabase
@@ -237,27 +266,77 @@ export const customersService = {
       .order('created_at', { ascending: false });
     if (error) throw error;
     
-    return data || [];
+    // Map snake_case to camelCase
+    return (data || []).map(customer => ({
+      ...customer,
+      projectId: customer.project_id,
+    }));
   },
 
   async create(customer: Omit<Customer, 'id'>) {
+    // Validation
+    const nameValidation = validateName(customer.name);
+    if (!nameValidation.valid) throw new ValidationError(nameValidation.error!);
+    
+    const phoneValidation = validatePhone(customer.phone);
+    if (!phoneValidation.valid) throw new ValidationError(phoneValidation.error!);
+    
+    if (customer.email) {
+      const emailValidation = validateEmail(customer.email);
+      if (!emailValidation.valid) throw new ValidationError(emailValidation.error!);
+    }
+    
     const id = generateUniqueId('customer');
+    
+    // Convert camelCase to snake_case for database with sanitization
+    const dbCustomer: any = {
+      ...customer,
+      id,
+      name: sanitizeText(customer.name),
+      phone: sanitizeText(customer.phone),
+      email: customer.email ? sanitizeText(customer.email) : null,
+      project_id: customer.projectId || null,
+    };
+    
+    // Remove camelCase field
+    delete dbCustomer.projectId;
+    
     const { data, error } = await supabase
       .from('customers')
-      .insert([{ ...customer, id }])
+      .insert([dbCustomer])
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    // Map back to camelCase
+    const result = data?.[0];
+    return result ? {
+      ...result,
+      projectId: result.project_id,
+    } : result;
   },
 
   async update(id: string, customer: Partial<Customer>) {
+    // Convert camelCase to snake_case for database
+    const dbCustomer: any = { ...customer };
+    
+    if ('projectId' in customer) {
+      dbCustomer.project_id = customer.projectId || null;
+      delete dbCustomer.projectId;
+    }
+    
     const { data, error } = await supabase
       .from('customers')
-      .update(customer)
+      .update(dbCustomer)
       .eq('id', id)
       .select();
     if (error) throw error;
-    return data?.[0];
+    
+    // Map back to camelCase
+    const result = data?.[0];
+    return result ? {
+      ...result,
+      projectId: result.project_id,
+    } : result;
   },
 
   async delete(id: string) {
@@ -318,11 +397,17 @@ export const unitsService = {
       project_id: (unit as any).projectId || null,
     };
     
+    console.log('🔵 Creating unit with data:', dbUnit);
+    
     const { data, error } = await supabase
       .from('units')
       .insert([dbUnit])
       .select('*, customers(name)');
-    if (error) throw error;
+    
+    if (error) {
+      console.error('❌ Supabase insert error:', error);
+      throw error;
+    }
     
     if (data?.[0]) {
       return {
@@ -841,13 +926,25 @@ export const expensesService = {
   },
 
   async create(expense: Omit<Expense, 'id'>) {
+    // Validation
+    const dateValidation = validateDate(expense.date);
+    if (!dateValidation.valid) throw new ValidationError(dateValidation.error!);
+    
+    const amountValidation = validateAmount(expense.amount);
+    if (!amountValidation.valid) throw new ValidationError(amountValidation.error!);
+    
+    if (expense.description) {
+      const descriptionValidation = validateText(expense.description, 500);
+      if (!descriptionValidation.valid) throw new ValidationError(descriptionValidation.error!);
+    }
+    
     const id = generateUniqueId('expense');
     
-    // Convert camelCase to snake_case for database
+    // Convert camelCase to snake_case for database with sanitization
     const dbExpense = {
       id,
       expense_date: expense.date,
-      description: expense.description,
+      description: expense.description ? sanitizeText(expense.description) : null,
       amount: expense.amount,
       category_id: expense.categoryId || null, // Convert empty string to null
       project_id: expense.projectId || null,
@@ -1539,7 +1636,17 @@ export const documentsService = {
       throw dbError;
     }
 
-    return data;
+    // Map snake_case to camelCase
+    return {
+      id: data.id,
+      customerId: data.customer_id,
+      bookingId: data.booking_id,
+      saleId: data.sale_id,
+      fileName: data.file_name,
+      storagePath: data.storage_path,
+      fileType: data.file_type,
+      uploadedAt: data.uploaded_at,
+    };
   },
 
   // Function to delete a document record and the file from storage

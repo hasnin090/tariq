@@ -83,6 +83,7 @@ const Units: React.FC = () => {
 
     const handleSave = async (unitData: Omit<Unit, 'id'>) => {
         try {
+            console.log('🔵 Saving unit with data:', unitData);
             if (editingUnit) {
                 await unitsService.update(editingUnit.id, unitData);
                 logActivity('Update Unit', `Updated unit: ${unitData.name}`);
@@ -94,9 +95,16 @@ const Units: React.FC = () => {
             }
             handleCloseModal();
             await loadData();
-        } catch (error) {
-            console.error('Error saving unit:', error);
-            addToast('خطأ في حفظ الوحدة', 'error');
+        } catch (error: any) {
+            console.error('❌ Error saving unit:', error);
+            console.error('Error details:', {
+                message: error?.message,
+                code: error?.code,
+                details: error?.details,
+                hint: error?.hint
+            });
+            const errorMessage = error?.message || error?.hint || 'خطأ غير معروف';
+            addToast(`خطأ في حفظ الوحدة: ${errorMessage}`, 'error');
         }
     };
 
@@ -149,10 +157,17 @@ const Units: React.FC = () => {
     
     const getStatusStyle = (statusName: string) => {
         switch (statusName) {
-            case 'Available': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300';
-            case 'Booked': return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300';
-            case 'Sold': return 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300';
-            default: return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
+            case 'Available':
+            case 'متاح': 
+                return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300';
+            case 'Booked':
+            case 'محجوز': 
+                return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300';
+            case 'Sold':
+            case 'مباع': 
+                return 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300';
+            default: 
+                return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
         }
     };
 
@@ -216,7 +231,7 @@ const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, custom
     const [formData, setFormData] = useState({
         name: unit?.name || '',
         type: unit?.type || '',
-        status: unit?.status || 'Available',
+        status: unit?.status || (unitStatuses.length > 0 ? unitStatuses[0].name : 'Available'),
         price: unit?.price || 0,
         customerId: unit?.customerId || '',
     });
@@ -233,12 +248,11 @@ const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, custom
              return;
         }
 
-        const customerName = customers.find(c => c.id === formData.customerId)?.name;
+        // Don't send customerName - it will be fetched via join
         onSave({ 
             ...formData, 
-            customerName,
             projectId: unit?.projectId || activeProjectId 
-        });
+        } as any);
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

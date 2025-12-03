@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ExpenseCategory, Expense, Project } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { TagIcon, BriefcaseIcon, ArrowRightIcon } from '../../shared/Icons';
-import { expensesService } from '../../../src/services/supabaseService';
+import { expensesService, expenseCategoriesService, projectsService } from '../../../src/services/supabaseService';
 
 const CategoryAccounting: React.FC = () => {
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -17,12 +17,16 @@ const CategoryAccounting: React.FC = () => {
 
     const loadData = async () => {
         try {
-            setCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
-            setProjects(JSON.parse(localStorage.getItem('projects') || '[]'));
+            // Fetch all data from Supabase
+            const [categoriesData, expensesData, projectsData] = await Promise.all([
+                expenseCategoriesService.getAll(),
+                expensesService.getAll(),
+                projectsService.getAll()
+            ]);
             
-            // Fetch expenses from Supabase
-            const expensesData = await expensesService.getAll();
+            setCategories(categoriesData as ExpenseCategory[]);
             setExpenses(expensesData);
+            setProjects(projectsData);
         } catch (error) {
             console.error('Error loading category accounting data:', error);
         }
@@ -34,11 +38,17 @@ const CategoryAccounting: React.FC = () => {
         const uncategorized = { name: 'غير مصنفة', totalAmount: 0, transactionCount: 0 };
 
         for (const expense of expenses) {
-            if (expense.categoryId && categoryMap.has(expense.categoryId)) {
+            // تحقق من أن المصروف له فئة صحيحة وموجودة
+            const hasValidCategory = expense.categoryId && 
+                                    expense.categoryId !== '' && 
+                                    categoryMap.has(expense.categoryId);
+            
+            if (hasValidCategory) {
                 const category = categoryMap.get(expense.categoryId)!;
                 category.totalAmount += expense.amount;
                 category.transactionCount++;
             } else {
+                // جميع المصروفات بدون فئة صحيحة تذهب إلى "غير مصنفة"
                 uncategorized.totalAmount += expense.amount;
                 uncategorized.transactionCount++;
             }
@@ -67,7 +77,8 @@ const CategoryAccounting: React.FC = () => {
         
         let txs = expenses.filter(expense => {
             if (selectedCategoryId === 'uncategorized') {
-                return !expense.categoryId || !categories.some(c => c.id === expense.categoryId);
+                // المصروفات غير المصنفة: بدون categoryId أو categoryId غير موجود في القائمة
+                return !expense.categoryId || expense.categoryId === '' || !categories.some(c => c.id === expense.categoryId);
             }
             return expense.categoryId === selectedCategoryId;
         });
@@ -104,40 +115,51 @@ const CategoryAccounting: React.FC = () => {
                     </button>
                 </div>
 
-                <div className="mb-4">
+                <div className="mb-6">
                     <select
                         value={selectedProjectId}
                         onChange={(e) => setSelectedProjectId(e.target.value)}
-                        className="p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 min-w-[200px]"
+                        className="p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all min-w-[250px] font-medium"
                     >
                         <option value="">عرض كل المشاريع</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                 </div>
                 
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
-                    <table className="w-full text-right">
-                        <thead>
-                            <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                                <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>
-                                <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوصف</th>
-                                <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المشروع</th>
-                                <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredTransactions.map(expense => (
-                                <tr key={expense.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700/20">
-                                    <td className="p-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">{expense.date}</td>
-                                    <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{expense.description}</td>
-                                    <td className="p-4 text-slate-600 dark:text-slate-300">{projects.find(p => p.id === expense.projectId)?.name || '—'}</td>
-                                    <td className="p-4 font-semibold text-rose-600 dark:text-rose-400 whitespace-nowrap">{formatCurrency(expense.amount)}</td>
+                <div className="glass-card overflow-hidden">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
+                        <table className="w-full text-right min-w-[800px]">
+                            <thead>
+                                <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
+                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>
+                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوصف</th>
+                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المشروع</th>
+                                    <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {filteredTransactions.map(expense => (
+                                    <tr key={expense.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
+                                        <td className="p-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">{expense.date}</td>
+                                        <td className="p-4 font-medium text-slate-800 dark:text-slate-100">
+                                            <div className="max-w-md truncate" title={expense.description}>
+                                                {expense.description}
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-slate-600 dark:text-slate-300">{projects.find(p => p.id === expense.projectId)?.name || '—'}</td>
+                                        <td className="p-4 font-semibold text-rose-600 dark:text-rose-400 whitespace-nowrap">{formatCurrency(expense.amount)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                     {filteredTransactions.length === 0 && (
-                        <p className="text-center p-8 text-slate-500 dark:text-slate-400">لا توجد حركات تطابق الفلتر المحدد.</p>
+                        <div className="text-center py-12 px-4">
+                            <svg className="h-16 w-16 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium">لا توجد حركات تطابق الفلتر المحدد</p>
+                        </div>
                     )}
                 </div>
             </div>
@@ -152,24 +174,24 @@ const CategoryAccounting: React.FC = () => {
                     <button 
                         key={cat.categoryId} 
                         onClick={() => handleSelectCategory(cat.categoryId)}
-                        className="text-right p-4 rounded-xl border-2 transition-all duration-200 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-500 dark:hover:border-primary-500 hover:shadow-md"
+                        className="text-right p-5 rounded-2xl backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 hover:bg-white/20 dark:hover:bg-white/10 hover:shadow-lg hover:shadow-black/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                     >
                         <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 p-3 rounded-full bg-slate-100 dark:bg-slate-700">
-                                <TagIcon className="h-6 w-6 text-slate-600 dark:text-slate-300" />
+                            <div className="flex-shrink-0 p-3 rounded-xl backdrop-blur-sm bg-white/30 dark:bg-white/10 border border-white/20">
+                                <TagIcon className="h-6 w-6 text-slate-700 dark:text-slate-200" />
                             </div>
                             <div className="flex-grow">
-                                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">{cat.name}</h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">إجمالي المصروفات:</p>
-                                <p className="font-bold text-xl text-rose-600 dark:text-rose-400">{formatCurrency(cat.totalAmount)}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{`(${cat.transactionCount} حركة مالية)`}</p>
+                                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100 mb-1">{cat.name}</h3>
+                                <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">إجمالي المصروفات:</p>
+                                <p className="font-bold text-2xl text-rose-600 dark:text-rose-400 mb-1">{formatCurrency(cat.totalAmount)}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">{`(${cat.transactionCount} حركة مالية)`}</p>
                             </div>
                         </div>
                     </button>
                 ))}
                 {categoryData.length === 0 && (
-                     <div className="md:col-span-2 lg:col-span-3 xl:col-span-4 text-center p-8 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
-                        <TagIcon className="mx-auto h-12 w-12 text-slate-400" />
+                     <div className="md:col-span-2 lg:col-span-3 xl:col-span-4 text-center p-12 backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-2xl border-2 border-dashed border-white/20 dark:border-white/10">
+                        <TagIcon className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-500 mb-4" />
                         <h4 className="mt-2 font-semibold text-slate-800 dark:text-slate-200">لا توجد حركات مالية</h4>
                         <p className="text-sm text-slate-500 dark:text-slate-400">ابدأ بإضافة الحركات المالية لتظهر هنا.</p>
                    </div>

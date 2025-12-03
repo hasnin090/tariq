@@ -25,8 +25,16 @@ const Customers: React.FC = () => {
 
     // Filter customers by active project
     const filteredCustomers = useMemo(() => {
-        return filterCustomersByProject(customers, bookings, units, activeProject?.id || null);
-    }, [customers, bookings, units, activeProject]);
+        if (currentUser?.assignedProjectId) {
+            // For assigned users, only show customers from their project
+            return customers.filter(c => c.projectId === currentUser.assignedProjectId);
+        } else if (activeProject) {
+            // For admin users, filter by selected project
+            return customers.filter(c => c.projectId === activeProject.id);
+        }
+        // Show all customers if no project filter
+        return customers;
+    }, [customers, activeProject, currentUser]);
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
     const [isDocManagerOpen, setIsDocManagerOpen] = useState(false);
@@ -237,7 +245,7 @@ const Customers: React.FC = () => {
             ) : (
                 <EmptyState Icon={CustomersEmptyIcon} title="لا يوجد عملاء" message="ابدأ بإضافة بيانات العملاء لتتمكن من ربطهم بالوحدات." actionButton={{ text: 'إضافة عميل', onClick: () => handleOpenModal(null)}} />
             )}
-            {isModalOpen && <CustomerPanel customer={editingCustomer} units={units} onClose={handleCloseModal} onSave={handleSave} />}
+            {isModalOpen && <CustomerPanel customer={editingCustomer} units={units} activeProjectId={currentUser?.assignedProjectId || activeProject?.id} onClose={handleCloseModal} onSave={handleSave} />}
             {isDocManagerOpen && selectedCustomerForDocs && (
                 <DocumentManager 
                     isOpen={isDocManagerOpen}
@@ -357,9 +365,9 @@ const Customers: React.FC = () => {
             </Modal>
         </div>
     );
-};interface PanelProps { customer: Customer | null; units: Unit[]; onClose: () => void; onSave: (data: Omit<Customer, 'id'>, documents?: File[]) => void; }
+};interface PanelProps { customer: Customer | null; units: Unit[]; activeProjectId?: string; onClose: () => void; onSave: (data: Omit<Customer, 'id'>, documents?: File[]) => void; }
 
-const CustomerPanel: React.FC<PanelProps> = ({ customer, units, onClose, onSave }) => {
+const CustomerPanel: React.FC<PanelProps> = ({ customer, units, activeProjectId, onClose, onSave }) => {
     const { addToast } = useToast();
     const [formData, setFormData] = useState({
         name: customer?.name || '',
@@ -381,7 +389,12 @@ const CustomerPanel: React.FC<PanelProps> = ({ customer, units, onClose, onSave 
             addToast('الاسم ورقم الهاتف حقول إلزامية.', 'error');
             return;
         }
-        onSave(formData, documents);
+        // Auto-assign projectId for new customers
+        const customerData = {
+            ...formData,
+            projectId: customer?.projectId || activeProjectId
+        };
+        onSave(customerData, documents);
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

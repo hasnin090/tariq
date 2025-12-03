@@ -3,7 +3,7 @@ import { UnitSaleRecord, Payment, Expense, Project, ExpenseCategory } from '../.
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { CalculatorIcon, BriefcaseIcon, ChartPieIcon } from '../../shared/Icons';
 import { useAuth } from '../../../contexts/AuthContext';
-import { expensesService } from '../../../src/services/supabaseService';
+import { expensesService, expenseCategoriesService } from '../../../src/services/supabaseService';
 
 const NewStatCard: React.FC<{
   title: string;
@@ -40,7 +40,7 @@ const ProjectExpenseCard: React.FC<{ project: Project; totalExpense: number; exp
     }, [expensesByCategory]);
 
     return (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col">
+        <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 p-6 rounded-xl shadow-lg border border-white/20 dark:border-white/10 flex flex-col">
             <h4 className="font-bold text-lg text-slate-900 dark:text-slate-200">{project.name}</h4>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">إجمالي المصروفات</p>
             <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 mb-4">{formatCurrency(totalExpense)}</p>
@@ -84,10 +84,14 @@ const ExpenseDashboard: React.FC = () => {
             const sales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
             const payments: Payment[] = JSON.parse(localStorage.getItem('payments') || '[]');
             const projects: Project[] = JSON.parse(localStorage.getItem('projects') || '[]');
-            const categories: ExpenseCategory[] = JSON.parse(localStorage.getItem('expenseCategories') || '[]');
             
-            // Fetch expenses from Supabase
-            const expensesData = await expensesService.getAll();
+            // Fetch data from Supabase
+            const [categoriesData, expensesData] = await Promise.all([
+                expenseCategoriesService.getAll(),
+                expensesService.getAll()
+            ]);
+            
+            const categories: ExpenseCategory[] = categoriesData as ExpenseCategory[];
             
             // Filter expenses by assigned project for project users
             let allExpenses = currentUser?.assignedProjectId 
@@ -191,15 +195,15 @@ const ExpenseDashboard: React.FC = () => {
             
             {filter === 'main_fund' ? (
                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl min-h-[30rem] flex flex-col items-center justify-center border border-slate-200 dark:border-slate-700">
-                        <ChartPieIcon className="h-16 w-16 text-slate-400 dark:text-slate-600 mb-4" />
+                    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 p-6 rounded-2xl min-h-[30rem] flex flex-col items-center justify-center border border-white/20 dark:border-white/10">
+                        <ChartPieIcon className="h-16 w-16 text-slate-400 dark:text-slate-500 mb-4" />
                         <h3 className="text-slate-900 dark:text-white font-bold text-lg mb-2">توزيع مصروفات الصندوق الرئيسي</h3>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm">(Chart Placeholder)</p>
+                        <p className="text-slate-600 dark:text-slate-300 text-sm">(Chart Placeholder)</p>
                     </div>
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl min-h-[30rem] flex flex-col items-center justify-center border border-slate-200 dark:border-slate-700">
-                        <BriefcaseIcon className="h-16 w-16 text-slate-400 dark:text-slate-600 mb-4" />
+                    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 p-6 rounded-2xl min-h-[30rem] flex flex-col items-center justify-center border border-white/20 dark:border-white/10">
+                        <BriefcaseIcon className="h-16 w-16 text-slate-400 dark:text-slate-500 mb-4" />
                         <h3 className="text-slate-900 dark:text-white font-bold text-lg mb-2">ملخص الصندوق الرئيسي</h3>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm">(Summary Placeholder)</p>
+                        <p className="text-slate-600 dark:text-slate-300 text-sm">(Summary Placeholder)</p>
                     </div>
                 </div>
             ) : (
@@ -212,10 +216,10 @@ const ExpenseDashboard: React.FC = () => {
                             ))}
                         </div>
                     ) : (
-                       <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700">
-                           <BriefcaseIcon className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" />
-                           <h3 className="mt-2 text-lg font-medium text-slate-900 dark:text-slate-100">لا توجد مشاريع</h3>
-                           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">ابدأ بإضافة المشاريع لتتبع مصروفاتها هنا.</p>
+                       <div className="text-center py-16 backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-2xl border-2 border-dashed border-white/20 dark:border-white/10">
+                           <BriefcaseIcon className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-400 mb-3" />
+                           <h3 className="mt-2 text-lg font-bold text-slate-900 dark:text-slate-100">لا توجد مشاريع</h3>
+                           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">ابدأ بإضافة المشاريع لتتبع مصروفاتها هنا.</p>
                        </div>
                     )}
                 </>

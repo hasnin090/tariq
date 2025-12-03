@@ -14,7 +14,7 @@ const ActivityLog: React.FC = () => {
     return (
         <div className="container mx-auto">
             <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">سجل النشاطات</h2>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="glass-card overflow-hidden">
                 <table className="w-full text-right">
                     <thead>
                         <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
