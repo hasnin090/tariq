@@ -32,7 +32,7 @@ export const ROLE_PAGES: Record<UserRole, string[]> = {
     'deferred-payments',
     'sales-documents',
     'expenses',
-    'expense-dashboard',
+    'expense_dashboard',
     'category-accounting',
     'budgets',
     'projects-accounting',
@@ -53,7 +53,7 @@ export const ROLE_PAGES: Record<UserRole, string[]> = {
   Accounting: [
     'dashboard',
     'expenses',
-    'expense-dashboard',
+    'expense_dashboard',
     'category-accounting',
     'budgets',
     'projects-accounting',
@@ -173,7 +173,7 @@ export function getDefaultPage(role: UserRole): string {
     case 'Admin':
       return 'dashboard';
     case 'Accounting':
-      return 'expense-dashboard';
+      return 'expense_dashboard';
     case 'Sales':
       return 'dashboard';
     default:
