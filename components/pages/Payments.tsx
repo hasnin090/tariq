@@ -153,6 +153,9 @@ const Payments: React.FC = () => {
                 cumulativePaid += payment.amount;
                 combined.push({
                     ...payment,
+                    customerName: payment.customerName || booking.customerName,
+                    unitName: payment.unitName || booking.unitName,
+                    unitId: payment.unitId || booking.unitId,
                     unitPrice: unitPrice,
                     remainingAmount: unitPrice - cumulativePaid // Cumulative remaining
                 });
