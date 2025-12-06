@@ -8,7 +8,7 @@ import Header from './components/Header';
 import Login from './components/pages/Login';
 import { useScrollProgress } from './utils/scrollAnimations';
 import { canAccessPage, getDefaultPage } from './utils/permissions';
-import ProtectedRoute from './components/shared/ProtectedRoute';
+import { ProtectedRoute } from './components/shared/ProtectedRoute';
 
 // Projects Interface Pages
 import Dashboard from './components/pages/Dashboard';
