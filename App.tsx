@@ -40,6 +40,7 @@ import ProjectsAccounting from './components/pages/expenses/ProjectsAccounting';
 import CategoryAccounting from './components/pages/expenses/CategoryAccounting';
 import DocumentsAccounting from './components/pages/expenses/DocumentsAccounting';
 import ActivityLog from './components/pages/expenses/ActivityLog';
+import Budgets from './components/pages/expenses/Budgets';
 
 
 const App: React.FC = () => {
@@ -174,6 +175,7 @@ const App: React.FC = () => {
       case 'deferred-payments': return <DeferredPayments />;
       case 'employees': return <Employees />;
       case 'projects': return <Projects />;
+      case 'budgets': return <Budgets />;
       case 'projects-accounting': return <ProjectsAccounting />;
       case 'category-accounting': return <CategoryAccounting />;
       case 'documents-accounting': return <DocumentsAccounting />;

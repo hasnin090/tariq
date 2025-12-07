@@ -140,6 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <CalendarIcon />, label: 'الدفعات الآجلة', page: 'deferred-payments', adminOnly: true },
         { icon: <UsersIcon />, label: 'الموظفين', page: 'employees', adminOnly: true },
         { icon: <BriefcaseIcon />, label: 'إدارة المشاريع', page: 'projects', adminOnly: true },
+        { icon: <CalculatorIcon />, label: 'الميزانيات', page: 'budgets', adminOnly: true },
         { icon: <ChartBarIcon />, label: 'محاسبة المشاريع', page: 'projects-accounting', adminOnly: true },
         { icon: <TagIcon />, label: 'دفتر الأستاذ', page: 'category-accounting', adminOnly: true },
         { icon: <ArchiveIcon />, label: 'المستندات', page: 'documents-accounting', adminOnly: true },

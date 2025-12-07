@@ -19,6 +19,7 @@ export const pageNames: { [key: string]: string } = {
     'deferred-payments': 'الدفعات الآجلة',
     'employees': 'الموظفين',
     'projects': 'إدارة المشاريع',
+    'budgets': 'الميزانيات',
     'projects-accounting': 'محاسبة المشاريع',
     'category-accounting': 'دفتر الأستاذ',
     'documents-accounting': 'المستندات',
