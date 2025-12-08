@@ -49,30 +49,30 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex justify-center items-center p-4 no-print animate-fade-in pt-20" onClick={onClose}>
-      <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl border border-white/20 dark:border-slate-700/50 animate-scale-up my-16" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[70] bg-slate-900/70 backdrop-blur-md flex justify-center items-center p-4 no-print animate-fade-in pt-20" onClick={onClose}>
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl border border-white/20 animate-scale-up my-16" onClick={e => e.stopPropagation()}>
         <div className="sm:flex sm:items-start">
-          <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full ${iconColorClasses[variant]} sm:mx-0 sm:h-10 sm:w-10`}>
+          <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full backdrop-blur-sm border border-white/30 sm:mx-0 sm:h-10 sm:w-10 ${variant === 'danger' ? 'bg-rose-500/20 text-rose-300' : 'bg-blue-500/20 text-blue-300'}`}>
             <Icon />
           </div>
           <div className="mt-3 text-center sm:mt-0 sm:mr-4 sm:text-right">
-            <h3 className="text-xl leading-6 font-bold text-slate-900 dark:text-slate-100">{title}</h3>
+            <h3 className="text-xl leading-6 font-bold text-white drop-shadow-lg">{title}</h3>
             <div className="mt-2">
-              <div className="text-base text-slate-600 dark:text-slate-300 space-y-2">{message}</div>
+              <div className="text-base text-slate-200 space-y-2">{message}</div>
             </div>
           </div>
         </div>
         <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse gap-3">
           <button
             type="button"
-            className={`w-full inline-flex justify-center rounded-xl border border-transparent shadow-lg shadow-rose-500/20 px-6 py-2.5 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:w-auto sm:text-sm transition-all duration-200 ${confirmButtonColorClasses[variant]}`}
+            className={`w-full inline-flex justify-center rounded-xl border border-transparent shadow-lg px-6 py-2.5 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:w-auto sm:text-sm transition-all duration-200 ${variant === 'danger' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30'}`}
             onClick={onConfirm}
           >
             {confirmText}
           </button>
           <button
             type="button"
-            className="mt-3 w-full inline-flex justify-center rounded-xl border border-slate-300 dark:border-slate-600 shadow-sm px-6 py-2.5 bg-white dark:bg-slate-700 text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:w-auto sm:text-sm transition-all duration-200"
+            className="mt-3 w-full inline-flex justify-center rounded-xl border border-white/30 shadow-sm px-6 py-2.5 bg-white/10 backdrop-blur-sm text-base font-medium text-white hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white/50 sm:mt-0 sm:w-auto sm:text-sm transition-all duration-200"
             onClick={onClose}
           >
             {cancelText}

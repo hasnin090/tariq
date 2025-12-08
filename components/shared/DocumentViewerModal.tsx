@@ -38,7 +38,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ isOpen, onClo
                         download={fileName}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+                        className="flex items-center gap-2 bg-gradient-to-r from-accent to-amber-500 text-white px-4 py-2 rounded-lg hover:from-amber-500 hover:to-accent transition-all duration-300 shadow-lg"
                     >
                         <DownloadIcon className="h-5 w-5" />
                         <span>تحميل الملف</span>
@@ -46,19 +46,19 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ isOpen, onClo
                 </div>
             }
         >
-            <div className="flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/30">
+            <div className="flex items-center justify-center bg-white/5 backdrop-blur-sm rounded-lg">
                 {isImage ? (
-                    <img src={url} alt={fileName} className="max-w-full max-h-[80vh] object-contain" />
+                    <img src={url} alt={fileName} className="max-w-full max-h-[80vh] object-contain rounded-lg" />
                 ) : isPdf ? (
-                    <iframe src={url} className="w-full h-[80vh]" title={fileName}></iframe>
+                    <iframe src={url} className="w-full h-[80vh] rounded-lg" title={fileName}></iframe>
                 ) : (
                     <div className="text-center p-12">
-                        <p className="text-slate-500 dark:text-slate-400 mb-6 text-lg">لا يمكن معاينة هذا النوع من الملفات مباشرة.</p>
+                        <p className="text-slate-200 mb-6 text-lg">لا يمكن معاينة هذا النوع من الملفات مباشرة.</p>
                         <a 
                             href={url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+                            className="inline-flex items-center justify-center px-6 py-3 border border-white/30 text-base font-medium rounded-lg text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-all duration-300"
                         >
                             فتح في نافذة جديدة
                         </a>
