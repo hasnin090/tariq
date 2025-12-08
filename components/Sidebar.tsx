@@ -118,6 +118,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     const [isEditMode, setIsEditMode] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
+    const systemMenuRef = React.useRef<HTMLDivElement>(null);
+
+    // التمرير التلقائي عند فتح القائمة
+    useEffect(() => {
+        if (isSystemMenuOpen && systemMenuRef.current) {
+            systemMenuRef.current.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'nearest' 
+            });
+        }
+    }, [isSystemMenuOpen]);
 
     const defaultProjectsLinks = [
         { icon: <HomeIcon />, label: 'لوحة التحكم', page: 'dashboard', adminOnly: false },
@@ -360,7 +371,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                     {currentUser && systemLinks.filter(link => 
                         canAccessPage(currentUser.role, link.page)
                     ).length > 0 && (
-                        <div className="mb-6">
+                        <div ref={systemMenuRef} className="mb-6">
                             {/* زر القائمة المنسدلة */}
                             <button
                                 onClick={() => setIsSystemMenuOpen(!isSystemMenuOpen)}
@@ -371,9 +382,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                                         <CogIcon className="h-5 w-5" />
                                     </div>
                                     <span className="font-semibold text-sm">النظام</span>
-                                    <span className="px-2 py-0.5 rounded-full bg-accent/20 text-accent text-xs font-bold">
-                                        {systemLinks.filter(link => currentUser && canAccessPage(currentUser.role, link.page)).length}
-                                    </span>
                                 </div>
                                 <svg 
                                     className={`h-5 w-5 transition-transform duration-300 ${isSystemMenuOpen ? 'rotate-180' : ''}`}
