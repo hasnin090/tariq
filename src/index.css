@@ -974,6 +974,18 @@
     @apply shadow-lg;
   }
 
+  /* إخفاء أزرار الزيادة/النقصان في حقول الأرقام */
+  .input-field[type="number"]::-webkit-inner-spin-button,
+  .input-field[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  .input-field[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
   .input-field:hover {
     @apply bg-slate-700/90 border-slate-500/50;
   }
