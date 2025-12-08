@@ -308,43 +308,43 @@ const SalePanel: React.FC<PanelProps> = ({ units, customers, accounts, onClose, 
             isOpen={true} 
             onClose={onClose} 
             title="تسجيل عملية بيع" 
-            size="lg"
+            size="md"
             footer={
                 <div className="flex justify-end gap-4 w-full">
-                    <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">إلغاء</button>
-                    <button type="submit" form="sale-form" className="bg-gradient-to-r from-primary-600 to-primary-500 text-white px-8 py-2.5 rounded-xl font-semibold hover:shadow-md hover:shadow-primary-500/20 transition-all">حفظ</button>
+                    <button type="button" onClick={onClose} className="btn-secondary">إلغاء</button>
+                    <button type="submit" form="sale-form" className="btn-primary">حفظ</button>
                 </div>
             }
         >
                 <form id="sale-form" onSubmit={handleSubmit} className="space-y-5">
                     <div className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">الوحدة السكنية</label>
-                            <select name="unitId" value={formData.unitId} onChange={handleChange} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" required>
+                        <div>
+                            <label className="input-label">الوحدة السكنية <span className="text-rose-400">*</span></label>
+                            <select name="unitId" value={formData.unitId} onChange={handleChange} className="input-field" required>
                                 <option value="">اختر الوحدة المباعة</option>
                                 {units.map(u => <option key={u.id} value={u.id}>{u.name} - {formatCurrency(u.price)}</option>)}
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">العميل</label>
-                            <select name="customerId" value={formData.customerId} onChange={handleChange} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" required>
+                        <div>
+                            <label className="input-label">العميل <span className="text-rose-400">*</span></label>
+                            <select name="customerId" value={formData.customerId} onChange={handleChange} className="input-field" required>
                                 <option value="">اختر العميل</option>
                                 {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">حساب الإيداع</label>
-                            <select name="accountId" value={formData.accountId} onChange={handleChange} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" required>
+                        <div>
+                            <label className="input-label">حساب الإيداع <span className="text-rose-400">*</span></label>
+                            <select name="accountId" value={formData.accountId} onChange={handleChange} className="input-field" required>
                                 <option value="">اختر حساب الإيداع</option>
                                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">سعر البيع النهائي</label>
-                            <input type="text" value={formData.finalSalePrice > 0 ? formatCurrency(formData.finalSalePrice) : ''} readOnly className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-slate-600 text-slate-500 cursor-not-allowed" placeholder="سيتم تحديده تلقائياً عند اختيار الوحدة" />
+                            <label className="input-label">سعر البيع النهائي</label>
+                            <input type="text" value={formData.finalSalePrice > 0 ? formatCurrency(formData.finalSalePrice) : ''} readOnly className="input-field opacity-60 cursor-not-allowed" placeholder="سيتم تحديده تلقائياً عند اختيار الوحدة" />
                         </div>
 
                         <div>
