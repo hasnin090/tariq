@@ -117,6 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     
     const [isEditMode, setIsEditMode] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
 
     const defaultProjectsLinks = [
         { icon: <HomeIcon />, label: 'لوحة التحكم', page: 'dashboard', adminOnly: false },
@@ -355,32 +356,59 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                         </ul>
                     </div>
 
-                    {/* قائمة النظام - مفلترة حسب الصلاحيات */}
+                    {/* قائمة النظام المنسدلة - مفلترة حسب الصلاحيات */}
                     {currentUser && systemLinks.filter(link => 
                         canAccessPage(currentUser.role, link.page)
                     ).length > 0 && (
-                        <div>
-                            <h2 className="px-4 pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full dot-accent"></span>
-                                النظام
-                            </h2>
-                            <ul className="space-y-1">
-                                {systemLinks.filter(link => 
-                                    currentUser && canAccessPage(currentUser.role, link.page)
-                                ).map((link, index) => (
-                                    <NavLink 
-                                        key={link.page} 
-                                        {...link} 
-                                        activePage={activePage} 
-                                        onClick={setActivePage}
-                                        isEditMode={isEditMode}
-                                        onDragStart={handleDragStart(index, 'system')}
-                                        onDragOver={handleDragOver}
-                                        onDrop={handleDrop(index, 'system')}
-                                        isDragging={draggedIndex === index}
-                                    />
-                                ))}
-                            </ul>
+                        <div className="mb-6">
+                            {/* زر القائمة المنسدلة */}
+                            <button
+                                onClick={() => setIsSystemMenuOpen(!isSystemMenuOpen)}
+                                className="w-full px-4 py-3 flex items-center justify-between rounded-xl bg-gradient-to-l from-white/10 to-white/5 border border-white/20 text-slate-200 hover:text-white hover:border-accent/50 transition-all duration-300 group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-white/10 group-hover:bg-white/20 transition-all duration-300">
+                                        <CogIcon className="h-5 w-5" />
+                                    </div>
+                                    <span className="font-semibold text-sm">النظام</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-accent/20 text-accent text-xs font-bold">
+                                        {systemLinks.filter(link => currentUser && canAccessPage(currentUser.role, link.page)).length}
+                                    </span>
+                                </div>
+                                <svg 
+                                    className={`h-5 w-5 transition-transform duration-300 ${isSystemMenuOpen ? 'rotate-180' : ''}`}
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+
+                            {/* القائمة المنسدلة */}
+                            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                                isSystemMenuOpen ? 'max-h-[1000px] opacity-100 mt-2' : 'max-h-0 opacity-0'
+                            }`}>
+                                <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-2">
+                                    <ul className="space-y-1">
+                                        {systemLinks.filter(link => 
+                                            currentUser && canAccessPage(currentUser.role, link.page)
+                                        ).map((link, index) => (
+                                            <NavLink 
+                                                key={link.page} 
+                                                {...link} 
+                                                activePage={activePage} 
+                                                onClick={setActivePage}
+                                                isEditMode={isEditMode}
+                                                onDragStart={handleDragStart(index, 'system')}
+                                                onDragOver={handleDragOver}
+                                                onDrop={handleDrop(index, 'system')}
+                                                isDragging={draggedIndex === index}
+                                            />
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </nav>
