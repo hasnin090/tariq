@@ -57,7 +57,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
                         </button>
                     </div>
                 )}
-                <div className={`${noPadding ? 'p-0' : 'px-6 sm:px-8 py-6'} scrollbar-thin scrollbar-thumb-white/20 hover:scrollbar-thumb-white/30 scrollbar-track-white/5 flex-1 overflow-y-auto text-slate-100`}>
+                <div className={`${noPadding ? 'p-0' : 'px-6 sm:px-8 py-6'} scrollbar-thin scrollbar-thumb-white/20 hover:scrollbar-thumb-white/30 scrollbar-track-white/5 flex-1 overflow-y-auto text-white`}>
                     {children}
                 </div>
                 {footer && (
