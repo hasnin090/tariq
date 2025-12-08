@@ -41,7 +41,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
 
     return (
         <div className="fixed inset-0 z-[60] bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-0 animate-fade-in" onClick={handleBackdrop} role="dialog" aria-modal="true">
-            <div className={`${containerSize} backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 ${size === 'full' ? 'h-[calc(100vh-4rem)] my-8' : 'rounded-3xl max-h-[calc(100vh-8rem)] my-16'} flex flex-col transform transition-all animate-scale-up overflow-hidden`} onClick={e => e.stopPropagation()}>
+            <div className={`${containerSize} backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 ${size === 'full' ? 'h-[calc(100vh-4rem)] my-8' : 'rounded-3xl max-h-[calc(100vh-10rem)] my-20'} flex flex-col transform transition-all animate-scale-up overflow-hidden`} onClick={e => e.stopPropagation()}>
                 {title && (
                     <div className="px-6 sm:px-8 py-5 border-b border-white/20 flex items-center justify-between bg-gradient-to-br from-white/10 to-transparent backdrop-blur-sm flex-shrink-0">
                         <h2 className="text-xl sm:text-2xl font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] tracking-tight">{title}</h2>

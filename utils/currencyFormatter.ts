@@ -1,3 +1,5 @@
+import { devError, devWarn } from './devLogger';
+
 // Currency formatter with dynamic decimal places from settings
 let cachedDecimalPlaces: number | null = null;
 let cachedCurrency: string | null = null;
@@ -11,7 +13,7 @@ export const refreshCurrencyCache = async () => {
         cachedDecimalPlaces = decimalPlacesData ? parseInt(decimalPlacesData, 10) : 2;
         cachedCurrency = currencyData || 'IQD';
     } catch (error) {
-        console.error('Failed to refresh currency cache:', error);
+        devError(error, 'refreshCurrencyCache');
     }
 };
 
@@ -22,7 +24,7 @@ export const formatCurrency = (amount: number): string => {
     
     // Validate currency code - must be exactly 3 letters (ISO 4217)
     if (!currencyCode || currencyCode.length !== 3 || !/^[A-Z]{3}$/.test(currencyCode)) {
-        console.warn(`Invalid currency code: ${currencyCode}, falling back to IQD`);
+        devWarn(`Invalid currency code: ${currencyCode}, falling back to IQD`);
         currencyCode = 'IQD';
     }
     
@@ -34,7 +36,7 @@ export const formatCurrency = (amount: number): string => {
             maximumFractionDigits: decimalPlaces,
         }).format(amount);
     } catch (error) {
-        console.error(`Error formatting currency with code ${currencyCode}:`, error);
+        devError(error, `formatCurrency with code ${currencyCode}`);
         // Fallback to simple formatting
         return new Intl.NumberFormat('ar-EG', {
             style: 'currency',

@@ -9,6 +9,7 @@ import logActivity from '../../utils/activityLogger';
 import { formatCurrency } from '../../utils/currencyFormatter';
 import { bookingsService, unitsService, customersService, paymentsService, accountsService, documentsService } from '../../src/services/supabaseService';
 import ConfirmModal from '../shared/ConfirmModal';
+import Modal from '../shared/Modal';
 import DocumentManager from '../shared/DocumentManager';
 import CompactDocumentUploader from '../shared/CompactDocumentUploader';
 import { CloseIcon, DocumentTextIcon, EditIcon } from '../shared/Icons';
@@ -600,20 +601,24 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
         setFormData(prev => ({ ...prev, [name]: name === 'amountPaid' ? Number(value) : value }));
     };
 
-    const inputStyle = "w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200";
-
     return (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 pt-20 animate-drawer-overlay-show" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-xl animate-fade-in-scale-up" onClick={e => e.stopPropagation()}>
-                <form onSubmit={handleSubmit}>
-                    <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start">
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{booking ? 'تعديل حجز' : 'حجز جديد'}</h2>
-                        <button type="button" onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700">
-                            <CloseIcon className="h-6 w-6"/>
-                        </button>
-                    </div>
-                    <div className="p-6 space-y-4">
-                        <select name="unitId" value={formData.unitId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={booking ? 'تعديل حجز' : 'حجز جديد'}
+            size="md"
+            footer={
+                <div className="flex justify-end gap-4 w-full">
+                    <button type="button" onClick={onClose} className="btn-secondary">إلغاء</button>
+                    <button type="submit" form="booking-form" className="btn-primary">حفظ</button>
+                </div>
+            }
+        >
+            <form id="booking-form" onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-4">
+                    <div>
+                        <label className="input-label">الوحدة <span className="text-rose-400">*</span></label>
+                        <select name="unitId" value={formData.unitId} onChange={handleChange} className="input-field" required>
                             <option value="">اختر وحدة</option>
                             {units
                                 .filter(u => {
@@ -624,35 +629,47 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
                                 })
                                 .map(u => <option key={u.id} value={u.id}>{`${u.name} (${formatCurrency(u.price)})`}</option>)}
                         </select>
-                        <select name="customerId" value={formData.customerId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
+                    </div>
+
+                    <div>
+                        <label className="input-label">العميل <span className="text-rose-400">*</span></label>
+                        <select name="customerId" value={formData.customerId} onChange={handleChange} className="input-field" required>
                             <option value="">اختر عميل</option>
                             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <input type="date" name="bookingDate" value={formData.bookingDate} onChange={handleChange} className={inputStyle} required />
-                        <input type="number" name="amountPaid" placeholder="المبلغ المدفوع مقدمًا" value={formData.amountPaid || ''} onChange={handleChange} className={inputStyle} min="0" step="0.01" />
-                        {accounts.length > 0 && (
-                            <select name="accountId" value={formData.accountId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}>
-                                <option value="">اختر حساب الدفع (اختياري)</option>
+                    </div>
+
+                    <div>
+                        <label className="input-label">تاريخ الحجز <span className="text-rose-400">*</span></label>
+                        <input type="date" name="bookingDate" value={formData.bookingDate} onChange={handleChange} className="input-field" required />
+                    </div>
+
+                    <div>
+                        <label className="input-label">المبلغ المدفوع مقدماً</label>
+                        <input type="number" name="amountPaid" placeholder="0" value={formData.amountPaid || ''} onChange={handleChange} className="input-field" min="0" step="0.01" />
+                    </div>
+
+                    {accounts.length > 0 && (
+                        <div>
+                            <label className="input-label">حساب الدفع (اختياري)</label>
+                            <select name="accountId" value={formData.accountId} onChange={handleChange} className="input-field">
+                                <option value="">اختر حساب الدفع</option>
                                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
-                        )}
-                        
-                        {/* Document Upload Section - Only show for new bookings */}
-                        {!booking && (
-                            <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
-                                <CompactDocumentUploader 
-                                    onFilesChange={setUploadFiles}
-                                    maxFiles={5}
-                                />
-                            </div>
-                        )}
-                    </div>
-                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4">
-                        <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold">إلغاء</button>
-                        <button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm">حفظ</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                        </div>
+                    )}
+                    
+                    {/* Document Upload Section - Only show for new bookings */}
+                    {!booking && (
+                        <div className="pt-2 border-t border-white/20">
+                            <CompactDocumentUploader 
+                                onFilesChange={setUploadFiles}
+                                maxFiles={5}
+                            />
+                        </div>
+                    )}
+                </div>
+            </form>
+        </Modal>
     );
 };
