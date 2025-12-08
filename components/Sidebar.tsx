@@ -120,7 +120,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
 
     const defaultProjectsLinks = [
         { icon: <HomeIcon />, label: 'لوحة التحكم', page: 'dashboard', adminOnly: false },
-        { icon: <BriefcaseIcon />, label: 'إدارة المشاريع', page: 'projects-management', adminOnly: true },
         { icon: <BuildingIcon />, label: 'الوحدات', page: 'units', adminOnly: false },
         { icon: <UsersIcon />, label: 'العملاء', page: 'customers', adminOnly: false },
         { icon: <DocumentTextIcon />, label: 'الحجوزات', page: 'bookings', adminOnly: false },
@@ -139,7 +138,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <BanknotesIcon />, label: 'الصندوق وحساب البنك', page: 'treasury', adminOnly: true },
         { icon: <CalendarIcon />, label: 'الدفعات الآجلة', page: 'deferred-payments', adminOnly: true },
         { icon: <UsersIcon />, label: 'الموظفين', page: 'employees', adminOnly: true },
-        { icon: <BriefcaseIcon />, label: 'إدارة المشاريع', page: 'projects', adminOnly: true },
         { icon: <CalculatorIcon />, label: 'الميزانيات', page: 'budgets', adminOnly: true },
         { icon: <ChartBarIcon />, label: 'محاسبة المشاريع', page: 'projects-accounting', adminOnly: true },
         { icon: <TagIcon />, label: 'دفتر الأستاذ', page: 'category-accounting', adminOnly: true },
@@ -149,6 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     ];
     
     const defaultSystemLinks = [
+        { icon: <BriefcaseIcon />, label: 'إدارة المشاريع', page: 'projects-management', adminOnly: true },
         { icon: <CogIcon />, label: 'تخصيص', page: 'customization', adminOnly: true },
         { icon: <UserGroupIcon />, label: 'المستخدمون', page: 'users', adminOnly: true },
         { icon: <BellIcon />, label: 'الإشعارات', page: 'notifications', adminOnly: true },

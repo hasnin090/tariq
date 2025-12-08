@@ -18,7 +18,6 @@ export const pageNames: { [key: string]: string } = {
     'treasury': 'إدارة الصندوق و حساب البنك',
     'deferred-payments': 'الدفعات الآجلة',
     'employees': 'الموظفين',
-    'projects': 'إدارة المشاريع',
     'budgets': 'الميزانيات',
     'projects-accounting': 'محاسبة المشاريع',
     'category-accounting': 'دفتر الأستاذ',

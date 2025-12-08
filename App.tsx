@@ -174,7 +174,7 @@ const App: React.FC = () => {
       case 'treasury': return <Treasury />;
       case 'deferred-payments': return <DeferredPayments />;
       case 'employees': return <Employees />;
-      case 'projects': return <Projects />;
+      case 'projects': return <ProjectsManagement />;
       case 'budgets': return <Budgets />;
       case 'projects-accounting': return <ProjectsAccounting />;
       case 'category-accounting': return <CategoryAccounting />;
@@ -182,6 +182,13 @@ const App: React.FC = () => {
       case 'activity-log': return <ActivityLog />;
 
       // System - Protected Pages
+      case 'projects-management': 
+        return (
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <ProjectsManagement />
+          </ProtectedRoute>
+        );
+      
       case 'customization': 
         return (
           <ProtectedRoute allowedRoles={['Admin']}>
@@ -202,13 +209,6 @@ const App: React.FC = () => {
         return (
           <ProtectedRoute allowedRoles={['Admin']}>
             <ProjectUserManagement />
-          </ProtectedRoute>
-        );
-      
-      case 'projects-management': 
-        return (
-          <ProtectedRoute allowedRoles={['Admin']}>
-            <ProjectsManagement />
           </ProtectedRoute>
         );
       
