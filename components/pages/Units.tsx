@@ -260,26 +260,53 @@ const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, custom
         setFormData(prev => ({ ...prev, [name]: name === 'price' ? Number(value) : value }));
     };
 
-    const inputStyle = "w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200";
-
     return (
-         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 pt-20 animate-drawer-overlay-show" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl animate-fade-in-scale-up" onClick={e => e.stopPropagation()}>
-                <form onSubmit={handleSubmit} className="flex flex-col h-full">
-                    <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start"><h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{unit ? 'تعديل وحدة' : 'إضافة وحدة جديدة'}</h2><button type="button" onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"><CloseIcon className="h-6 w-6"/></button></div>
-                    <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                        <input type="text" name="name" placeholder="رقم الوحدة (مثال: A-101)" value={formData.name} onChange={handleChange} className={inputStyle} required />
-                        <div className="grid grid-cols-2 gap-4">
-                             <select name="type" value={formData.type} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
-                                <option value="">اختر المساحة</option>
-                                {unitTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                             </select>
-                             <input type="number" name="price" placeholder="سعر الوحدة" value={formData.price || ''} onChange={handleChange} className={inputStyle} required min="1" step="0.01" />
-                        </div>
-                         <select name="status" value={formData.status} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required><option value="">اختر الحالة</option>{unitStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}</select>
-                         <select name="customerId" value={formData.customerId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}><option value="">ربط بعميل (اختياري)</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+         <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-md flex justify-center items-center p-4 animate-fade-in" onClick={onClose}>
+            <div className="backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 w-full max-w-2xl animate-scale-up overflow-hidden" onClick={e => e.stopPropagation()}>
+                <form onSubmit={handleSubmit} className="flex flex-col max-h-[calc(100vh-6rem)]">
+                    <div className="px-8 py-5 border-b border-white/20 flex justify-between items-center bg-gradient-to-br from-white/10 to-transparent backdrop-blur-sm">
+                        <h2 className="text-2xl font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">{unit ? 'تعديل وحدة' : 'إضافة وحدة جديدة'}</h2>
+                        <button type="button" onClick={onClose} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-rose-500/30 hover:text-rose-100 transition-all duration-300 border border-white/20 hover:scale-110 active:scale-95">
+                            <CloseIcon className="h-5 w-5"/>
+                        </button>
                     </div>
-                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold">إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm">حفظ</button></div>
+                    <div className="px-8 py-6 space-y-5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-white/5">
+                        <div>
+                            <label className="input-label">رقم الوحدة <span className="text-rose-400">*</span></label>
+                            <input type="text" name="name" placeholder="مثال: A-101" value={formData.name} onChange={handleChange} className="input-field" required />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="input-label">المساحة <span className="text-rose-400">*</span></label>
+                                <select name="type" value={formData.type} onChange={handleChange} className="input-field" required>
+                                    <option value="">اختر المساحة</option>
+                                    {unitTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="input-label">السعر <span className="text-rose-400">*</span></label>
+                                <input type="number" name="price" placeholder="سعر الوحدة" value={formData.price || ''} onChange={handleChange} className="input-field" required min="1" step="0.01" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="input-label">الحالة <span className="text-rose-400">*</span></label>
+                            <select name="status" value={formData.status} onChange={handleChange} className="input-field" required>
+                                <option value="">اختر الحالة</option>
+                                {unitStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="input-label">ربط بعميل (اختياري)</label>
+                            <select name="customerId" value={formData.customerId} onChange={handleChange} className="input-field">
+                                <option value="">بدون عميل</option>
+                                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="px-8 py-5 border-t border-white/20 bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-sm flex justify-end gap-4">
+                        <button type="button" onClick={onClose} className="btn-secondary">إلغاء</button>
+                        <button type="submit" className="btn-primary">حفظ</button>
+                    </div>
                 </form>
             </div>
         </div>
