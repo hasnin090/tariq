@@ -209,25 +209,29 @@ const ProjectPanel: React.FC<PanelProps> = ({ project, onClose, onSave }) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const inputStyle = "w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200";
-
     return (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 pt-20 animate-drawer-overlay-show" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-xl animate-fade-in-scale-up" onClick={e => e.stopPropagation()}>
-                <form onSubmit={handleSubmit} className="flex flex-col h-full">
-                    <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start">
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+        <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-md flex justify-center items-center p-4 animate-fade-in" onClick={onClose}>
+            <div className="backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 w-full max-w-2xl animate-scale-up overflow-hidden" onClick={e => e.stopPropagation()}>
+                <form onSubmit={handleSubmit} className="flex flex-col max-h-[calc(100vh-6rem)]">
+                    {/* Header */}
+                    <div className="px-8 py-5 border-b border-white/20 flex justify-between items-center bg-gradient-to-br from-white/10 to-transparent backdrop-blur-sm">
+                        <h2 className="text-2xl font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                             {project ? 'تعديل مشروع' : 'إضافة مشروع جديد'}
                         </h2>
-                        <button type="button" onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700">
-                            <CloseIcon className="h-6 w-6"/>
+                        <button 
+                            type="button" 
+                            onClick={onClose} 
+                            className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-rose-500/30 hover:text-rose-100 transition-all duration-300 border border-white/20 hover:scale-110 active:scale-95"
+                        >
+                            <CloseIcon className="h-5 w-5"/>
                         </button>
                     </div>
                     
-                    <div className="p-6 space-y-4">
+                    {/* Body */}
+                    <div className="px-8 py-6 space-y-5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-white/5">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                اسم المشروع *
+                            <label className="input-label">
+                                اسم المشروع <span className="text-rose-400">*</span>
                             </label>
                             <input 
                                 type="text" 
@@ -235,13 +239,13 @@ const ProjectPanel: React.FC<PanelProps> = ({ project, onClose, onSave }) => {
                                 placeholder="مثال: مشروع الياسمين" 
                                 value={formData.name} 
                                 onChange={handleChange} 
-                                className={inputStyle} 
+                                className="input-field" 
                                 required 
                             />
                         </div>
                         
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            <label className="input-label">
                                 الوصف
                             </label>
                             <textarea 
@@ -249,23 +253,24 @@ const ProjectPanel: React.FC<PanelProps> = ({ project, onClose, onSave }) => {
                                 placeholder="وصف المشروع..." 
                                 value={formData.description} 
                                 onChange={handleChange} 
-                                className={`${inputStyle} min-h-[120px] resize-none`}
+                                className="input-field"
                                 rows={4}
                             />
                         </div>
                     </div>
                     
-                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4">
+                    {/* Footer */}
+                    <div className="px-8 py-5 border-t border-white/20 bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-sm flex justify-end gap-4">
                         <button 
                             type="button" 
                             onClick={onClose} 
-                            className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold transition-colors"
+                            className="btn-secondary"
                         >
                             إلغاء
                         </button>
                         <button 
                             type="submit" 
-                            className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm transition-colors"
+                            className="btn-primary"
                         >
                             حفظ
                         </button>
