@@ -5,7 +5,8 @@
  * ويمنع تسريب المعلومات الحساسة في الإنتاج
  */
 
-const isDevelopment = import.meta.env.MODE === 'development';
+// @ts-ignore - Vite's import.meta.env
+const isDevelopment = (import.meta as any).env?.MODE === 'development' || process.env.NODE_ENV === 'development';
 
 /**
  * تسجيل رسالة معلوماتية (فقط في التطوير)
