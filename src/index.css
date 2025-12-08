@@ -15,12 +15,12 @@
 @layer components {
   .btn-primary {
     @apply px-8 py-3 rounded-xl;
-    @apply bg-gradient-to-r from-accent to-amber-500;
+    @apply bg-gradient-to-r from-amber-600 to-amber-500;
     @apply text-white font-bold;
-    @apply hover:from-amber-500 hover:to-accent;
-    @apply focus:ring-4 focus:ring-accent/30;
+    @apply hover:from-amber-500 hover:to-amber-600;
+    @apply focus:ring-4 focus:ring-amber-500/30;
     @apply transition-all duration-300;
-    @apply shadow-lg shadow-accent/30;
+    @apply shadow-lg shadow-amber-500/30;
     @apply hover:scale-105 active:scale-95;
   }
 
@@ -969,7 +969,7 @@
     @apply w-full px-4 py-3 rounded-xl;
     @apply backdrop-blur-sm bg-white/10 border border-white/20;
     @apply text-white placeholder-slate-300;
-    @apply focus:bg-white/15 focus:border-accent focus:ring-2 focus:ring-accent/30;
+    @apply focus:bg-white/15 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30;
     @apply transition-all duration-300;
     @apply shadow-inner;
   }
