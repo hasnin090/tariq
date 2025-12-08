@@ -974,16 +974,33 @@
     @apply shadow-lg;
   }
 
-  /* إخفاء أزرار الزيادة/النقصان في حقول الأرقام */
-  .input-field[type="number"]::-webkit-inner-spin-button,
-  .input-field[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+  /* إخفاء أزرار الزيادة/النقصان في حقول الأرقام - قواعد شاملة لجميع الحالات */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
   
-  .input-field[type="number"] {
-    -moz-appearance: textfield;
-    appearance: textfield;
+  input[type="number"] {
+    -moz-appearance: textfield !important;
+    appearance: textfield !important;
+  }
+  
+  input[type="number"]:hover::-webkit-inner-spin-button,
+  input[type="number"]:hover::-webkit-outer-spin-button,
+  input[type="number"]:focus::-webkit-inner-spin-button,
+  input[type="number"]:focus::-webkit-outer-spin-button {
+    -webkit-appearance: none !important;
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   .input-field:hover {

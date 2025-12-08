@@ -308,7 +308,7 @@ const SalePanel: React.FC<PanelProps> = ({ units, customers, accounts, onClose, 
             isOpen={true} 
             onClose={onClose} 
             title="تسجيل عملية بيع" 
-            size="md"
+            size="sm"
             footer={
                 <div className="flex justify-end gap-4 w-full">
                     <button type="button" onClick={onClose} className="btn-secondary">إلغاء</button>
