@@ -163,8 +163,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <CogIcon />, label: 'تخصيص', page: 'customization', adminOnly: true },
         { icon: <UserGroupIcon />, label: 'المستخدمون', page: 'users', adminOnly: true },
         { icon: <BellIcon />, label: 'الإشعارات', page: 'notifications', adminOnly: true },
-        { icon: <BriefcaseIcon />, label: 'ربط المشاريع والمستخدمين', page: 'project-user-management', adminOnly: true },
-        { icon: <UserGroupIcon />, label: 'إدارة الصلاحيات المتقدمة', page: 'user-permissions-manager', adminOnly: true },
+        { icon: <UserGroupIcon />, label: 'إدارة الصلاحيات', page: 'user-permissions-manager', adminOnly: true },
         { icon: <DocumentTextIcon />, label: 'استيراد البيانات', page: 'data-import', adminOnly: true },
     ];
 

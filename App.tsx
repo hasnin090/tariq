@@ -23,7 +23,6 @@ import FinancialSummary from './components/pages/sales/FinancialSummary';
 import Customization from './components/pages/sales/Customization';
 import Users from './components/pages/sales/Users';
 import Notifications from './components/pages/sales/Notifications';
-import ProjectUserManagement from './components/pages/sales/ProjectUserManagement';
 import ProjectsManagement from './components/pages/sales/ProjectsManagement';
 import BookingsArchive from './components/pages/sales/BookingsArchive';
 import GeneralArchive from './components/pages/sales/GeneralArchive';
@@ -236,13 +235,6 @@ const App: React.FC = () => {
         );
       
       case 'notifications': return <Notifications />;
-      
-      case 'project-user-management': 
-        return (
-          <ProtectedRoute allowedRoles={['Admin']} pageKey="project-user-management">
-            <ProjectUserManagement />
-          </ProtectedRoute>
-        );
       
       case 'user-permissions-manager': 
         return (
