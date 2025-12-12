@@ -4,6 +4,7 @@ import { documentsService } from '../../src/services/supabaseService';
 import { useToast } from '../../contexts/ToastContext';
 import { CloseIcon, UploadIcon, TrashIcon, FileIcon, SpinnerIcon } from './Icons';
 import Modal from './Modal';
+import { devError } from '../../utils/devLogger';
 
 interface DocumentManagerProps {
   isOpen: boolean;
@@ -43,14 +44,14 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
             const signedUrl = await documentsService.getSignedUrl(doc.storagePath, 86400);
             return { ...doc, publicUrl: signedUrl };
           } catch (error) {
-            console.error('Error generating signed URL:', error);
+            devError(error, 'DocumentManager: Error generating signed URL');
             return { ...doc, publicUrl: '' };
           }
         })
       );
       setDocuments(docsWithUrls);
     } catch (error) {
-      console.error('Error fetching documents:', error);
+      devError(error, 'DocumentManager: Error fetching documents');
       addToast('فشل في تحميل المستندات.', 'error');
     } finally {
       setIsLoading(false);
@@ -88,7 +89,7 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
       }
       addToast('تم رفع المستند بنجاح.', 'success');
     } catch (error) {
-      console.error('Error uploading document:', error);
+      devError(error, 'DocumentManager: Error uploading document');
       addToast('فشل في رفع المستند.', 'error');
     } finally {
       setIsUploading(false);
@@ -103,7 +104,7 @@ const DocumentManager: React.FC<DocumentManagerProps> = ({ isOpen, onClose, enti
       setDocuments(prev => prev.filter(d => d.id !== doc.id));
       addToast('تم حذف المستند بنجاح.', 'success');
     } catch (error) {
-      console.error('Error deleting document:', error);
+      devError(error, 'DocumentManager: Error deleting document');
       addToast('فشل في حذف المستند.', 'error');
     }
   };

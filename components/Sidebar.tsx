@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { InterfaceMode } from '../types.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { canAccessPage } from '../utils/permissions';
@@ -164,6 +164,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <UserGroupIcon />, label: 'المستخدمون', page: 'users', adminOnly: true },
         { icon: <BellIcon />, label: 'الإشعارات', page: 'notifications', adminOnly: true },
         { icon: <BriefcaseIcon />, label: 'ربط المشاريع والمستخدمين', page: 'project-user-management', adminOnly: true },
+        { icon: <UserGroupIcon />, label: 'إدارة الصلاحيات المتقدمة', page: 'user-permissions-manager', adminOnly: true },
         { icon: <DocumentTextIcon />, label: 'استيراد البيانات', page: 'data-import', adminOnly: true },
     ];
 
@@ -267,6 +268,29 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         setSystemLinks(defaultSystemLinks);
         setIsEditMode(false);
     };
+
+    // Helper function to check if user can access a page (uses custom permissions if available)
+    const userCanAccessPage = (page: string): boolean => {
+        if (!currentUser) return false;
+        
+        // المدير دائمًا لديه كل الصلاحيات (بدون تحذيرات)
+        if (currentUser.role === 'Admin') return true;
+        
+        // إذا توجد صلاحيات مخصصة للقوائم، استخدمها
+        const customMenuAccess = (currentUser as any).customMenuAccess;
+        
+        if (customMenuAccess && customMenuAccess.length > 0) {
+            const menuItem = customMenuAccess.find((m: any) => m.menuKey === page);
+            if (menuItem !== undefined) {
+                return menuItem.isVisible;
+            }
+            // إذا لم يوجد تخصيص لهذه القائمة، لا يمكن الوصول
+            return false;
+        }
+        
+        // الرجوع للصلاحيات الافتراضية حسب الدور
+        return canAccessPage(currentUser.role, page);
+    };
     
     let linksToShow: typeof defaultProjectsLinks = [];
     let sectionTitle = '';
@@ -274,22 +298,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     let currentSection: 'projects' | 'expenses' = 'projects';
 
     if (currentUser?.role === 'Sales') {
-        linksToShow = projectsLinks.filter(link => 
-            currentUser && canAccessPage(currentUser.role, link.page)
-        );
+        linksToShow = projectsLinks.filter(link => userCanAccessPage(link.page));
         sectionTitle = 'إدارة المبيعات';
         systemTitle = 'نظام عقاري';
         currentSection = 'projects';
     } else if (currentUser?.role === 'Accounting') {
-        linksToShow = expensesLinks.filter(link => 
-            currentUser && canAccessPage(currentUser.role, link.page)
-        );
+        linksToShow = expensesLinks.filter(link => userCanAccessPage(link.page));
         sectionTitle = 'الإدارة المحاسبية';
         systemTitle = 'نظام محاسبي';
         currentSection = 'expenses';
     } else if (isAdmin) {
-        linksToShow = interfaceMode === 'projects' ? projectsLinks : expensesLinks;
-        // Admin يرى كل الصفحات
+        // المدير أيضاً يتم تطبيق الفلترة عليه إذا كانت هناك صلاحيات مخصصة
+        const baseLinks = interfaceMode === 'projects' ? projectsLinks : expensesLinks;
+        linksToShow = baseLinks.filter(link => userCanAccessPage(link.page));
         sectionTitle = interfaceMode === 'projects' ? 'إدارة المبيعات' : 'الإدارة المحاسبية';
         systemTitle = interfaceMode === 'projects' ? 'نظام عقاري' : 'نظام محاسبي';
         currentSection = interfaceMode === 'projects' ? 'projects' : 'expenses';
@@ -351,7 +372,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                             {sectionTitle}
                         </h2>
                         <ul className="space-y-1">
-                            {linksToShow.filter(link => !link.adminOnly || isAdmin).map((link, index) => (
+                            {linksToShow.filter(link => {
+                                // إذا توجد صلاحيات مخصصة، تجاوز adminOnly
+                                const hasCustomPermissions = (currentUser as any)?.customMenuAccess?.length > 0;
+                                if (hasCustomPermissions) {
+                                    return true; // تم الفلترة مسبقاً في userCanAccessPage
+                                }
+                                // الرجوع للفحص الافتراضي
+                                return !link.adminOnly || isAdmin;
+                            }).map((link, index) => (
                                 <NavLink 
                                     key={link.page} 
                                     {...link} 
@@ -369,7 +398,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
 
                     {/* قائمة النظام المنسدلة - مفلترة حسب الصلاحيات */}
                     {currentUser && systemLinks.filter(link => 
-                        canAccessPage(currentUser.role, link.page)
+                        userCanAccessPage(link.page)
                     ).length > 0 && (
                         <div ref={systemMenuRef} className="mb-6">
                             {/* زر القائمة المنسدلة */}
@@ -400,7 +429,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                                 <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-2">
                                     <ul className="space-y-1">
                                         {systemLinks.filter(link => 
-                                            currentUser && canAccessPage(currentUser.role, link.page)
+                                            currentUser && userCanAccessPage(link.page)
                                         ).map((link, index) => (
                                             <NavLink 
                                                 key={link.page} 

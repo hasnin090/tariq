@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   Key,
   Check,
+  Shield,
 
   // UI Elements
   ChevronDown,
@@ -92,6 +93,7 @@ export const SearchIcon = (props: React.SVGProps<SVGSVGElement>) => <Search {...
 export const BellIcon = (props: React.SVGProps<SVGSVGElement>) => <Bell {...props} />;
 export const KeyIcon = (props: React.SVGProps<SVGSVGElement>) => <Key {...props} />;
 export const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => <Check {...props} />;
+export const ShieldIcon = (props: React.SVGProps<SVGSVGElement>) => <Shield strokeWidth={1.5} {...props} />;
 export const SwitchHorizontalIcon = (props: React.SVGProps<SVGSVGElement>) => <SwitchCamera {...props} />;
 export const MicrophoneIcon = (props: React.SVGProps<SVGSVGElement>) => <Mic {...props} />;
 export const CloseIcon = (props: React.SVGProps<SVGSVGElement>) => <X {...props} />;

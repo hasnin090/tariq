@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Unit, Customer, UnitSaleRecord, Payment, UnitStatus, Booking } from '../../types.ts';
-import { formatCurrency } from '../../utils/currencyFormatter.ts';
-import { BuildingIcon, UsersIcon, TrendingUpIcon, CreditCardIcon } from '../shared/Icons.tsx';
-import { unitsService, customersService, unitStatusesService, paymentsService, bookingsService } from '../../src/services/supabaseService';
-import { useProject } from '../../contexts/ProjectContext.tsx';
-import { useAuth } from '../../contexts/AuthContext.tsx';
-import ProjectSelector from '../shared/ProjectSelector.tsx';
+import { Unit, Customer, UnitSaleRecord, Payment, UnitStatus, Booking } from '../../../types.ts';
+import { formatCurrency } from '../../../utils/currencyFormatter.ts';
+import { BuildingIcon, UsersIcon, TrendingUpIcon, CreditCardIcon } from '../../shared/Icons.tsx';
+import { unitsService, customersService, unitStatusesService, paymentsService, bookingsService } from '../../../src/services/supabaseService';
+import { useProject } from '../../../contexts/ProjectContext.tsx';
+import { useAuth } from '../../../contexts/AuthContext.tsx';
+import ProjectSelector from '../../shared/ProjectSelector.tsx';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
     <div className="glass-card p-4 sm:p-6 hover:scale-[1.02] transition-all duration-300 flex items-center min-w-0">

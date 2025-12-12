@@ -1,0 +1,2395 @@
+-- ============================================================================
+-- إعادة هيكلة جدول الدفعات - نظام احترافي موحد
+-- ============================================================================
+
+-- 1. إنشاء جدول مؤقت للاحتفاظ بالبيانات القديمة
+DO $$
+BEGIN
+    -- نسخ البيانات من bookings (دفعات الحجز)
+    INSERT INTO public.payments (id, booking_id, amount, payment_date, created_at)
+    SELECT 
+        'booking_' || id as id,
+        id as booking_id,
+        amount_paid as amount,
+        booking_date as payment_date,
+        created_at
+    FROM public.bookings
+    WHERE amount_paid > 0
+    ON CONFLICT (id) DO NOTHING;
+END $$;
+
+-- 2. إضافة الأعمدة الجديدة لجدول payments
+ALTER TABLE public.payments 
+    ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'installment' 
+        CHECK (payment_type IN ('booking', 'installment', 'final')),
+    ADD COLUMN IF NOT EXISTS account_id TEXT REFERENCES public.accounts(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS notes TEXT,
+    ADD COLUMN IF NOT EXISTS created_by TEXT,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+-- 3. تحديث نوع الدفعات الموجودة
+UPDATE public.payments 
+SET payment_type = 'booking' 
+WHERE id LIKE 'booking_%';
+
+UPDATE public.payments 
+SET payment_type = 'installment' 
+WHERE payment_type IS NULL OR id NOT LIKE 'booking_%';
+
+-- 4. إنشاء Indexes لتحسين الأداء
+CREATE INDEX IF NOT EXISTS idx_payments_booking ON public.payments(booking_id);
+CREATE INDEX IF NOT EXISTS idx_payments_date ON public.payments(payment_date);
+CREATE INDEX IF NOT EXISTS idx_payments_account ON public.payments(account_id);
+CREATE INDEX IF NOT EXISTS idx_payments_type ON public.payments(payment_type);
+
+-- 5. إنشاء View لعرض البيانات الكاملة مع التفاصيل
+CREATE OR REPLACE VIEW payments_with_details AS
+SELECT 
+    p.id,
+    p.booking_id,
+    p.amount,
+    p.payment_date,
+    p.payment_type,
+    p.account_id,
+    a.name as account_name,
+    p.notes,
+    p.created_by,
+    b.customer_id,
+    c.name as customer_name,
+    b.unit_id,
+    u.unit_number as unit_name,
+    u.price as unit_price,
+    -- حساب الإجمالي المدفوع حتى هذه الدفعة (تراكمي)
+    (SELECT COALESCE(SUM(amount), 0) 
+     FROM public.payments 
+     WHERE booking_id = p.booking_id 
+     AND payment_date <= p.payment_date
+     AND (payment_date < p.payment_date OR id <= p.id)) as total_paid_so_far,
+    -- حساب المتبقي بعد هذه الدفعة
+    u.price - (SELECT COALESCE(SUM(amount), 0) 
+                FROM public.payments 
+                WHERE booking_id = p.booking_id 
+                AND payment_date <= p.payment_date
+                AND (payment_date < p.payment_date OR id <= p.id)) as remaining_amount,
+    p.created_at,
+    p.updated_at
+FROM public.payments p
+JOIN public.bookings b ON p.booking_id = b.id
+JOIN public.customers c ON b.customer_id = c.id
+JOIN public.units u ON b.unit_id = u.id
+LEFT JOIN public.accounts a ON p.account_id = a.id
+ORDER BY p.payment_date ASC, p.created_at ASC;
+
+-- 6. إنشاء Function لحساب إجمالي المدفوعات لحجز معين
+CREATE OR REPLACE FUNCTION get_booking_total_paid(p_booking_id TEXT)
+RETURNS NUMERIC AS $$
+DECLARE
+    v_total_paid NUMERIC;
+BEGIN
+    SELECT COALESCE(SUM(amount), 0) INTO v_total_paid
+    FROM public.payments
+    WHERE booking_id = p_booking_id;
+    
+    RETURN v_total_paid;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 7. إنشاء Function لحساب المتبقي لحجز معين
+CREATE OR REPLACE FUNCTION get_booking_remaining(p_booking_id TEXT)
+RETURNS NUMERIC AS $$
+DECLARE
+    v_unit_price NUMERIC;
+    v_total_paid NUMERIC;
+BEGIN
+    -- الحصول على سعر الوحدة
+    SELECT u.price INTO v_unit_price
+    FROM public.bookings b
+    JOIN public.units u ON b.unit_id = u.id
+    WHERE b.id = p_booking_id;
+    
+    -- حساب إجمالي المدفوعات
+    SELECT COALESCE(SUM(amount), 0) INTO v_total_paid
+    FROM public.payments
+    WHERE booking_id = p_booking_id;
+    
+    RETURN v_unit_price - v_total_paid;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 8. إنشاء Trigger لمنع تجاوز سعر الوحدة (حماية على مستوى قاعدة البيانات)
+CREATE OR REPLACE FUNCTION check_payment_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_unit_price NUMERIC;
+    v_total_paid NUMERIC;
+    v_unit_name TEXT;
+BEGIN
+    -- الحصول على سعر الوحدة واسمها
+    SELECT u.price, u.unit_number INTO v_unit_price, v_unit_name
+    FROM public.bookings b
+    JOIN public.units u ON b.unit_id = u.id
+    WHERE b.id = NEW.booking_id;
+    
+    -- التحقق من وجود الحجز
+    IF v_unit_price IS NULL THEN
+        RAISE EXCEPTION 'الحجز غير موجود';
+    END IF;
+    
+    -- حساب إجمالي المدفوعات (شامل الدفعة الجديدة/المحدثة)
+    SELECT COALESCE(SUM(amount), 0) + NEW.amount INTO v_total_paid
+    FROM public.payments
+    WHERE booking_id = NEW.booking_id
+    AND id != COALESCE(NEW.id, '');
+    
+    -- التحقق من عدم التجاوز
+    IF v_total_paid > v_unit_price THEN
+        RAISE EXCEPTION 'إجمالي الدفعات (%) يتجاوز سعر الوحدة % (%)', 
+            v_total_paid, v_unit_name, v_unit_price;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- إنشاء Trigger
+DROP TRIGGER IF EXISTS validate_payment_amount ON public.payments;
+CREATE TRIGGER validate_payment_amount
+BEFORE INSERT OR UPDATE ON public.payments
+FOR EACH ROW
+EXECUTE FUNCTION check_payment_limit();
+
+-- 9. إنشاء Trigger لتحديث حالة الوحدة عند اكتمال الدفع
+CREATE OR REPLACE FUNCTION update_unit_status_on_full_payment()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_unit_price NUMERIC;
+    v_total_paid NUMERIC;
+    v_unit_id TEXT;
+BEGIN
+    -- الحصول على معلومات الوحدة
+    SELECT b.unit_id, u.price INTO v_unit_id, v_unit_price
+    FROM public.bookings b
+    JOIN public.units u ON b.unit_id = u.id
+    WHERE b.id = NEW.booking_id;
+    
+    -- حساب إجمالي المدفوعات
+    SELECT COALESCE(SUM(amount), 0) INTO v_total_paid
+    FROM public.payments
+    WHERE booking_id = NEW.booking_id;
+    
+    -- إذا تم دفع كامل المبلغ، تحديث حالة الوحدة
+    IF v_total_paid >= v_unit_price THEN
+        UPDATE public.units
+        SET status = 'Sold'
+        WHERE id = v_unit_id;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- إنشاء Trigger
+DROP TRIGGER IF EXISTS update_unit_on_full_payment ON public.payments;
+CREATE TRIGGER update_unit_on_full_payment
+AFTER INSERT OR UPDATE ON public.payments
+FOR EACH ROW
+EXECUTE FUNCTION update_unit_status_on_full_payment();
+
+-- 10. إنشاء Trigger لتحديث حالة الوحدة عند إلغاء الحجز
+CREATE OR REPLACE FUNCTION update_unit_status_on_booking_cancel()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- عند تغيير حالة الحجز إلى Cancelled
+    IF NEW.status = 'Cancelled' AND OLD.status != 'Cancelled' THEN
+        -- تحديث حالة الوحدة إلى Available
+        UPDATE public.units
+        SET status = 'Available'
+        WHERE id = NEW.unit_id;
+        
+        RAISE NOTICE 'تم تحديث حالة الوحدة % إلى متاح بعد إلغاء الحجز', NEW.unit_id;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- إنشاء Trigger
+DROP TRIGGER IF EXISTS update_unit_on_booking_cancel ON public.bookings;
+CREATE TRIGGER update_unit_on_booking_cancel
+AFTER UPDATE ON public.bookings
+FOR EACH ROW
+WHEN (NEW.status = 'Cancelled' AND OLD.status != 'Cancelled')
+EXECUTE FUNCTION update_unit_status_on_booking_cancel();
+
+-- 11. إضافة تعليق على الجدول
+COMMENT ON TABLE public.payments IS 'جدول الدفعات الموحد - يحتوي على جميع الدفعات (الحجز والدفعات الإضافية)';
+COMMENT ON COLUMN public.payments.payment_type IS 'نوع الدفعة: booking=دفعة الحجز الأولى, installment=قسط, final=دفعة نهائية';
+
+-- ============================================================================
+-- ملاحظات مهمة:
+-- 1. تم دمج دفعة الحجز (booking.amount_paid) مع الدفعات الإضافية في جدول واحد
+-- 2. يتم التمييز بين الدفعات عن طريق حقل payment_type
+-- 3. Trigger يمنع تجاوز سعر الوحدة تلقائياً
+-- 4. Trigger يحدث حالة الوحدة تلقائياً عند إلغاء الحجز
+-- 5. View جاهز لعرض كل التفاصيل بدون تعقيد في الكود
+-- 6. Functions جاهزة لحساب الإجمالي والمتبقي
+-- ============================================================================
+00000000000000000000000000000000000000000000000000000000000000000000000000000
+-- ============================================================================
+-- إعادة هيكلة جدول الدفعات - نظام احترافي موحد
+-- ============================================================================
+
+-- 1. إنشاء جدول مؤقت للاحتفاظ بالبيانات القديمة
+DO $$
+BEGIN
+    -- نسخ البيانات من bookings (دفعات الحجز)
+    INSERT INTO public.payments (id, booking_id, amount, payment_date, created_at)
+    SELECT 
+        'booking_' || id as id,
+        id as booking_id,
+        amount_paid as amount,
+        booking_date as payment_date,
+        created_at
+    FROM public.bookings
+    WHERE amount_paid > 0
+    ON CONFLICT (id) DO NOTHING;
+END $$;
+
+-- 2. إضافة الأعمدة الجديدة لجدول payments
+ALTER TABLE public.payments 
+    ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'installment' 
+        CHECK (payment_type IN ('booking', 'installment', 'final')),
+    ADD COLUMN IF NOT EXISTS account_id TEXT REFERENCES public.accounts(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS notes TEXT,
+    ADD COLUMN IF NOT EXISTS created_by TEXT,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+-- 3. تحديث نوع الدفعات الموجودة
+UPDATE public.payments 
+SET payment_type = 'booking' 
+WHERE id LIKE 'booking_%';
+
+UPDATE public.payments 
+SET payment_type = 'installment' 
+WHERE payment_type IS NULL OR id NOT LIKE 'booking_%';
+
+-- 4. إنشاء Indexes لتحسين الأداء
+CREATE INDEX IF NOT EXISTS idx_payments_booking ON public.payments(booking_id);
+CREATE INDEX IF NOT EXISTS idx_payments_date ON public.payments(payment_date);
+CREATE INDEX IF NOT EXISTS idx_payments_account ON public.payments(account_id);
+CREATE INDEX IF NOT EXISTS idx_payments_type ON public.payments(payment_type);
+
+-- 5. إنشاء View لعرض البيانات الكاملة مع التفاصيل
+CREATE OR REPLACE VIEW payments_with_details AS
+SELECT 
+    p.id,
+    p.booking_id,
+    p.amount,
+    p.payment_date,
+    p.payment_type,
+    p.account_id,
+    a.name as account_name,
+    p.notes,
+    p.created_by,
+    b.customer_id,
+    c.name as customer_name,
+    b.unit_id,
+    u.unit_number as unit_name,
+    u.price as unit_price,
+    -- حساب الإجمالي المدفوع حتى هذه الدفعة (تراكمي)
+    (SELECT COALESCE(SUM(amount), 0) 
+     FROM public.payments 
+     WHERE booking_id = p.booking_id 
+     AND payment_date <= p.payment_date
+     AND (payment_date < p.payment_date OR id <= p.id)) as total_paid_so_far,
+    -- حساب المتبقي بعد هذه الدفعة
+    u.price - (SELECT COALESCE(SUM(amount), 0) 
+                FROM public.payments 
+                WHERE booking_id = p.booking_id 
+                AND payment_date <= p.payment_date
+                AND (payment_date < p.payment_date OR id <= p.id)) as remaining_amount,
+    p.created_at,
+    p.updated_at
+FROM public.payments p
+JOIN public.bookings b ON p.booking_id = b.id
+JOIN public.customers c ON b.customer_id = c.id
+JOIN public.units u ON b.unit_id = u.id
+LEFT JOIN public.accounts a ON p.account_id = a.id
+ORDER BY p.payment_date ASC, p.created_at ASC;
+
+-- 6. إنشاء Function لحساب إجمالي المدفوعات لحجز معين
+CREATE OR REPLACE FUNCTION get_booking_total_paid(p_booking_id TEXT)
+RETURNS NUMERIC AS $$
+DECLARE
+    v_total_paid NUMERIC;
+BEGIN
+    SELECT COALESCE(SUM(amount), 0) INTO v_total_paid
+    FROM public.payments
+    WHERE booking_id = p_booking_id;
+    
+    RETURN v_total_paid;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 7. إنشاء Function لحساب المتبقي لحجز معين
+CREATE OR REPLACE FUNCTION get_booking_remaining(p_booking_id TEXT)
+RETURNS NUMERIC AS $$
+DECLARE
+    v_unit_price NUMERIC;
+    v_total_paid NUMERIC;
+BEGIN
+    -- الحصول على سعر الوحدة
+    SELECT u.price INTO v_unit_price
+    FROM public.bookings b
+    JOIN public.units u ON b.unit_id = u.id
+    WHERE b.id = p_booking_id;
+    
+    -- حساب إجمالي المدفوعات
+    SELECT COALESCE(SUM(amount), 0) INTO v_total_paid
+    FROM public.payments
+    WHERE booking_id = p_booking_id;
+    
+    RETURN v_unit_price - v_total_paid;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 8. إنشاء Trigger لمنع تجاوز سعر الوحدة (حماية على مستوى قاعدة البيانات)
+CREATE OR REPLACE FUNCTION check_payment_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_unit_price NUMERIC;
+    v_total_paid NUMERIC;
+    v_unit_name TEXT;
+BEGIN
+    -- الحصول على سعر الوحدة واسمها
+    SELECT u.price, u.unit_number INTO v_unit_price, v_unit_name
+    FROM public.bookings b
+    JOIN public.units u ON b.unit_id = u.id
+    WHERE b.id = NEW.booking_id;
+    
+    -- التحقق من وجود الحجز
+    IF v_unit_price IS NULL THEN
+        RAISE EXCEPTION 'الحجز غير موجود';
+    END IF;
+    
+    -- حساب إجمالي المدفوعات (شامل الدفعة الجديدة/المحدثة)
+    SELECT COALESCE(SUM(amount), 0) + NEW.amount INTO v_total_paid
+    FROM public.payments
+    WHERE booking_id = NEW.booking_id
+    AND id != COALESCE(NEW.id, '');
+    
+    -- التحقق من عدم التجاوز
+    IF v_total_paid > v_unit_price THEN
+        RAISE EXCEPTION 'إجمالي الدفعات (%) يتجاوز سعر الوحدة % (%)', 
+            v_total_paid, v_unit_name, v_unit_price;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- إنشاء Trigger
+DROP TRIGGER IF EXISTS validate_payment_amount ON public.payments;
+CREATE TRIGGER validate_payment_amount
+BEFORE INSERT OR UPDATE ON public.payments
+FOR EACH ROW
+EXECUTE FUNCTION check_payment_limit();
+
+-- 9. إنشاء Trigger لتحديث حالة الوحدة عند اكتمال الدفع
+CREATE OR REPLACE FUNCTION update_unit_status_on_full_payment()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_unit_price NUMERIC;
+    v_total_paid NUMERIC;
+    v_unit_id TEXT;
+BEGIN
+    -- الحصول على معلومات الوحدة
+    SELECT b.unit_id, u.price INTO v_unit_id, v_unit_price
+    FROM public.bookings b
+    JOIN public.units u ON b.unit_id = u.id
+    WHERE b.id = NEW.booking_id;
+    
+    -- حساب إجمالي المدفوعات
+    SELECT COALESCE(SUM(amount), 0) INTO v_total_paid
+    FROM public.payments
+    WHERE booking_id = NEW.booking_id;
+    
+    -- إذا تم دفع كامل المبلغ، تحديث حالة الوحدة
+    IF v_total_paid >= v_unit_price THEN
+        UPDATE public.units
+        SET status = 'Sold'
+        WHERE id = v_unit_id;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- إنشاء Trigger
+DROP TRIGGER IF EXISTS update_unit_on_full_payment ON public.payments;
+CREATE TRIGGER update_unit_on_full_payment
+AFTER INSERT OR UPDATE ON public.payments
+FOR EACH ROW
+EXECUTE FUNCTION update_unit_status_on_full_payment();
+
+-- 10. إضافة تعليق على الجدول
+COMMENT ON TABLE public.payments IS 'جدول الدفعات الموحد - يحتوي على جميع الدفعات (الحجز والدفعات الإضافية)';
+COMMENT ON COLUMN public.payments.payment_type IS 'نوع الدفعة: booking=دفعة الحجز الأولى, installment=قسط, final=دفعة نهائية';
+
+-- ============================================================================
+-- ملاحظات مهمة:
+-- 1. تم دمج دفعة الحجز (booking.amount_paid) مع الدفعات الإضافية في جدول واحد
+-- 2. يتم التمييز بين الدفعات عن طريق حقل payment_type
+-- 3. Trigger يمنع تجاوز سعر الوحدة تلقائياً
+-- 4. View جاهز لعرض كل التفاصيل بدون تعقيد في الكود
+-- 5. Functions جاهزة لحساب الإجمالي والمتبقي
+-- ============================================================================
+00000000000000000000000000000000000000000000000000000000000000000000000
+-- ===============================================================
+-- إضافة عمود assigned_user_id إلى جدول projects
+-- ===============================================================
+-- انسخ هذا الملف بالكامل والصقه في Supabase SQL Editor
+-- ===============================================================
+
+-- إضافة عمود assigned_user_id إلى جدول projects
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'projects' 
+        AND column_name = 'assigned_user_id'
+    ) THEN
+        ALTER TABLE public.projects 
+        ADD COLUMN assigned_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL;
+        
+        RAISE NOTICE 'Column assigned_user_id added to projects table';
+    ELSE
+        RAISE NOTICE 'Column assigned_user_id already exists in projects table';
+    END IF;
+END $$;
+
+-- إضافة index للأداء
+CREATE INDEX IF NOT EXISTS idx_projects_assigned_user_id 
+ON public.projects(assigned_user_id);
+
+-- تحديث الـ comment
+COMMENT ON COLUMN public.projects.assigned_user_id IS 'معرف المستخدم المعين للمشروع (للمحاسبين والمبيعات)';
+
+-- ===============================================================
+-- تم الانتهاء
+-- ===============================================================
+00000000000000000000000000000000000000000000000000000000000000000000
+-- إضافة عمود project_id إلى جدول customers
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'customers' 
+        AND column_name = 'project_id'
+    ) THEN
+        ALTER TABLE public.customers 
+        ADD COLUMN project_id TEXT REFERENCES public.projects(id) ON DELETE SET NULL;
+        
+        RAISE NOTICE 'Column project_id added to customers table';
+    ELSE
+        RAISE NOTICE 'Column project_id already exists in customers table';
+    END IF;
+END $$;
+
+-- إضافة index للأداء
+CREATE INDEX IF NOT EXISTS idx_customers_project_id 
+ON public.customers(project_id);
+00000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000
+-- =====================================================
+-- تحسين RLS Policies لجدول activity_logs
+-- =====================================================
+
+-- حذف السياسات القديمة
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.activity_logs;
+DROP POLICY IF EXISTS "Enable insert for all users" ON public.activity_logs;
+DROP POLICY IF EXISTS "Enable update for all users" ON public.activity_logs;
+
+-- سياسة القراءة: الجميع يمكنه قراءة السجلات (مبسطة)
+CREATE POLICY "Users can read logs"
+ON public.activity_logs FOR SELECT
+USING (true);
+
+-- سياسة الإدراج: أي مستخدم يمكنه إضافة سجل
+CREATE POLICY "Users can insert logs"
+ON public.activity_logs FOR INSERT
+WITH CHECK (true);
+
+-- سياسة الحذف: الجميع يمكنه حذف السجلات (مبسطة)
+CREATE POLICY "Users can delete logs"
+ON public.activity_logs FOR DELETE
+USING (true);
+
+-- منع التعديل تماماً (السجلات يجب أن تكون immutable)
+-- لا نضيف سياسة UPDATE لأنه لن يكون هناك تعديل على السجلات
+
+COMMENT ON TABLE public.activity_logs IS 'جدول سجلات الأنشطة - محمي بـ RLS';
+
+
+000000000000000000000000000000000000000000000000000000000000000000000000000000
+-- =====================================================
+-- تشفير كلمات المرور الموجودة في قاعدة البيانات
+-- =====================================================
+-- تحذير: هذا الملف يجب تشغيله مرة واحدة فقط بعد تطبيق نظام bcrypt
+-- ملاحظة: bcrypt لا يمكن تشغيله مباشرة في PostgreSQL، لذلك سنستخدم حل بديل
+
+-- الخيار 1: تمكين pgcrypto extension لاستخدام crypt
+-- لكن pgcrypto.crypt لا يدعم bcrypt بنفس الطريقة
+
+-- الخيار 2 (الموصى به): إعادة تعيين كلمات المرور الافتراضية المشفرة
+-- هذا يتطلب تشغيل script من جانب التطبيق
+
+-- =====================================================
+-- الحل المؤقت: إعادة تعيين كلمات مرور المستخدمين الموجودين
+-- =====================================================
+
+-- خطوة 1: إضافة عمود مؤقت لتمييز المستخدمين الذين تم تشفير كلمات مرورهم
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password_migrated BOOLEAN DEFAULT FALSE;
+
+-- خطوة 2: إنشاء جدول مؤقت لحفظ معلومات المستخدمين الذين يحتاجون إعادة تعيين كلمة المرور
+CREATE TABLE IF NOT EXISTS public.password_migration_log (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    old_password_hash TEXT,
+    migration_date TIMESTAMPTZ DEFAULT NOW(),
+    migration_status TEXT DEFAULT 'pending' CHECK (migration_status IN ('pending', 'completed', 'failed'))
+);
+
+-- خطوة 3: حفظ معلومات المستخدمين الذين يحتاجون تشفير كلمة المرور
+INSERT INTO public.password_migration_log (user_id, old_password_hash, migration_status)
+SELECT 
+    id,
+    password,
+    'pending'
+FROM public.users
+WHERE password_migrated = FALSE;
+
+-- =====================================================
+-- ملاحظات مهمة للمسؤول:
+-- =====================================================
+-- 1. يجب تشغيل script TypeScript لتشفير كلمات المرور الفعلية
+-- 2. بعد تشغيل الـ script، سيتم تحديث حقل password_migrated إلى TRUE
+-- 3. يمكن حذف جدول password_migration_log بعد التأكد من نجاح العملية
+
+-- =====================================================
+-- إنشاء دالة لتحديث حالة التشفير (يستخدمها التطبيق)
+-- =====================================================
+CREATE OR REPLACE FUNCTION public.mark_password_migrated(user_id_param UUID)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE public.users 
+    SET password_migrated = TRUE 
+    WHERE id = user_id_param;
+    
+    UPDATE public.password_migration_log 
+    SET migration_status = 'completed', migration_date = NOW() 
+    WHERE user_id = user_id_param;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =====================================================
+-- عرض المستخدمين الذين لم يتم تشفير كلمات مرورهم بعد
+-- =====================================================
+COMMENT ON TABLE public.password_migration_log IS 'جدول مؤقت لتتبع عملية تشفير كلمات المرور للمستخدمين الموجودين';
+COMMENT ON COLUMN public.users.password_migrated IS 'حقل يوضح ما إذا تم تشفير كلمة مرور المستخدم باستخدام bcrypt';
+
+-- استعلام لعرض حالة التشفير
+SELECT 
+    u.id,
+    u.username,
+    u.name,
+    u.password_migrated,
+    pml.migration_status,
+    pml.migration_date
+FROM public.users u
+LEFT JOIN public.password_migration_log pml ON u.id = pml.user_id
+ORDER BY u.created_at;
+
+0000000000000000000000000000000000000000000000000
+
+ALTER TABLE public.units DROP CONSTRAINT IF EXISTS units_status_check;
+ALTER TABLE public.units 
+ADD CONSTRAINT units_status_check 
+CHECK (status IN ('Available', 'Booked', 'Sold'));
+00000000000000000000000000000000000000000000000000000000
+-- التحقق من قيد status في جدول units
+SELECT 
+    conname AS constraint_name,
+    contype AS constraint_type,
+    pg_get_constraintdef(oid) AS constraint_definition
+FROM 
+    pg_constraint
+WHERE 
+    conrelid = 'public.units'::regclass
+    AND conname LIKE '%status%';
+
+-- عرض جميع القيود على جدول units
+SELECT 
+    conname AS constraint_name,
+    contype AS constraint_type,
+    pg_get_constraintdef(oid) AS constraint_definition
+FROM 
+    pg_constraint
+WHERE 
+    conrelid = 'public.units'::regclass;
+
+-- الحل: حذف القيد القديم وإنشاء واحد جديد يقبل القيم الصحيحة
+-- تشغيل هذا فقط إذا كان القيد موجوداً ويسبب مشاكل
+
+-- الخيار 1: حذف القيد تماماً (إذا لم نحتاج إلى التحقق)
+-- ALTER TABLE public.units DROP CONSTRAINT IF EXISTS units_status_check;
+
+-- الخيار 2: تحديث القيد ليقبل القيم المستخدمة في التطبيق
+-- أولاً احذف القيد القديم
+ALTER TABLE public.units DROP CONSTRAINT IF EXISTS units_status_check;
+
+-- ثم أضف قيد جديد بالقيم الصحيحة
+ALTER TABLE public.units 
+ADD CONSTRAINT units_status_check 
+CHECK (status IN ('Available', 'Booked', 'Sold'));
+00000000000000000000000000000000000000000000000000000000000
+-- Test inserting a simple expense directly in SQL
+-- This will help us identify if the problem is in the data or the API
+
+-- Test 1: Insert with minimal required fields only
+INSERT INTO public.expenses (
+    id,
+    expense_date,
+    description,
+    amount
+) VALUES (
+    'test_expense_001',
+    '2025-12-03',
+    'Test expense',
+    100.00
+);
+
+-- If the above works, test with all fields including NULLs
+INSERT INTO public.expenses (
+    id,
+    expense_date,
+    description,
+    amount,
+    category_id,
+    project_id,
+    account_id,
+    vendor_id,
+    transaction_id,
+    deferred_payment_installment_id,
+    employee_id
+) VALUES (
+    'test_expense_002',
+    '2025-12-03',
+    'Test expense with all fields',
+    200.00,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+);
+
+-- Check if inserts succeeded
+SELECT * FROM public.expenses WHERE id LIKE 'test_expense%';
+
+-- Clean up test data
+-- DELETE FROM public.expenses WHERE id LIKE 'test_expense%';
+0000000000000000000000000000000000000000000000000000000000000000000000
+SELECT tablename, rowsecurity 
+FROM pg_tables 
+WHERE schemaname = 'public' AND tablename = 'expenses';
+
+SELECT * FROM pg_policies 
+WHERE schemaname = 'public' AND tablename = 'expenses';
+00000000000000000000000000000000000000000000000000000000000000
+-- Run this query in Supabase SQL Editor to check the current expenses table structure
+-- This will show you all columns in the expenses table
+
+SELECT 
+    column_name,
+    data_type,
+    is_nullable,
+    column_default
+FROM 
+    information_schema.columns
+WHERE 
+    table_schema = 'public' 
+    AND table_name = 'expenses'
+ORDER BY 
+    ordinal_position;
+
+-- Expected columns you should see:
+-- id, expense_date, description, amount, category_id, project_id, 
+-- account_id, vendor_id, transaction_id, deferred_payment_installment_id, 
+-- employee_id, created_at, updated_at
+
+-- If you DON'T see transaction_id, deferred_payment_installment_id, or employee_id,
+-- then you MUST run the migration from add-expenses-columns.sql
+
+00000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+
+-- Add missing columns to expenses table
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'expenses' 
+        AND column_name = 'transaction_id'
+    ) THEN
+        ALTER TABLE public.expenses ADD COLUMN transaction_id TEXT;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'expenses' 
+        AND column_name = 'deferred_payment_installment_id'
+    ) THEN
+        ALTER TABLE public.expenses ADD COLUMN deferred_payment_installment_id TEXT;
+    END IF;
+END $$;
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'expenses' 
+        AND column_name = 'employee_id'
+    ) THEN
+        ALTER TABLE public.expenses ADD COLUMN employee_id TEXT;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_expenses_transaction_id ON public.expenses(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_employee_id ON public.expenses(employee_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_deferred_payment_installment_id ON public.expenses(deferred_payment_installment_id);
+
+00000000000000000000000000000000000000000000000000000000000000000000000000000
+
+
+-- حذف السياسات الحالية
+DROP POLICY IF EXISTS "authenticated_upload" ON storage.objects;
+DROP POLICY IF EXISTS "authenticated_read" ON storage.objects;
+DROP POLICY IF EXISTS "authenticated_update" ON storage.objects;
+DROP POLICY IF EXISTS "authenticated_delete" ON storage.objects;
+
+-- سياسات جديدة تسمح للجميع (مؤقتاً للاختبار)
+CREATE POLICY "public_upload"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'documents');
+
+CREATE POLICY "public_read"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'documents');
+
+CREATE POLICY "public_update"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'documents')
+WITH CHECK (bucket_id = 'documents');
+
+CREATE POLICY "public_delete"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'documents');
+
+0000000000000000000000000000000000000000000000000000000000000000000000
+-- إنشاء bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('documents', 'documents', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- حذف السياسات القديمة
+DROP POLICY IF EXISTS "Allow authenticated upload" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated read" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated update" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated delete" ON storage.objects;
+
+-- إنشاء سياسات جديدة
+CREATE POLICY "Allow authenticated upload"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'documents');
+
+CREATE POLICY "Allow authenticated read"
+ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'documents');
+
+CREATE POLICY "Allow authenticated update"
+ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = 'documents');
+
+CREATE POLICY "Allow authenticated delete"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'documents');
+0000000000000000000000000000000000000000000000000
+
+-- حذف العملة الخاطئة
+DELETE FROM settings WHERE key = 'systemCurrency';
+
+-- إضافة العملة الصحيحة
+INSERT INTO settings (key, value, updated_at)
+VALUES ('systemCurrency', 'IQD', NOW());
+
+000000000000000000000000000000000000000000000000000000
+
+-- Clean Up Invalid Currency Codes in Database
+-- Run this in Supabase SQL Editor to fix all invalid currency codes
+
+-- 1. First, let's see what invalid currency codes exist
+SELECT key, value 
+FROM settings 
+WHERE key = 'systemCurrency' 
+AND (value IS NULL OR length(value) != 3 OR value !~ '^[A-Z]{3}$');
+
+-- 2. Update invalid currency codes to IQD
+UPDATE settings 
+SET value = 'IQD', 
+    updated_at = NOW()
+WHERE key = 'systemCurrency' 
+AND (value IS NULL OR length(value) != 3 OR value !~ '^[A-Z]{3}$');
+
+-- 3. If no systemCurrency exists, insert it
+INSERT INTO settings (key, value, updated_at)
+VALUES ('systemCurrency', 'IQD', NOW())
+ON CONFLICT (key) DO NOTHING;
+
+-- 4. Verify the fix
+SELECT key, value, updated_at 
+FROM settings 
+WHERE key = 'systemCurrency';
+
+-- Expected result: systemCurrency = 'IQD' (or another valid 3-letter code)
+
+0000000000000000000000000000000000000000000000000000000000000000000000000000
+
+
+-- Fix Storage RLS Policies for Documents Bucket
+-- This script adds necessary RLS policies for the 'documents' storage bucket
+
+-- First, ensure the bucket exists (if not created yet)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('documents', 'documents', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Allow authenticated users to upload documents" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to read documents" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to update documents" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to delete documents" ON storage.objects;
+
+-- Policy 1: Allow authenticated users to INSERT (upload) documents
+CREATE POLICY "Allow authenticated users to upload documents"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'documents');
+
+-- Policy 2: Allow authenticated users to SELECT (read) documents
+CREATE POLICY "Allow authenticated users to read documents"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (bucket_id = 'documents');
+
+-- Policy 3: Allow authenticated users to UPDATE documents
+CREATE POLICY "Allow authenticated users to update documents"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (bucket_id = 'documents')
+WITH CHECK (bucket_id = 'documents');
+
+-- Policy 4: Allow authenticated users to DELETE documents
+CREATE POLICY "Allow authenticated users to delete documents"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (bucket_id = 'documents');
+
+-- Verify policies
+SELECT 
+    schemaname,
+    tablename,
+    policyname,
+    permissive,
+    roles,
+    cmd,
+    qual,
+    with_check
+FROM pg_policies
+WHERE tablename = 'objects'
+AND policyname LIKE '%documents%'
+ORDER BY policyname;
+
+000000000000000000000000000000000000000000000000000000000000000000
+
+-- ============================================================================
+-- إصلاح سياسات RLS بشكل آمن (يتحقق من وجود الجداول)
+-- ============================================================================
+
+-- حذف جميع السياسات القديمة
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT schemaname, tablename, policyname 
+              FROM pg_policies 
+              WHERE schemaname = 'public') 
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', 
+                       r.policyname, r.schemaname, r.tablename);
+    END LOOP;
+END $$;
+
+-- إنشاء السياسات فقط للجداول الموجودة
+DO $$
+BEGIN
+    -- سياسات المستخدمين
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users') THEN
+        EXECUTE 'CREATE POLICY "users_select_policy" ON public.users FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "users_insert_policy" ON public.users FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "users_update_policy" ON public.users FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "users_delete_policy" ON public.users FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات الإعدادات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'settings') THEN
+        EXECUTE 'CREATE POLICY "settings_select_policy" ON public.settings FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "settings_insert_policy" ON public.settings FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "settings_update_policy" ON public.settings FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "settings_delete_policy" ON public.settings FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات المشاريع
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'projects') THEN
+        EXECUTE 'CREATE POLICY "projects_select_policy" ON public.projects FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "projects_insert_policy" ON public.projects FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "projects_update_policy" ON public.projects FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "projects_delete_policy" ON public.projects FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات الوحدات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'units') THEN
+        EXECUTE 'CREATE POLICY "units_select_policy" ON public.units FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "units_insert_policy" ON public.units FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "units_update_policy" ON public.units FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "units_delete_policy" ON public.units FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات العملاء
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'customers') THEN
+        EXECUTE 'CREATE POLICY "customers_select_policy" ON public.customers FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "customers_insert_policy" ON public.customers FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "customers_update_policy" ON public.customers FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "customers_delete_policy" ON public.customers FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات الحجوزات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'bookings') THEN
+        EXECUTE 'CREATE POLICY "bookings_select_policy" ON public.bookings FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "bookings_insert_policy" ON public.bookings FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "bookings_update_policy" ON public.bookings FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "bookings_delete_policy" ON public.bookings FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات المدفوعات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'payments') THEN
+        EXECUTE 'CREATE POLICY "payments_select_policy" ON public.payments FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "payments_insert_policy" ON public.payments FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "payments_update_policy" ON public.payments FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "payments_delete_policy" ON public.payments FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات مبيعات الوحدات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'unit_sales') THEN
+        EXECUTE 'CREATE POLICY "unit_sales_select_policy" ON public.unit_sales FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "unit_sales_insert_policy" ON public.unit_sales FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "unit_sales_update_policy" ON public.unit_sales FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "unit_sales_delete_policy" ON public.unit_sales FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات المصروفات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'expenses') THEN
+        EXECUTE 'CREATE POLICY "expenses_select_policy" ON public.expenses FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "expenses_insert_policy" ON public.expenses FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "expenses_update_policy" ON public.expenses FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "expenses_delete_policy" ON public.expenses FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات الموظفين
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'employees') THEN
+        EXECUTE 'CREATE POLICY "employees_select_policy" ON public.employees FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "employees_insert_policy" ON public.employees FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "employees_update_policy" ON public.employees FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "employees_delete_policy" ON public.employees FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات الموردين
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'vendors') THEN
+        EXECUTE 'CREATE POLICY "vendors_select_policy" ON public.vendors FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "vendors_insert_policy" ON public.vendors FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "vendors_update_policy" ON public.vendors FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "vendors_delete_policy" ON public.vendors FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات فئات المصروفات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'expense_categories') THEN
+        EXECUTE 'CREATE POLICY "expense_categories_select_policy" ON public.expense_categories FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "expense_categories_insert_policy" ON public.expense_categories FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "expense_categories_update_policy" ON public.expense_categories FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "expense_categories_delete_policy" ON public.expense_categories FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات أنواع الوحدات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'unit_types') THEN
+        EXECUTE 'CREATE POLICY "unit_types_select_policy" ON public.unit_types FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "unit_types_insert_policy" ON public.unit_types FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "unit_types_update_policy" ON public.unit_types FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "unit_types_delete_policy" ON public.unit_types FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات حالات الوحدات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'unit_statuses') THEN
+        EXECUTE 'CREATE POLICY "unit_statuses_select_policy" ON public.unit_statuses FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "unit_statuses_insert_policy" ON public.unit_statuses FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "unit_statuses_update_policy" ON public.unit_statuses FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "unit_statuses_delete_policy" ON public.unit_statuses FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات الحسابات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'accounts') THEN
+        EXECUTE 'CREATE POLICY "accounts_select_policy" ON public.accounts FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "accounts_insert_policy" ON public.accounts FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "accounts_update_policy" ON public.accounts FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "accounts_delete_policy" ON public.accounts FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات المعاملات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'transactions') THEN
+        EXECUTE 'CREATE POLICY "transactions_select_policy" ON public.transactions FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "transactions_insert_policy" ON public.transactions FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "transactions_update_policy" ON public.transactions FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "transactions_delete_policy" ON public.transactions FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات المستندات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'documents') THEN
+        EXECUTE 'CREATE POLICY "documents_select_policy" ON public.documents FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "documents_insert_policy" ON public.documents FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "documents_update_policy" ON public.documents FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "documents_delete_policy" ON public.documents FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات سجل النشاطات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'activity_logs') THEN
+        EXECUTE 'CREATE POLICY "activity_logs_select_policy" ON public.activity_logs FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "activity_logs_insert_policy" ON public.activity_logs FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "activity_logs_update_policy" ON public.activity_logs FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "activity_logs_delete_policy" ON public.activity_logs FOR DELETE USING (true)';
+    END IF;
+
+    -- سياسات الإشعارات
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'notifications') THEN
+        EXECUTE 'CREATE POLICY "notifications_select_policy" ON public.notifications FOR SELECT USING (true)';
+        EXECUTE 'CREATE POLICY "notifications_insert_policy" ON public.notifications FOR INSERT WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "notifications_update_policy" ON public.notifications FOR UPDATE USING (true) WITH CHECK (true)';
+        EXECUTE 'CREATE POLICY "notifications_delete_policy" ON public.notifications FOR DELETE USING (true)';
+    END IF;
+END $$;
+
+-- ============================================================================
+-- تم إصلاح السياسات بنجاح!
+-- ============================================================================
+
+000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+-- ============================================================================
+-- إنشاء جميع الجداول المطلوبة للنظام
+-- ============================================================================
+
+-- 1. جدول المستخدمين (Users) - موجود مسبقاً، نضيف الأعمدة المطلوبة فقط
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS username TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE public.users ALTER COLUMN email DROP NOT NULL;
+
+-- إضافة قيد UNIQUE على username إذا لم يكن موجوداً
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'users_username_key'
+    ) THEN
+        ALTER TABLE public.users ADD CONSTRAINT users_username_key UNIQUE (username);
+    END IF;
+END $$;
+
+-- تحديث المستخدمين الحاليين
+UPDATE public.users 
+SET username = LOWER(REPLACE(name, ' ', '_')),
+    password = '123456'
+WHERE username IS NULL OR password IS NULL;
+
+-- جعل الحقول إلزامية
+ALTER TABLE public.users ALTER COLUMN username SET NOT NULL;
+ALTER TABLE public.users ALTER COLUMN password SET NOT NULL;
+
+-- 2. جدول الإعدادات (Settings) - موجود مسبقاً
+-- لا حاجة لتعديل
+
+-- 3. جدول المشاريع (Projects) - موجود مسبقاً
+-- لا حاجة لتعديل
+
+-- 4. جدول الوحدات (Units) - موجود مسبقاً
+-- لا حاجة لتعديل
+
+-- 5. جدول العملاء (Customers) - موجود مسبقاً
+-- لا حاجة لتعديل
+
+-- 6. جدول الحجوزات (Bookings) - موجود مسبقاً
+-- لا حاجة لتعديل
+
+-- 7. جدول المدفوعات (Payments) - موجود مسبقاً
+-- لا حاجة لتعديل
+
+-- 8. جدول مبيعات الوحدات (Unit Sales)
+CREATE TABLE IF NOT EXISTS public.unit_sales (
+    id TEXT PRIMARY KEY,
+    unit_id TEXT REFERENCES public.units(id) ON DELETE CASCADE,
+    unit_name TEXT,
+    customer_id TEXT REFERENCES public.customers(id),
+    customer_name TEXT,
+    sale_price NUMERIC(15, 2),
+    final_sale_price NUMERIC(15, 2),
+    sale_date DATE NOT NULL,
+    documents JSONB DEFAULT '[]',
+    account_id TEXT,
+    transaction_id TEXT,
+    project_id TEXT REFERENCES public.projects(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. جدول المصروفات (Expenses)
+CREATE TABLE IF NOT EXISTS public.expenses (
+    id TEXT PRIMARY KEY,
+    expense_date DATE NOT NULL,
+    description TEXT NOT NULL,
+    amount NUMERIC(15, 2) NOT NULL,
+    category_id TEXT,
+    project_id TEXT REFERENCES public.projects(id),
+    account_id TEXT,
+    vendor_id TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 10. جدول الموظفين (Employees)
+CREATE TABLE IF NOT EXISTS public.employees (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    position TEXT,
+    salary NUMERIC(15, 2),
+    phone TEXT,
+    email TEXT,
+    hire_date DATE,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 11. جدول الموردين (Vendors)
+CREATE TABLE IF NOT EXISTS public.vendors (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    contact_person TEXT,
+    phone TEXT,
+    email TEXT,
+    address TEXT,
+    notes TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 12. جدول فئات المصروفات (Expense Categories)
+CREATE TABLE IF NOT EXISTS public.expense_categories (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 13. جدول أنواع الوحدات (Unit Types)
+CREATE TABLE IF NOT EXISTS public.unit_types (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 14. جدول حالات الوحدات (Unit Statuses)
+CREATE TABLE IF NOT EXISTS public.unit_statuses (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 15. جدول الحسابات (Accounts)
+CREATE TABLE IF NOT EXISTS public.accounts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    account_type TEXT NOT NULL CHECK (account_type IN ('Bank', 'Cash')),
+    balance NUMERIC(15, 2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 16. جدول المعاملات (Transactions)
+CREATE TABLE IF NOT EXISTS public.transactions (
+    id TEXT PRIMARY KEY,
+    account_id TEXT REFERENCES public.accounts(id) ON DELETE CASCADE,
+    account_name TEXT,
+    type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+    date DATE NOT NULL,
+    description TEXT,
+    amount NUMERIC(15, 2) NOT NULL,
+    source_id TEXT,
+    source_type TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.documents (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT REFERENCES public.customers(id) ON DELETE CASCADE,
+    booking_id TEXT REFERENCES public.bookings(id) ON DELETE CASCADE,
+    sale_id TEXT,
+    file_name TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+    file_type TEXT,
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- تأكد من وجود عمود sale_id في جدول المستندات (Documents)
+ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS sale_id TEXT;
+
+-- 18. جدول سجل النشاطات (Activity Logs)
+CREATE TABLE IF NOT EXISTS public.activity_logs (
+    id SERIAL PRIMARY KEY,
+    action TEXT NOT NULL,
+    details TEXT,
+    user_id UUID REFERENCES public.users(id),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 19. جدول الإشعارات (Notifications)
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL CHECK (type IN ('password_reset', 'general', 'alert')),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    username TEXT,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    resolved_by UUID REFERENCES public.users(id)
+);
+
+-- ============================================================================
+-- إنشاء الفهارس (Indexes) لتحسين الأداء
+-- ============================================================================
+
+-- فهارس جدول المصروفات
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON public.expenses(expense_date DESC);
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON public.expenses(category_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_project ON public.expenses(project_id);
+
+-- فهارس جدول مبيعات الوحدات
+CREATE INDEX IF NOT EXISTS idx_unit_sales_date ON public.unit_sales(sale_date DESC);
+CREATE INDEX IF NOT EXISTS idx_unit_sales_unit ON public.unit_sales(unit_id);
+CREATE INDEX IF NOT EXISTS idx_unit_sales_customer ON public.unit_sales(customer_id);
+
+-- فهارس جدول المعاملات
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions(date DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_account ON public.transactions(account_id);
+
+-- فهارس جدول الإشعارات
+CREATE INDEX IF NOT EXISTS idx_notifications_type ON public.notifications(type);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON public.notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at DESC);
+
+-- فهارس جدول المستندات
+CREATE INDEX IF NOT EXISTS idx_documents_customer ON public.documents(customer_id);
+CREATE INDEX IF NOT EXISTS idx_documents_booking ON public.documents(booking_id);
+CREATE INDEX IF NOT EXISTS idx_documents_sale ON public.documents(sale_id);
+
+-- فهارس جدول سجل النشاطات
+CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON public.activity_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON public.activity_logs(user_id);
+
+-- ============================================================================
+-- تفعيل Row Level Security (RLS) على جميع الجداول
+-- ============================================================================
+
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.units ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.unit_sales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expense_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.unit_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.unit_statuses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- إنشاء سياسات RLS (Row Level Security Policies)
+-- ============================================================================
+
+-- حذف السياسات القديمة أولاً
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT schemaname, tablename, policyname 
+              FROM pg_policies 
+              WHERE schemaname = 'public') 
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', 
+                       r.policyname, r.schemaname, r.tablename);
+    END LOOP;
+END $$;
+
+-- سياسات المستخدمين
+CREATE POLICY "Allow users read" ON public.users FOR SELECT USING (true);
+CREATE POLICY "Allow users insert" ON public.users FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow users update" ON public.users FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow users delete" ON public.users FOR DELETE USING (true);
+
+-- سياسات الإعدادات
+CREATE POLICY "Allow settings read" ON public.settings FOR SELECT USING (true);
+CREATE POLICY "Allow settings update" ON public.settings FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow settings insert" ON public.settings FOR INSERT WITH CHECK (true);
+
+-- سياسات عامة لباقي الجداول (الوصول الكامل)
+CREATE POLICY "projects_select_policy" ON public.projects FOR SELECT USING (true);
+CREATE POLICY "projects_insert_policy" ON public.projects FOR INSERT WITH CHECK (true);
+CREATE POLICY "projects_update_policy" ON public.projects FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "projects_delete_policy" ON public.projects FOR DELETE USING (true);
+
+CREATE POLICY "units_select_policy" ON public.units FOR SELECT USING (true);
+CREATE POLICY "units_insert_policy" ON public.units FOR INSERT WITH CHECK (true);
+CREATE POLICY "units_update_policy" ON public.units FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "units_delete_policy" ON public.units FOR DELETE USING (true);
+
+CREATE POLICY "customers_select_policy" ON public.customers FOR SELECT USING (true);
+CREATE POLICY "customers_insert_policy" ON public.customers FOR INSERT WITH CHECK (true);
+CREATE POLICY "customers_update_policy" ON public.customers FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "customers_delete_policy" ON public.customers FOR DELETE USING (true);
+
+CREATE POLICY "bookings_select_policy" ON public.bookings FOR SELECT USING (true);
+CREATE POLICY "bookings_insert_policy" ON public.bookings FOR INSERT WITH CHECK (true);
+CREATE POLICY "bookings_update_policy" ON public.bookings FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "bookings_delete_policy" ON public.bookings FOR DELETE USING (true);
+
+CREATE POLICY "payments_select_policy" ON public.payments FOR SELECT USING (true);
+CREATE POLICY "payments_insert_policy" ON public.payments FOR INSERT WITH CHECK (true);
+CREATE POLICY "payments_update_policy" ON public.payments FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "payments_delete_policy" ON public.payments FOR DELETE USING (true);
+
+CREATE POLICY "unit_sales_select_policy" ON public.unit_sales FOR SELECT USING (true);
+CREATE POLICY "unit_sales_insert_policy" ON public.unit_sales FOR INSERT WITH CHECK (true);
+CREATE POLICY "unit_sales_update_policy" ON public.unit_sales FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "unit_sales_delete_policy" ON public.unit_sales FOR DELETE USING (true);
+
+CREATE POLICY "expenses_select_policy" ON public.expenses FOR SELECT USING (true);
+CREATE POLICY "expenses_insert_policy" ON public.expenses FOR INSERT WITH CHECK (true);
+CREATE POLICY "expenses_update_policy" ON public.expenses FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "expenses_delete_policy" ON public.expenses FOR DELETE USING (true);
+
+CREATE POLICY "employees_select_policy" ON public.employees FOR SELECT USING (true);
+CREATE POLICY "employees_insert_policy" ON public.employees FOR INSERT WITH CHECK (true);
+CREATE POLICY "employees_update_policy" ON public.employees FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "employees_delete_policy" ON public.employees FOR DELETE USING (true);
+
+CREATE POLICY "vendors_select_policy" ON public.vendors FOR SELECT USING (true);
+CREATE POLICY "vendors_insert_policy" ON public.vendors FOR INSERT WITH CHECK (true);
+CREATE POLICY "vendors_update_policy" ON public.vendors FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "vendors_delete_policy" ON public.vendors FOR DELETE USING (true);
+
+CREATE POLICY "expense_categories_select_policy" ON public.expense_categories FOR SELECT USING (true);
+CREATE POLICY "expense_categories_insert_policy" ON public.expense_categories FOR INSERT WITH CHECK (true);
+CREATE POLICY "expense_categories_update_policy" ON public.expense_categories FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "expense_categories_delete_policy" ON public.expense_categories FOR DELETE USING (true);
+
+CREATE POLICY "unit_types_select_policy" ON public.unit_types FOR SELECT USING (true);
+CREATE POLICY "unit_types_insert_policy" ON public.unit_types FOR INSERT WITH CHECK (true);
+CREATE POLICY "unit_types_update_policy" ON public.unit_types FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "unit_types_delete_policy" ON public.unit_types FOR DELETE USING (true);
+
+CREATE POLICY "unit_statuses_select_policy" ON public.unit_statuses FOR SELECT USING (true);
+CREATE POLICY "unit_statuses_insert_policy" ON public.unit_statuses FOR INSERT WITH CHECK (true);
+CREATE POLICY "unit_statuses_update_policy" ON public.unit_statuses FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "unit_statuses_delete_policy" ON public.unit_statuses FOR DELETE USING (true);
+
+CREATE POLICY "accounts_select_policy" ON public.accounts FOR SELECT USING (true);
+CREATE POLICY "accounts_insert_policy" ON public.accounts FOR INSERT WITH CHECK (true);
+CREATE POLICY "accounts_update_policy" ON public.accounts FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "accounts_delete_policy" ON public.accounts FOR DELETE USING (true);
+
+CREATE POLICY "transactions_select_policy" ON public.transactions FOR SELECT USING (true);
+CREATE POLICY "transactions_insert_policy" ON public.transactions FOR INSERT WITH CHECK (true);
+CREATE POLICY "transactions_update_policy" ON public.transactions FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "transactions_delete_policy" ON public.transactions FOR DELETE USING (true);
+
+CREATE POLICY "documents_select_policy" ON public.documents FOR SELECT USING (true);
+CREATE POLICY "documents_insert_policy" ON public.documents FOR INSERT WITH CHECK (true);
+CREATE POLICY "documents_update_policy" ON public.documents FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "documents_delete_policy" ON public.documents FOR DELETE USING (true);
+
+CREATE POLICY "activity_logs_select_policy" ON public.activity_logs FOR SELECT USING (true);
+CREATE POLICY "activity_logs_insert_policy" ON public.activity_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "activity_logs_update_policy" ON public.activity_logs FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "activity_logs_delete_policy" ON public.activity_logs FOR DELETE USING (true);
+
+CREATE POLICY "notifications_select_policy" ON public.notifications FOR SELECT USING (true);
+CREATE POLICY "notifications_insert_policy" ON public.notifications FOR INSERT WITH CHECK (true);
+CREATE POLICY "notifications_update_policy" ON public.notifications FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "notifications_delete_policy" ON public.notifications FOR DELETE USING (true);
+
+-- ============================================================================
+-- إنشاء مستخدم admin افتراضي
+-- ============================================================================
+
+-- حذف المستخدم القديم وإنشاء واحد جديد
+DELETE FROM public.users WHERE username = 'admin';
+
+INSERT INTO public.users (id, name, username, email, role, password, is_active, created_at, updated_at)
+VALUES (
+    gen_random_uuid(),
+    'المدير',
+    'admin',
+    NULL,
+    'Admin',
+    '123456',
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
+-- إضافة تعليقات توضيحية
+-- ============================================================================
+
+COMMENT ON TABLE public.unit_sales IS 'جدول مبيعات الوحدات';
+COMMENT ON TABLE public.expenses IS 'جدول المصروفات';
+COMMENT ON TABLE public.employees IS 'جدول الموظفين';
+COMMENT ON TABLE public.vendors IS 'جدول الموردين';
+COMMENT ON TABLE public.expense_categories IS 'جدول فئات المصروفات';
+COMMENT ON TABLE public.unit_types IS 'جدول أنواع الوحدات';
+COMMENT ON TABLE public.unit_statuses IS 'جدول حالات الوحدات';
+COMMENT ON TABLE public.accounts IS 'جدول الحسابات المالية';
+COMMENT ON TABLE public.transactions IS 'جدول المعاملات المالية';
+COMMENT ON TABLE public.documents IS 'جدول المستندات والملفات';
+COMMENT ON TABLE public.activity_logs IS 'جدول سجل النشاطات';
+COMMENT ON TABLE public.notifications IS 'جدول الإشعارات للمدراء';
+
+COMMENT ON COLUMN public.notifications.type IS 'نوع الإشعار: password_reset لطلبات استعادة كلمة المرور';
+COMMENT ON COLUMN public.notifications.user_id IS 'معرف المستخدم المرتبط بالإشعار';
+COMMENT ON COLUMN public.notifications.is_read IS 'هل تم قراءة الإشعار';
+COMMENT ON COLUMN public.notifications.resolved_at IS 'تاريخ حل المشكلة';
+
+-- ============================================================================
+-- إضافة بيانات تجريبية للجداول الأساسية (اختياري)
+-- ============================================================================
+
+-- إضافة بعض أنواع الوحدات
+INSERT INTO public.unit_types (id, name) VALUES 
+    ('type_apt', 'شقة'),
+    ('type_villa', 'فيلا'),
+    ('type_shop', 'محل تجاري'),
+    ('type_office', 'مكتب')
+ON CONFLICT (name) DO NOTHING;
+
+-- إضافة بعض حالات الوحدات
+INSERT INTO public.unit_statuses (id, name, color) VALUES 
+    ('status_available', 'متاح', '#10b981'),
+    ('status_reserved', 'محجوز', '#f59e0b'),
+    ('status_sold', 'مباع', '#ef4444')
+ON CONFLICT (name) DO NOTHING;
+
+-- إضافة بعض فئات المصروفات
+INSERT INTO public.expense_categories (id, name, description) VALUES 
+    ('cat_salaries', 'رواتب', 'رواتب الموظفين'),
+    ('cat_maintenance', 'صيانة', 'مصاريف الصيانة'),
+    ('cat_utilities', 'مرافق', 'كهرباء وماء وغاز'),
+    ('cat_marketing', 'تسويق', 'مصاريف الإعلان والتسويق'),
+    ('cat_other', 'أخرى', 'مصاريف متنوعة')
+ON CONFLICT (name) DO NOTHING;
+
+-- ============================================================================
+-- تم بنجاح! 
+-- ============================================================================
+
+00000000000000000000000000000000000000000000000000000000000000000000000000000
+
+-- ============================================================================
+-- إصلاح سياسات RLS لجميع الجداول
+-- ============================================================================
+
+-- حذف جميع السياسات القديمة
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT schemaname, tablename, policyname 
+              FROM pg_policies 
+              WHERE schemaname = 'public') 
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', 
+                       r.policyname, r.schemaname, r.tablename);
+    END LOOP;
+END $$;
+
+-- سياسات المستخدمين
+CREATE POLICY "users_select_policy" ON public.users FOR SELECT USING (true);
+CREATE POLICY "users_insert_policy" ON public.users FOR INSERT WITH CHECK (true);
+CREATE POLICY "users_update_policy" ON public.users FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "users_delete_policy" ON public.users FOR DELETE USING (true);
+
+-- سياسات الإعدادات
+CREATE POLICY "settings_select_policy" ON public.settings FOR SELECT USING (true);
+CREATE POLICY "settings_insert_policy" ON public.settings FOR INSERT WITH CHECK (true);
+CREATE POLICY "settings_update_policy" ON public.settings FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "settings_delete_policy" ON public.settings FOR DELETE USING (true);
+
+-- سياسات المشاريع
+CREATE POLICY "projects_select_policy" ON public.projects FOR SELECT USING (true);
+CREATE POLICY "projects_insert_policy" ON public.projects FOR INSERT WITH CHECK (true);
+CREATE POLICY "projects_update_policy" ON public.projects FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "projects_delete_policy" ON public.projects FOR DELETE USING (true);
+
+-- سياسات الوحدات
+CREATE POLICY "units_select_policy" ON public.units FOR SELECT USING (true);
+CREATE POLICY "units_insert_policy" ON public.units FOR INSERT WITH CHECK (true);
+CREATE POLICY "units_update_policy" ON public.units FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "units_delete_policy" ON public.units FOR DELETE USING (true);
+
+-- سياسات العملاء
+CREATE POLICY "customers_select_policy" ON public.customers FOR SELECT USING (true);
+CREATE POLICY "customers_insert_policy" ON public.customers FOR INSERT WITH CHECK (true);
+CREATE POLICY "customers_update_policy" ON public.customers FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "customers_delete_policy" ON public.customers FOR DELETE USING (true);
+
+-- سياسات الحجوزات
+CREATE POLICY "bookings_select_policy" ON public.bookings FOR SELECT USING (true);
+CREATE POLICY "bookings_insert_policy" ON public.bookings FOR INSERT WITH CHECK (true);
+CREATE POLICY "bookings_update_policy" ON public.bookings FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "bookings_delete_policy" ON public.bookings FOR DELETE USING (true);
+
+-- سياسات المدفوعات
+CREATE POLICY "payments_select_policy" ON public.payments FOR SELECT USING (true);
+CREATE POLICY "payments_insert_policy" ON public.payments FOR INSERT WITH CHECK (true);
+CREATE POLICY "payments_update_policy" ON public.payments FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "payments_delete_policy" ON public.payments FOR DELETE USING (true);
+
+-- سياسات مبيعات الوحدات
+CREATE POLICY "unit_sales_select_policy" ON public.unit_sales FOR SELECT USING (true);
+CREATE POLICY "unit_sales_insert_policy" ON public.unit_sales FOR INSERT WITH CHECK (true);
+CREATE POLICY "unit_sales_update_policy" ON public.unit_sales FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "unit_sales_delete_policy" ON public.unit_sales FOR DELETE USING (true);
+
+-- سياسات المصروفات
+CREATE POLICY "expenses_select_policy" ON public.expenses FOR SELECT USING (true);
+CREATE POLICY "expenses_insert_policy" ON public.expenses FOR INSERT WITH CHECK (true);
+CREATE POLICY "expenses_update_policy" ON public.expenses FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "expenses_delete_policy" ON public.expenses FOR DELETE USING (true);
+
+-- سياسات الموظفين
+CREATE POLICY "employees_select_policy" ON public.employees FOR SELECT USING (true);
+CREATE POLICY "employees_insert_policy" ON public.employees FOR INSERT WITH CHECK (true);
+CREATE POLICY "employees_update_policy" ON public.employees FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "employees_delete_policy" ON public.employees FOR DELETE USING (true);
+
+-- سياسات الموردين
+CREATE POLICY "vendors_select_policy" ON public.vendors FOR SELECT USING (true);
+CREATE POLICY "vendors_insert_policy" ON public.vendors FOR INSERT WITH CHECK (true);
+CREATE POLICY "vendors_update_policy" ON public.vendors FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "vendors_delete_policy" ON public.vendors FOR DELETE USING (true);
+
+-- سياسات فئات المصروفات
+CREATE POLICY "expense_categories_select_policy" ON public.expense_categories FOR SELECT USING (true);
+CREATE POLICY "expense_categories_insert_policy" ON public.expense_categories FOR INSERT WITH CHECK (true);
+CREATE POLICY "expense_categories_update_policy" ON public.expense_categories FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "expense_categories_delete_policy" ON public.expense_categories FOR DELETE USING (true);
+
+-- سياسات أنواع الوحدات
+CREATE POLICY "unit_types_select_policy" ON public.unit_types FOR SELECT USING (true);
+CREATE POLICY "unit_types_insert_policy" ON public.unit_types FOR INSERT WITH CHECK (true);
+CREATE POLICY "unit_types_update_policy" ON public.unit_types FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "unit_types_delete_policy" ON public.unit_types FOR DELETE USING (true);
+
+-- سياسات حالات الوحدات
+CREATE POLICY "unit_statuses_select_policy" ON public.unit_statuses FOR SELECT USING (true);
+CREATE POLICY "unit_statuses_insert_policy" ON public.unit_statuses FOR INSERT WITH CHECK (true);
+CREATE POLICY "unit_statuses_update_policy" ON public.unit_statuses FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "unit_statuses_delete_policy" ON public.unit_statuses FOR DELETE USING (true);
+
+-- سياسات الحسابات
+CREATE POLICY "accounts_select_policy" ON public.accounts FOR SELECT USING (true);
+CREATE POLICY "accounts_insert_policy" ON public.accounts FOR INSERT WITH CHECK (true);
+CREATE POLICY "accounts_update_policy" ON public.accounts FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "accounts_delete_policy" ON public.accounts FOR DELETE USING (true);
+
+-- سياسات المعاملات
+CREATE POLICY "transactions_select_policy" ON public.transactions FOR SELECT USING (true);
+CREATE POLICY "transactions_insert_policy" ON public.transactions FOR INSERT WITH CHECK (true);
+CREATE POLICY "transactions_update_policy" ON public.transactions FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "transactions_delete_policy" ON public.transactions FOR DELETE USING (true);
+
+-- سياسات المستندات
+CREATE POLICY "documents_select_policy" ON public.documents FOR SELECT USING (true);
+CREATE POLICY "documents_insert_policy" ON public.documents FOR INSERT WITH CHECK (true);
+CREATE POLICY "documents_update_policy" ON public.documents FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "documents_delete_policy" ON public.documents FOR DELETE USING (true);
+
+-- سياسات سجل النشاطات
+CREATE POLICY "activity_logs_select_policy" ON public.activity_logs FOR SELECT USING (true);
+CREATE POLICY "activity_logs_insert_policy" ON public.activity_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "activity_logs_update_policy" ON public.activity_logs FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "activity_logs_delete_policy" ON public.activity_logs FOR DELETE USING (true);
+
+-- سياسات الإشعارات
+CREATE POLICY "notifications_select_policy" ON public.notifications FOR SELECT USING (true);
+CREATE POLICY "notifications_insert_policy" ON public.notifications FOR INSERT WITH CHECK (true);
+CREATE POLICY "notifications_update_policy" ON public.notifications FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "notifications_delete_policy" ON public.notifications FOR DELETE USING (true);
+
+-- ============================================================================
+-- تم إصلاح السياسات بنجاح!
+-- ============================================================================
+
+00000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+-- إصلاح جدول users
+ALTER TABLE public.users ALTER COLUMN password DROP NOT NULL;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+-- إصلاح جدول unit_statuses  
+ALTER TABLE public.unit_statuses ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT FALSE;
+
+-- إصلاح جدول accounts
+ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS description TEXT;
+
+00000000000000000000000000000000000000000000000000000000000000000000
+
+-- شغل هذا أولاً لإصلاح العمود المفقود
+ALTER TABLE public.unit_statuses ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+00000000000000000000000000000000000000000000000000000000000000000000
+
+-- ============================================================================
+-- Real Estate Management System - Complete Database Setup
+-- تشغيل هذا الملف يقوم بإنشاء قاعدة البيانات الكاملة مع جميع التحسينات
+-- ============================================================================
+
+-- تفعيل الامتدادات المطلوبة
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- ============================================================================
+-- القسم 1: إنشاء جداول البيانات الأساسية
+-- ============================================================================
+
+-- جدول المستخدمين
+CREATE TABLE IF NOT EXISTS public.users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+    name TEXT NOT NULL,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT,
+    role TEXT NOT NULL CHECK (
+        role IN (
+            'Admin',
+            'Sales',
+            'Accounting'
+        )
+    ),
+    password TEXT,
+    created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول المشاريع
+CREATE TABLE IF NOT EXISTS public.projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+    name TEXT NOT NULL,
+    description TEXT,
+    sales_user_id UUID REFERENCES public.users (id),
+    accounting_user_id UUID REFERENCES public.users (id),
+    created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول العملاء
+CREATE TABLE IF NOT EXISTS public.customers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    phone TEXT,
+    email TEXT,
+    created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول الوحدات
+CREATE TABLE IF NOT EXISTS public.units (
+    id TEXT PRIMARY KEY,
+    unit_number TEXT NOT NULL,
+    type TEXT,
+    status TEXT,
+    price NUMERIC,
+    customer_id TEXT REFERENCES public.customers (id),
+    project_id UUID REFERENCES public.projects (id),
+    created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول الحجوزات
+CREATE TABLE IF NOT EXISTS public.bookings (
+    id TEXT PRIMARY KEY,
+    unit_id TEXT REFERENCES public.units (id),
+    customer_id TEXT REFERENCES public.customers (id),
+    booking_date TIMESTAMP
+    WITH
+        TIME ZONE,
+        amount_paid NUMERIC,
+        status TEXT,
+        created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول المدفوعات
+CREATE TABLE IF NOT EXISTS public.payments (
+    id TEXT PRIMARY KEY,
+    booking_id TEXT REFERENCES public.bookings (id),
+    amount NUMERIC,
+    payment_date TIMESTAMP
+    WITH
+        TIME ZONE,
+        created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول الحسابات
+CREATE TABLE IF NOT EXISTS public.accounts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    account_type TEXT CHECK (
+        account_type IN ('Bank', 'Cash')
+    ),
+    balance NUMERIC DEFAULT 0,
+    description TEXT,
+    created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول المعاملات
+CREATE TABLE IF NOT EXISTS public.transactions (
+    id TEXT PRIMARY KEY,
+    account_id TEXT REFERENCES public.accounts (id),
+    type TEXT CHECK (
+        type IN (
+            'Income',
+            'Expense',
+            'Transfer',
+            'Deposit',
+            'Withdrawal'
+        )
+    ),
+    amount NUMERIC,
+    description TEXT,
+    date TIMESTAMP
+    WITH
+        TIME ZONE,
+        source_id TEXT,
+        source_type TEXT CHECK (
+            source_type IN (
+                'Expense',
+                'Payment',
+                'Sale',
+                'Booking',
+                'Transfer',
+                'Manual',
+                'Salary',
+                'Deferred Payment',
+                'expense',
+                'payment',
+                'sale',
+                'booking',
+                'transfer',
+                'adjustment'
+            )
+        ),
+        created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول تصنيفات المصاريف
+CREATE TABLE IF NOT EXISTS public.expense_categories (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول الموردين
+CREATE TABLE IF NOT EXISTS public.vendors (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    contact_person TEXT,
+    phone TEXT,
+    created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول المصاريف
+CREATE TABLE IF NOT EXISTS public.expenses (
+    id TEXT PRIMARY KEY,
+    description TEXT,
+    amount NUMERIC,
+    expense_date TIMESTAMP
+    WITH
+        TIME ZONE,
+        category_id TEXT REFERENCES public.expense_categories (id),
+        project_id UUID REFERENCES public.projects (id),
+        account_id TEXT REFERENCES public.accounts (id),
+        vendor_id TEXT REFERENCES public.vendors (id),
+        created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول المستندات
+CREATE TABLE IF NOT EXISTS public.documents (
+    id TEXT PRIMARY KEY,
+    file_name TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+    file_type TEXT,
+    customer_id TEXT REFERENCES public.customers (id),
+    booking_id TEXT REFERENCES public.bookings (id),
+    sale_id TEXT,
+    uploaded_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول الإشعارات
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id TEXT PRIMARY KEY,
+    type TEXT,
+    user_id UUID REFERENCES public.users (id),
+    username TEXT,
+    message TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    resolved_at TIMESTAMP
+    WITH
+        TIME ZONE,
+        resolved_by TEXT,
+        created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول سجل النشاطات
+CREATE TABLE IF NOT EXISTS public.activity_logs (
+    id SERIAL PRIMARY KEY,
+    action TEXT NOT NULL,
+    details TEXT,
+    user_id TEXT,
+    timestamp TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول أنواع الوحدات
+CREATE TABLE IF NOT EXISTS public.unit_types (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    name TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول حالات الوحدات
+CREATE TABLE IF NOT EXISTS public.unit_statuses (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    name TEXT NOT NULL,
+    is_system BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- جدول الإعدادات
+CREATE TABLE IF NOT EXISTS public.settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+    key TEXT UNIQUE NOT NULL,
+    value TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP
+    WITH
+        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
+-- القسم 2: البيانات الافتراضية
+-- ============================================================================
+
+-- إعدادات افتراضية
+INSERT INTO
+    public.settings (key, value, description)
+VALUES (
+        'systemCurrency',
+        'IQD',
+        'العملة المستخدمة في النظام'
+    ),
+    (
+        'systemDecimalPlaces',
+        '0',
+        'عدد الخانات العشرية'
+    ),
+    (
+        'companyName',
+        'شركة العقارات',
+        'اسم الشركة'
+    ) ON CONFLICT (key) DO NOTHING;
+
+-- حالات الوحدات الافتراضية
+INSERT INTO public.unit_statuses (id, name, is_system)
+VALUES 
+    (gen_random_uuid()::text, 'متاح', TRUE),
+    (gen_random_uuid()::text, 'محجوز', TRUE),
+    (gen_random_uuid()::text, 'مباع', TRUE)
+ON CONFLICT (id) DO NOTHING;
+
+-- حسابات افتراضية
+INSERT INTO
+    public.accounts (
+        id,
+        name,
+        account_type,
+        balance,
+        description
+    )
+VALUES (
+        'account_default_cash',
+        'خزينة المكتب',
+        'Cash',
+        0,
+        'الحساب النقدي الرئيسي للمكتب'
+    ),
+    (
+        'account_default_bank',
+        'الحساب البنكي',
+        'Bank',
+        0,
+        'الحساب البنكي الرئيسي'
+    ) ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- القسم 3: الدوال والإجراءات المخزنة
+-- ============================================================================
+
+-- دالة تحديث updated_at
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- دالة تحديث رصيد الحساب
+CREATE OR REPLACE FUNCTION public.update_account_balance()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (TG_OP = 'DELETE') THEN
+        IF OLD.type = 'Income' OR OLD.type = 'Deposit' THEN
+            UPDATE public.accounts SET balance = balance - OLD.amount WHERE id = OLD.account_id;
+        ELSIF OLD.type = 'Expense' OR OLD.type = 'Withdrawal' THEN
+            UPDATE public.accounts SET balance = balance + OLD.amount WHERE id = OLD.account_id;
+        END IF;
+        RETURN OLD;
+    ELSIF (TG_OP = 'INSERT') THEN
+        IF NEW.type = 'Income' OR NEW.type = 'Deposit' THEN
+            UPDATE public.accounts SET balance = balance + NEW.amount WHERE id = NEW.account_id;
+        ELSIF NEW.type = 'Expense' OR NEW.type = 'Withdrawal' THEN
+            UPDATE public.accounts SET balance = balance - NEW.amount WHERE id = NEW.account_id;
+        END IF;
+        RETURN NEW;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        IF OLD.type = 'Income' OR OLD.type = 'Deposit' THEN
+            UPDATE public.accounts SET balance = balance - OLD.amount WHERE id = OLD.account_id;
+        ELSIF OLD.type = 'Expense' OR OLD.type = 'Withdrawal' THEN
+            UPDATE public.accounts SET balance = balance + OLD.amount WHERE id = OLD.account_id;
+        END IF;
+        IF NEW.type = 'Income' OR NEW.type = 'Deposit' THEN
+            UPDATE public.accounts SET balance = balance + NEW.amount WHERE id = NEW.account_id;
+        ELSIF NEW.type = 'Expense' OR NEW.type = 'Withdrawal' THEN
+            UPDATE public.accounts SET balance = balance - NEW.amount WHERE id = NEW.account_id;
+        END IF;
+        RETURN NEW;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- دالة تحديث حالة الوحدة
+CREATE OR REPLACE FUNCTION public.update_unit_status_on_booking()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (TG_OP = 'INSERT') THEN
+        IF NEW.status = 'Active' THEN
+            UPDATE public.units SET status = 'Booked', customer_id = NEW.customer_id WHERE id = NEW.unit_id;
+        END IF;
+        RETURN NEW;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        IF NEW.status = 'Cancelled' AND OLD.status = 'Active' THEN
+            UPDATE public.units SET status = 'Available', customer_id = NULL WHERE id = NEW.unit_id;
+        ELSIF NEW.status = 'Active' AND OLD.status != 'Active' THEN
+            UPDATE public.units SET status = 'Booked', customer_id = NEW.customer_id WHERE id = NEW.unit_id;
+        ELSIF NEW.unit_id != OLD.unit_id THEN
+            UPDATE public.units SET status = 'Available', customer_id = NULL WHERE id = OLD.unit_id;
+            UPDATE public.units SET status = 'Booked', customer_id = NEW.customer_id WHERE id = NEW.unit_id;
+        END IF;
+        RETURN NEW;
+    ELSIF (TG_OP = 'DELETE') THEN
+        UPDATE public.units SET status = 'Available', customer_id = NULL WHERE id = OLD.unit_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- دالة تحديث المبلغ المدفوع في الحجز
+CREATE OR REPLACE FUNCTION public.update_booking_paid_amount()
+RETURNS TRIGGER AS $$
+DECLARE
+    target_booking_id TEXT;
+BEGIN
+    IF (TG_OP = 'DELETE') THEN
+        target_booking_id := OLD.booking_id;
+    ELSE
+        target_booking_id := NEW.booking_id;
+    END IF;
+
+    UPDATE public.bookings 
+    SET amount_paid = (
+        SELECT COALESCE(SUM(amount), 0)
+        FROM public.payments
+        WHERE booking_id = target_booking_id
+    )
+    WHERE id = target_booking_id;
+    
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- دالة التحقق من صحة الاتصال
+CREATE OR REPLACE FUNCTION public.check_db_health()
+RETURNS json AS $$
+DECLARE
+    result json;
+BEGIN
+    SELECT json_build_object(
+        'status', 'ok',
+        'timestamp', NOW(),
+        'database', current_database(),
+        'version', version()
+    ) INTO result;
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- دالة مزامنة المستخدمين الجدد
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.users (id, email, name, role, username)
+    VALUES (
+        NEW.id,
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'name', 'New User'),
+        COALESCE(NEW.raw_user_meta_data->>'role', 'Sales'),
+        COALESCE(NEW.raw_user_meta_data->>'username', NEW.email)
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET
+        email = EXCLUDED.email,
+        name = EXCLUDED.name,
+        role = EXCLUDED.role,
+        username = EXCLUDED.username;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- القسم 4: المشغلات (Triggers)
+-- ============================================================================
+
+-- Trigger لتحديث updated_at في settings
+DROP TRIGGER IF EXISTS update_settings_updated_at ON public.settings;
+
+CREATE TRIGGER update_settings_updated_at
+    BEFORE UPDATE ON public.settings
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Trigger لتحديث updated_at في users
+DROP TRIGGER IF EXISTS update_users_updated_at ON public.users;
+
+CREATE TRIGGER update_users_updated_at
+    BEFORE UPDATE ON public.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Trigger لتحديث رصيد الحسابات
+DROP TRIGGER IF EXISTS update_account_balance_trigger ON public.transactions;
+
+CREATE TRIGGER update_account_balance_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON public.transactions
+    FOR EACH ROW 
+    EXECUTE FUNCTION public.update_account_balance();
+
+-- Trigger لتحديث حالة الوحدات
+DROP TRIGGER IF EXISTS update_unit_status_trigger ON public.bookings;
+
+CREATE TRIGGER update_unit_status_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON public.bookings
+    FOR EACH ROW 
+    EXECUTE FUNCTION public.update_unit_status_on_booking();
+
+-- Trigger لتحديث المبلغ المدفوع
+DROP TRIGGER IF EXISTS update_booking_paid_amount_trigger ON public.payments;
+
+CREATE TRIGGER update_booking_paid_amount_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON public.payments
+    FOR EACH ROW 
+    EXECUTE FUNCTION public.update_booking_paid_amount();
+
+-- Trigger لمزامنة المستخدمين الجدد
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW 
+    EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================================================
+-- القسم 5: تفعيل Row Level Security
+-- ============================================================================
+
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.units ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.expense_categories ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.unit_types ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.unit_statuses ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- القسم 6: سياسات الأمان (RLS Policies)
+-- ============================================================================
+
+-- حذف السياسات القديمة
+DO $$ 
+DECLARE 
+    tbl text; 
+BEGIN 
+    FOR tbl IN 
+        SELECT tablename FROM pg_tables WHERE schemaname = 'public' 
+    LOOP 
+        EXECUTE format('DROP POLICY IF EXISTS "Allow all for authenticated users" ON %I', tbl); 
+        EXECUTE format('DROP POLICY IF EXISTS "Allow anonymous read settings" ON %I', tbl); 
+    END LOOP; 
+END $$;
+
+-- إنشاء سياسات جديدة
+CREATE POLICY "Allow all for authenticated users" ON public.users FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.projects FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.customers FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.units FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.bookings FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.payments FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.accounts FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.transactions FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.expense_categories FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.vendors FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.expenses FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.documents FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.notifications FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.activity_logs FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.unit_types FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.unit_statuses FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+CREATE POLICY "Allow all for authenticated users" ON public.settings FOR ALL USING (
+    auth.role () = 'authenticated'
+);
+
+-- السماح للقراءة المجهولة للإعدادات
+CREATE POLICY "Allow anonymous read settings" ON public.settings FOR
+SELECT USING (true);
+
+-- ============================================================================
+-- القسم 7: منح الصلاحيات
+-- ============================================================================
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+
+GRANT SELECT ON public.settings TO anon;
+
+GRANT EXECUTE ON FUNCTION public.check_db_health() TO authenticated;
+
+GRANT EXECUTE ON FUNCTION public.check_db_health () TO anon;
+
+-- ============================================================================
+-- القسم 8: مزامنة المستخدمين الحاليين
+-- ============================================================================
+
+INSERT INTO
+    public.users (
+        id,
+        email,
+        name,
+        role,
+        username
+    )
+SELECT id, email, COALESCE(
+        raw_user_meta_data ->> 'name', email
+    ), COALESCE(
+        raw_user_meta_data ->> 'role', 'Admin'
+    ), COALESCE(
+        raw_user_meta_data ->> 'username', email
+    )
+FROM auth.users ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- تم الانتهاء! ✅
+-- Database is ready to use
+-- ============================================================================
+
+
+77777777777777777777777777777777777777777777777777777777777777777777

@@ -5,6 +5,7 @@ import App from './App.tsx';
 import './src/index.css';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { ToastProvider } from './contexts/ToastContext.tsx';
+import ErrorBoundary from './components/shared/ErrorBoundary.tsx';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -14,10 +15,12 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <ToastProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ToastProvider>
           <App />
         </ToastProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

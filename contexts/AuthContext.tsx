@@ -1,13 +1,23 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { User } from '../types';
+import { User, UserResourcePermission, UserMenuAccess, UserButtonAccess, UserProjectAssignment } from '../types';
 import { verifyPassword } from '../utils/passwordUtils';
 import { rateLimiter } from '../utils/rateLimiter';
 
+// Extended user type with custom permissions
+export interface AuthUser extends Omit<User, 'password'> {
+  assignedProjectId?: string;
+  customPermissions?: UserResourcePermission[];
+  customMenuAccess?: UserMenuAccess[];
+  customButtonAccess?: UserButtonAccess[];
+  projectAssignments?: UserProjectAssignment[];
+}
+
 interface AuthContextType {
-  currentUser: User | null;
+  currentUser: AuthUser | null;
   login: (username: string, password: string) => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
   loading: boolean;
+  refreshPermissions: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,15 +26,65 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = 'auth_user';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Function to load custom permissions for a user
+  const loadCustomPermissions = async (userId: string) => {
+    try {
+      console.log('🔄 Loading custom permissions for user:', userId);
+      const { userFullPermissionsService } = await import('../src/services/supabaseService');
+      const fullPermissions = await userFullPermissionsService.getByUserId(userId);
+      console.log('✅ Loaded permissions:', fullPermissions);
+      return fullPermissions;
+    } catch (error) {
+      console.error('❌ Error loading custom permissions:', error);
+      return null;
+    }
+  };
+
+  // Function to refresh permissions (can be called after admin updates them)
+  const refreshPermissions = async () => {
+    if (!currentUser?.id) return;
+    
+    const permissions = await loadCustomPermissions(currentUser.id);
+    if (permissions) {
+      const updatedUser = {
+        ...currentUser,
+        customPermissions: permissions.resourcePermissions,
+        customMenuAccess: permissions.menuAccess,
+        customButtonAccess: permissions.buttonAccess,
+        projectAssignments: permissions.projectAssignments,
+      };
+      setCurrentUser(updatedUser);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+    }
+  };
 
   useEffect(() => {
     // Check if user is logged in from localStorage
     const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
     if (storedUser) {
       try {
-        setCurrentUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        setCurrentUser(parsedUser);
+        
+        // Refresh permissions from database on app load
+        if (parsedUser?.id) {
+          loadCustomPermissions(parsedUser.id).then(permissions => {
+            if (permissions) {
+              const updatedUser = {
+                ...parsedUser,
+                customPermissions: permissions.resourcePermissions,
+                customMenuAccess: permissions.menuAccess,
+                customButtonAccess: permissions.buttonAccess,
+                projectAssignments: permissions.projectAssignments,
+              };
+              setCurrentUser(updatedUser);
+              localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+            }
+          });
+        }
       } catch (error) {
         console.error('Failed to parse stored user', error);
         localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -139,13 +199,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Remove password from user object before storing (SECURITY)
       const { password: _, ...userWithoutPassword } = user;
       
-      // Add permissions based on role
-      const userWithPermissions = {
+      // Load custom permissions from database
+      let customPermissions = null;
+      let customMenuAccess = null;
+      let customButtonAccess = null;
+      let projectAssignments = null;
+      
+      try {
+        console.log('🔄 Loading permissions for user:', user.id, 'role:', user.role);
+        const { userFullPermissionsService } = await import('../src/services/supabaseService');
+        const fullPermissions = await userFullPermissionsService.getByUserId(user.id);
+        console.log('📥 Full permissions loaded:', fullPermissions);
+        customPermissions = fullPermissions.resourcePermissions;
+        customMenuAccess = fullPermissions.menuAccess;
+        customButtonAccess = fullPermissions.buttonAccess;
+        projectAssignments = fullPermissions.projectAssignments;
+        console.log('📋 Menu access count:', customMenuAccess?.length || 0);
+        console.log('📋 Menu access items:', customMenuAccess);
+        
+        // إذا توجد تعيينات مشاريع مخصصة، استخدم أول مشروع
+        if (projectAssignments && projectAssignments.length > 0 && !assignedProjectId) {
+          assignedProjectId = projectAssignments[0].projectId;
+        }
+      } catch (error) {
+        console.error('❌ Error loading custom permissions:', error);
+      }
+      
+      // Add permissions based on role + custom permissions
+      const userWithPermissions: AuthUser = {
         ...userWithoutPassword,
         assignedProjectId,
         permissions: user.role === 'Admin'
           ? { canView: true, canEdit: true, canDelete: true }
-          : { canView: true, canEdit: false, canDelete: false }
+          : { canView: true, canEdit: false, canDelete: false },
+        customPermissions: customPermissions || [],
+        customMenuAccess: customMenuAccess || [],
+        customButtonAccess: customButtonAccess || [],
+        projectAssignments: projectAssignments || [],
       };
 
       setCurrentUser(userWithPermissions);
@@ -173,6 +263,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     logout,
     loading,
+    refreshPermissions,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -366,19 +366,18 @@ export const unitsService = {
   async getAll() {
     const { data, error } = await supabase
       .from('units')
-      .select('*, customers(name)')
+      .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
     
     // Transform snake_case to camelCase
+    // Note: Units don't have direct customer relationship - that's through bookings
     return (data || []).map((unit: any) => ({
       id: unit.id,
       name: unit.unit_number,
       type: unit.type,
       status: unit.status,
       price: unit.price,
-      customerId: unit.customer_id,
-      customerName: unit.customers?.name || '',
       projectId: unit.project_id,
     }));
   },
@@ -387,13 +386,14 @@ export const unitsService = {
     const id = generateUniqueId('unit');
     
     // Transform camelCase to snake_case for database
+    // Note: customer_id should NOT be set here - units don't have direct customer relationship
+    // Customer relationship is through bookings table
     const dbUnit: any = {
       id,
       unit_number: unit.name,
       type: unit.type,
       status: unit.status,
       price: unit.price,
-      customer_id: (unit as any).customerId || null,
       project_id: (unit as any).projectId || null,
     };
     
@@ -402,7 +402,7 @@ export const unitsService = {
     const { data, error } = await supabase
       .from('units')
       .insert([dbUnit])
-      .select('*, customers(name)');
+      .select();
     
     if (error) {
       console.error('❌ Supabase insert error:', error);
@@ -416,8 +416,6 @@ export const unitsService = {
         type: data[0].type,
         status: data[0].status,
         price: data[0].price,
-        customerId: data[0].customer_id,
-        customerName: data[0].customers?.name || '',
         projectId: data[0].project_id,
       };
     }
@@ -425,19 +423,19 @@ export const unitsService = {
 
   async update(id: string, unit: Partial<Unit>) {
     // Transform camelCase to snake_case for database
+    // Note: customer_id should NOT be updated here - units don't have direct customer relationship
     const dbUnit: any = {};
     if (unit.name !== undefined) dbUnit.unit_number = unit.name;
     if (unit.type !== undefined) dbUnit.type = unit.type;
     if (unit.status !== undefined) dbUnit.status = unit.status;
     if (unit.price !== undefined) dbUnit.price = unit.price;
-    if ((unit as any).customerId !== undefined) dbUnit.customer_id = (unit as any).customerId;
     if ((unit as any).projectId !== undefined) dbUnit.project_id = (unit as any).projectId;
     
     const { data, error } = await supabase
       .from('units')
       .update(dbUnit)
       .eq('id', id)
-      .select('*, customers(name)');
+      .select();
     if (error) throw error;
     
     if (data?.[0]) {
@@ -447,8 +445,6 @@ export const unitsService = {
         type: data[0].type,
         status: data[0].status,
         price: data[0].price,
-        customerId: data[0].customer_id,
-        customerName: data[0].customers?.name || '',
         projectId: data[0].project_id,
       };
     }
@@ -671,10 +667,11 @@ export const paymentsService = {
         unitName: booking?.unit_name,
         amount: payment.amount,
         paymentDate: payment.payment_date,
+        paymentType: payment.payment_type, // ✅ إضافة نوع الدفعة
         unitPrice: unitPrice,
         remainingAmount: unitPrice - totalPaid,
-        accountId: undefined,
-        transactionId: undefined,
+        accountId: payment.account_id,
+        notes: payment.notes,
       };
     });
   },
@@ -751,23 +748,28 @@ export const paymentsService = {
           unitName: booking?.unit_name,
           amount: payment.amount,
           paymentDate: payment.payment_date,
+          paymentType: payment.payment_type, // ✅ إضافة نوع الدفعة
           unitPrice: unitPrice,
           remainingAmount: unitPrice - totalPaid,
-          accountId: undefined,
-          transactionId: undefined,
+          accountId: payment.account_id,
+          notes: payment.notes,
         };
       });
   },
 
-  async create(payment: Omit<Payment, 'id' | 'remainingAmount'>) {
+  async create(payment: Omit<Payment, 'id' | 'remainingAmount' | 'totalPaidSoFar'>) {
     const id = generateUniqueId('payment');
     
-    // Only insert columns that exist in payments table
+    // Insert with new structure including payment_type
     const dbData = {
       id,
       booking_id: payment.bookingId,
       amount: payment.amount,
       payment_date: payment.paymentDate,
+      payment_type: payment.paymentType || 'installment',
+      account_id: payment.accountId || null,
+      notes: payment.notes || null,
+      created_by: payment.createdBy || null,
     };
     
     const { data, error } = await supabase
@@ -803,20 +805,24 @@ export const paymentsService = {
         unitName: (booking as any)?.units?.unit_number,
         amount: data[0].amount,
         paymentDate: data[0].payment_date,
+        paymentType: data[0].payment_type, // ✅ إضافة نوع الدفعة
         unitPrice: unitPrice,
         remainingAmount: unitPrice - data[0].amount,
         accountId: payment.accountId,
-        transactionId: payment.transactionId,
+        notes: payment.notes,
       };
     }
   },
 
   async update(id: string, payment: Partial<Payment>) {
-    // Only update columns that exist in payments table
+    // Update with new structure
     const dbData: any = {};
     if (payment.bookingId !== undefined) dbData.booking_id = payment.bookingId;
     if (payment.amount !== undefined) dbData.amount = payment.amount;
     if (payment.paymentDate !== undefined) dbData.payment_date = payment.paymentDate;
+    if (payment.paymentType !== undefined) dbData.payment_type = payment.paymentType;
+    if (payment.accountId !== undefined) dbData.account_id = payment.accountId;
+    if (payment.notes !== undefined) dbData.notes = payment.notes;
     
     const { data, error } = await supabase
       .from('payments')
@@ -852,10 +858,11 @@ export const paymentsService = {
         unitName: (booking as any)?.units?.unit_number,
         amount: data[0].amount,
         paymentDate: data[0].payment_date,
+        paymentType: data[0].payment_type, // ✅ إضافة نوع الدفعة
         unitPrice: unitPrice,
         remainingAmount: unitPrice - data[0].amount,
         accountId: payment.accountId,
-        transactionId: payment.transactionId,
+        notes: payment.notes,
       };
     }
   },
@@ -866,6 +873,72 @@ export const paymentsService = {
       .delete()
       .eq('id', id);
     if (error) throw error;
+  },
+
+  // Get all payments for a specific booking with full details
+  async getByBookingId(bookingId: string): Promise<Payment[]> {
+    const { data: payments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('booking_id', bookingId)
+      .order('payment_date', { ascending: true });
+    
+    if (paymentsError) throw paymentsError;
+
+    // Get booking details
+    const { data: booking, error: bookingError } = await supabase
+      .from('bookings')
+      .select(`
+        customer_id,
+        unit_id,
+        customers(name),
+        units(unit_number, price)
+      `)
+      .eq('id', bookingId)
+      .single();
+    
+    if (bookingError) throw bookingError;
+
+    // Get account names for payments
+    const accountIds = payments?.map(p => p.account_id).filter(Boolean) || [];
+    let accountMap = new Map();
+    
+    if (accountIds.length > 0) {
+      const { data: accounts } = await supabase
+        .from('accounts')
+        .select('id, name')
+        .in('id', accountIds);
+      
+      accounts?.forEach(acc => accountMap.set(acc.id, acc.name));
+    }
+
+    const unitPrice = (booking as any)?.units?.price || 0;
+    let cumulativePaid = 0;
+
+    return (payments || []).map((payment: any) => {
+      cumulativePaid += payment.amount;
+      
+      return {
+        id: payment.id,
+        bookingId: payment.booking_id,
+        amount: payment.amount,
+        paymentDate: payment.payment_date,
+        paymentType: payment.payment_type,
+        accountId: payment.account_id,
+        accountName: accountMap.get(payment.account_id),
+        notes: payment.notes,
+        createdBy: payment.created_by,
+        customerId: booking?.customer_id,
+        customerName: (booking as any)?.customers?.name,
+        unitId: booking?.unit_id,
+        unitName: (booking as any)?.units?.name,
+        unitPrice: unitPrice,
+        totalPaidSoFar: cumulativePaid,
+        remainingAmount: unitPrice - cumulativePaid,
+        createdAt: payment.created_at,
+        updatedAt: payment.updated_at,
+      };
+    });
   },
 
   subscribe(callback: (payments: Payment[]) => void) {
@@ -1267,21 +1340,21 @@ export const projectsService = {
   },
 
   async create(project: Omit<Project, 'id'>) {
-    const id = generateUniqueId('project');
-    
-    // Convert camelCase to snake_case for database
-    const dbProject = {
-      ...project,
-      id,
-      assigned_user_id: project.assignedUserId || null,
-      sales_user_id: project.salesUserId || null,
-      accounting_user_id: project.accountingUserId || null,
+    // Let database generate UUID (DEFAULT gen_random_uuid()) and send only provided fields
+    const dbProject: Record<string, unknown> = {
+      name: project.name,
+      description: project.description || null,
     };
-    
-    // Remove camelCase fields before insert
-    delete (dbProject as any).assignedUserId;
-    delete (dbProject as any).salesUserId;
-    delete (dbProject as any).accountingUserId;
+
+    if (project.assignedUserId !== undefined) {
+      dbProject.assigned_user_id = project.assignedUserId || null;
+    }
+    if (project.salesUserId !== undefined) {
+      dbProject.sales_user_id = project.salesUserId || null;
+    }
+    if (project.accountingUserId !== undefined) {
+      dbProject.accounting_user_id = project.accountingUserId || null;
+    }
     
     const { data, error } = await supabase
       .from('projects')
@@ -1592,9 +1665,9 @@ export const documentsService = {
   },
 
   // Function to upload a file and create a document record
-  async upload(file: File, linkedTo: { customer_id?: string; booking_id?: string; sale_id?: string }) {
-    if (!linkedTo.customer_id && !linkedTo.booking_id && !linkedTo.sale_id) {
-      throw new Error('Document must be linked to a customer, booking, or sale.');
+  async upload(file: File, linkedTo: { customer_id?: string; booking_id?: string; sale_id?: string; expense_id?: string }) {
+    if (!linkedTo.customer_id && !linkedTo.booking_id && !linkedTo.sale_id && !linkedTo.expense_id) {
+      throw new Error('Document must be linked to a customer, booking, sale, or expense.');
     }
 
     const fileExt = file.name.split('.').pop();
@@ -1642,11 +1715,126 @@ export const documentsService = {
       customerId: data.customer_id,
       bookingId: data.booking_id,
       saleId: data.sale_id,
+      expenseId: data.expense_id,
       fileName: data.file_name,
       storagePath: data.storage_path,
       fileType: data.file_type,
       uploadedAt: data.uploaded_at,
     };
+  },
+
+  // Function to get documents for a specific expense
+  async getForExpense(expenseId: string) {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('expense_id', expenseId)
+      .order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    
+    // Map snake_case to camelCase
+    return (data || []).map(doc => ({
+      id: doc.id,
+      customerId: doc.customer_id,
+      bookingId: doc.booking_id,
+      saleId: doc.sale_id,
+      expenseId: doc.expense_id,
+      fileName: doc.file_name,
+      storagePath: doc.storage_path,
+      fileType: doc.file_type,
+      uploadedAt: doc.uploaded_at,
+    }));
+  },
+
+  // Function to get all unlinked documents (no expense_id)
+  async getUnlinkedDocuments() {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .is('expense_id', null)
+      .is('customer_id', null)
+      .is('booking_id', null)
+      .is('sale_id', null)
+      .order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    
+    // Map snake_case to camelCase
+    return (data || []).map(doc => ({
+      id: doc.id,
+      customerId: doc.customer_id,
+      bookingId: doc.booking_id,
+      saleId: doc.sale_id,
+      expenseId: doc.expense_id,
+      fileName: doc.file_name,
+      storagePath: doc.storage_path,
+      fileType: doc.file_type,
+      uploadedAt: doc.uploaded_at,
+    }));
+  },
+
+  // Function to get all accounting documents (linked and unlinked)
+  async getAllAccountingDocuments() {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .or('expense_id.not.is.null,and(customer_id.is.null,booking_id.is.null,sale_id.is.null)')
+      .order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    
+    // Map snake_case to camelCase
+    return (data || []).map(doc => ({
+      id: doc.id,
+      customerId: doc.customer_id,
+      bookingId: doc.booking_id,
+      saleId: doc.sale_id,
+      expenseId: doc.expense_id,
+      fileName: doc.file_name,
+      storagePath: doc.storage_path,
+      fileType: doc.file_type,
+      uploadedAt: doc.uploaded_at,
+    }));
+  },
+
+  // Function to upload a file for an expense (Base64)
+  async uploadForExpense(expenseId: string, fileName: string, base64Content: string, mimeType: string) {
+    // Convert base64 to blob
+    const byteCharacters = atob(base64Content);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    const file = new File([blob], fileName, { type: mimeType });
+
+    // Upload using existing method
+    return this.upload(file, { expense_id: expenseId });
+  },
+
+  // Function to link an existing document to an expense
+  async linkToExpense(documentId: string, expenseId: string) {
+    const { data, error } = await supabase
+      .from('documents')
+      .update({ expense_id: expenseId })
+      .eq('id', documentId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Function to unlink a document from an expense
+  async unlinkFromExpense(documentId: string) {
+    const { data, error } = await supabase
+      .from('documents')
+      .update({ expense_id: null })
+      .eq('id', documentId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
   },
 
   // Function to delete a document record and the file from storage
@@ -1803,16 +1991,356 @@ export const activityLogService = {
   },
 
   async log(action: string, details?: string, userId?: string) {
+    // Send only required fields; let DB defaults handle timestamp/created_at
+    const payload: { action: string; details: string | null; user_id?: string } = {
+      action,
+      details: details || null,
+    };
+
+    if (userId) {
+      payload.user_id = userId;
+    }
+
     const { data, error } = await supabase
       .from('activity_logs')
-      .insert([{
-        action,
-        details: details || null,
-        user_id: userId || null,
-        timestamp: new Date().toISOString()
-      }])
+      .insert([payload])
       .select();
     if (error) throw error;
     return data?.[0];
+  }
+};
+
+// ============================================================================
+// خدمات نظام الصلاحيات المتقدم
+// ============================================================================
+
+/**
+ * USER PERMISSIONS SERVICE - صلاحيات المستخدمين على الموارد
+ */
+export const userPermissionsService = {
+  async getByUserId(userId: string) {
+    const { data, error } = await supabase
+      .from('user_permissions')
+      .select('*')
+      .eq('user_id', userId);
+    if (error) throw error;
+    return (data || []).map((p: any) => ({
+      id: p.id,
+      userId: p.user_id,
+      resource: p.resource,
+      canView: p.can_view,
+      canCreate: p.can_create,
+      canEdit: p.can_edit,
+      canDelete: p.can_delete,
+    }));
+  },
+
+  async setPermissions(userId: string, permissions: { resource: string; canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean }[]) {
+    // حذف الصلاحيات القديمة
+    await supabase
+      .from('user_permissions')
+      .delete()
+      .eq('user_id', userId);
+
+    // إضافة الصلاحيات الجديدة
+    if (permissions.length > 0) {
+      const { error } = await supabase
+        .from('user_permissions')
+        .insert(permissions.map(p => ({
+          user_id: userId,
+          resource: p.resource,
+          can_view: p.canView,
+          can_create: p.canCreate,
+          can_edit: p.canEdit,
+          can_delete: p.canDelete,
+        })));
+      if (error) throw error;
+    }
+  },
+
+  async upsertPermission(userId: string, resource: string, permission: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean }) {
+    const { data, error } = await supabase
+      .from('user_permissions')
+      .upsert({
+        user_id: userId,
+        resource: resource,
+        can_view: permission.canView,
+        can_create: permission.canCreate,
+        can_edit: permission.canEdit,
+        can_delete: permission.canDelete,
+      }, { onConflict: 'user_id,resource' })
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
+
+  async deleteByUserId(userId: string) {
+    const { error } = await supabase
+      .from('user_permissions')
+      .delete()
+      .eq('user_id', userId);
+    if (error) throw error;
+  }
+};
+
+/**
+ * USER MENU ACCESS SERVICE - القوائم المتاحة للمستخدم
+ */
+export const userMenuAccessService = {
+  async getByUserId(userId: string) {
+    console.log('🔍 userMenuAccessService.getByUserId called for:', userId);
+    const { data, error } = await supabase
+      .from('user_menu_access')
+      .select('*')
+      .eq('user_id', userId);
+    
+    console.log('📊 Raw data from user_menu_access:', data);
+    if (error) {
+      console.error('❌ Error fetching user_menu_access:', error);
+      throw error;
+    }
+    
+    const result = (data || []).map((m: any) => ({
+      id: m.id,
+      userId: m.user_id,
+      menuKey: m.menu_key,
+      isVisible: m.is_visible,
+    }));
+    console.log('✅ Mapped menu access:', result);
+    return result;
+  },
+
+  async setMenuAccess(userId: string, menuAccess: { menuKey: string; isVisible: boolean }[]) {
+    console.log('💾 setMenuAccess called for user:', userId, 'with', menuAccess.length, 'menus');
+    console.log('📋 Menu access to save:', menuAccess);
+    
+    // حذف القوائم القديمة
+    const { error: deleteError } = await supabase
+      .from('user_menu_access')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (deleteError) {
+      console.error('❌ Error deleting old menu access:', deleteError);
+      throw deleteError;
+    }
+    console.log('🗑️ Old menu access deleted');
+
+    // إضافة القوائم الجديدة
+    if (menuAccess.length > 0) {
+      const dataToInsert = menuAccess.map(m => ({
+        user_id: userId,
+        menu_key: m.menuKey,
+        is_visible: m.isVisible,
+      }));
+      console.log('📥 Inserting menu access:', dataToInsert);
+      
+      const { error } = await supabase
+        .from('user_menu_access')
+        .insert(dataToInsert);
+      
+      if (error) {
+        console.error('❌ Error inserting menu access:', error);
+        throw error;
+      }
+      console.log('✅ Menu access saved successfully');
+    }
+  },
+
+  async upsertMenuAccess(userId: string, menuKey: string, isVisible: boolean) {
+    const { data, error } = await supabase
+      .from('user_menu_access')
+      .upsert({
+        user_id: userId,
+        menu_key: menuKey,
+        is_visible: isVisible,
+      }, { onConflict: 'user_id,menu_key' })
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
+
+  async deleteByUserId(userId: string) {
+    const { error } = await supabase
+      .from('user_menu_access')
+      .delete()
+      .eq('user_id', userId);
+    if (error) throw error;
+  }
+};
+
+/**
+ * USER BUTTON ACCESS SERVICE - الأزرار المتاحة للمستخدم
+ */
+export const userButtonAccessService = {
+  async getByUserId(userId: string) {
+    const { data, error } = await supabase
+      .from('user_button_access')
+      .select('*')
+      .eq('user_id', userId);
+    if (error) throw error;
+    return (data || []).map((b: any) => ({
+      id: b.id,
+      userId: b.user_id,
+      pageKey: b.page_key,
+      buttonKey: b.button_key,
+      isVisible: b.is_visible,
+    }));
+  },
+
+  async setButtonAccess(userId: string, buttonAccess: { pageKey: string; buttonKey: string; isVisible: boolean }[]) {
+    // حذف الأزرار القديمة
+    await supabase
+      .from('user_button_access')
+      .delete()
+      .eq('user_id', userId);
+
+    // إضافة الأزرار الجديدة
+    if (buttonAccess.length > 0) {
+      const { error } = await supabase
+        .from('user_button_access')
+        .insert(buttonAccess.map(b => ({
+          user_id: userId,
+          page_key: b.pageKey,
+          button_key: b.buttonKey,
+          is_visible: b.isVisible,
+        })));
+      if (error) throw error;
+    }
+  },
+
+  async deleteByUserId(userId: string) {
+    const { error } = await supabase
+      .from('user_button_access')
+      .delete()
+      .eq('user_id', userId);
+    if (error) throw error;
+  }
+};
+
+/**
+ * USER PROJECT ASSIGNMENTS SERVICE - ربط المستخدمين بالمشاريع
+ */
+export const userProjectAssignmentsService = {
+  async getByUserId(userId: string) {
+    const { data, error } = await supabase
+      .from('user_project_assignments')
+      .select(`
+        *,
+        projects:project_id (id, name)
+      `)
+      .eq('user_id', userId);
+    if (error) throw error;
+    return (data || []).map((a: any) => ({
+      id: a.id,
+      userId: a.user_id,
+      projectId: a.project_id,
+      projectName: a.projects?.name || '',
+      interfaceMode: a.interface_mode,
+      assignedAt: a.assigned_at,
+      assignedBy: a.assigned_by,
+    }));
+  },
+
+  async getByProjectId(projectId: string) {
+    const { data, error } = await supabase
+      .from('user_project_assignments')
+      .select(`
+        *,
+        users:user_id (id, name, username, role)
+      `)
+      .eq('project_id', projectId);
+    if (error) throw error;
+    return (data || []).map((a: any) => ({
+      id: a.id,
+      userId: a.user_id,
+      userName: a.users?.name || '',
+      userRole: a.users?.role || '',
+      projectId: a.project_id,
+      interfaceMode: a.interface_mode,
+      assignedAt: a.assigned_at,
+      assignedBy: a.assigned_by,
+    }));
+  },
+
+  async assign(userId: string, projectId: string, interfaceMode: 'projects' | 'expenses', assignedBy?: string) {
+    const { data, error } = await supabase
+      .from('user_project_assignments')
+      .insert({
+        user_id: userId,
+        project_id: projectId,
+        interface_mode: interfaceMode,
+        assigned_by: assignedBy,
+      })
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
+
+  async unassign(userId: string, projectId: string, interfaceMode: 'projects' | 'expenses') {
+    const { error } = await supabase
+      .from('user_project_assignments')
+      .delete()
+      .eq('user_id', userId)
+      .eq('project_id', projectId)
+      .eq('interface_mode', interfaceMode);
+    if (error) throw error;
+  },
+
+  async deleteByUserId(userId: string) {
+    const { error } = await supabase
+      .from('user_project_assignments')
+      .delete()
+      .eq('user_id', userId);
+    if (error) throw error;
+  },
+
+  async deleteByProjectId(projectId: string) {
+    const { error } = await supabase
+      .from('user_project_assignments')
+      .delete()
+      .eq('project_id', projectId);
+    if (error) throw error;
+  }
+};
+
+/**
+ * خدمة شاملة لجلب كل صلاحيات المستخدم دفعة واحدة
+ */
+export const userFullPermissionsService = {
+  async getByUserId(userId: string) {
+    console.log('📥 userFullPermissionsService.getByUserId called for:', userId);
+    try {
+      const [permissions, menuAccess, buttonAccess, projectAssignments] = await Promise.all([
+        userPermissionsService.getByUserId(userId),
+        userMenuAccessService.getByUserId(userId),
+        userButtonAccessService.getByUserId(userId),
+        userProjectAssignmentsService.getByUserId(userId),
+      ]);
+
+      console.log('📋 Menu access loaded:', menuAccess);
+      console.log('🔐 Resource permissions loaded:', permissions);
+      console.log('🔘 Button access loaded:', buttonAccess);
+      console.log('📁 Project assignments loaded:', projectAssignments);
+
+      return {
+        resourcePermissions: permissions,
+        menuAccess,
+        buttonAccess,
+        projectAssignments,
+      };
+    } catch (error) {
+      console.error('❌ Error in userFullPermissionsService.getByUserId:', error);
+      throw error;
+    }
+  },
+
+  async deleteByUserId(userId: string) {
+    await Promise.all([
+      userPermissionsService.deleteByUserId(userId),
+      userMenuAccessService.deleteByUserId(userId),
+      userButtonAccessService.deleteByUserId(userId),
+      userProjectAssignmentsService.deleteByUserId(userId),
+    ]);
   }
 };

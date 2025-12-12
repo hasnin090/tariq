@@ -5,42 +5,43 @@ import { InterfaceMode } from './types';
 import Sidebar from './components/Sidebar';
 // FIX: Corrected import paths for components.
 import Header from './components/Header';
-import Login from './components/pages/Login';
+import Login from './components/shared/Login';
 import { useScrollProgress } from './utils/scrollAnimations';
 import { canAccessPage, getDefaultPage } from './utils/permissions';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
 
-// Projects Interface Pages
-import Dashboard from './components/pages/Dashboard';
-import Units from './components/pages/Units';
-import Customers from './components/pages/Customers';
-import { Bookings } from './components/pages/Bookings';
-import Payments from './components/pages/Payments';
-import UnitSales from './components/pages/UnitSales';
-import SalesDocuments from './components/pages/SalesDocuments';
-import Reports from './components/pages/Reports';
-import FinancialSummary from './components/pages/FinancialSummary';
-import Customization from './components/pages/Customization';
-import Users from './components/pages/Users';
-import Notifications from './components/pages/Notifications';
-import ProjectUserManagement from './components/pages/ProjectUserManagement';
-import ProjectsManagement from './components/pages/ProjectsManagement';
-import BookingsArchive from './components/pages/BookingsArchive';
-import GeneralArchive from './components/pages/GeneralArchive';
-import DataImport from './components/pages/DataImport';
+// Projects (Sales) Interface Pages
+import Dashboard from './components/pages/sales/Dashboard';
+import Units from './components/pages/sales/Units';
+import Customers from './components/pages/sales/Customers';
+import { Bookings } from './components/pages/sales/Bookings';
+import Payments from './components/pages/sales/Payments';
+import UnitSales from './components/pages/sales/UnitSales';
+import SalesDocuments from './components/pages/sales/SalesDocuments';
+import Reports from './components/pages/sales/Reports';
+import FinancialSummary from './components/pages/sales/FinancialSummary';
+import Customization from './components/pages/sales/Customization';
+import Users from './components/pages/sales/Users';
+import Notifications from './components/pages/sales/Notifications';
+import ProjectUserManagement from './components/pages/sales/ProjectUserManagement';
+import ProjectsManagement from './components/pages/sales/ProjectsManagement';
+import BookingsArchive from './components/pages/sales/BookingsArchive';
+import GeneralArchive from './components/pages/sales/GeneralArchive';
+import DataImport from './components/pages/sales/DataImport';
+import UserPermissionsManager from './components/pages/sales/UserPermissionsManager';
 
-// Expenses Interface Pages
-import FinancialDashboard from './components/pages/expenses/FinancialDashboard';
-import { Expenses } from './components/pages/expenses/Expenses';
-import Treasury from './components/pages/expenses/Treasury';
-import DeferredPayments from './components/pages/expenses/DeferredPayments';
-import Employees from './components/pages/expenses/Employees';
-import Projects from './components/pages/expenses/Projects';
-import ProjectsAccounting from './components/pages/expenses/ProjectsAccounting';
-import CategoryAccounting from './components/pages/expenses/CategoryAccounting';
-import DocumentsAccounting from './components/pages/expenses/DocumentsAccounting';
-import ActivityLog from './components/pages/expenses/ActivityLog';
-import Budgets from './components/pages/expenses/Budgets';
+// Accounting Interface Pages
+import FinancialDashboard from './components/pages/accounting/FinancialDashboard';
+import { Expenses } from './components/pages/accounting/Expenses';
+import Treasury from './components/pages/accounting/Treasury';
+import DeferredPayments from './components/pages/accounting/DeferredPayments';
+import Employees from './components/pages/accounting/Employees';
+import Projects from './components/pages/accounting/Projects';
+import ProjectsAccounting from './components/pages/accounting/ProjectsAccounting';
+import CategoryAccounting from './components/pages/accounting/CategoryAccounting';
+import DocumentsAccounting from './components/pages/accounting/DocumentsAccounting';
+import ActivityLog from './components/pages/accounting/ActivityLog';
+import Budgets from './components/pages/accounting/Budgets';
 
 
 const App: React.FC = () => {
@@ -52,6 +53,18 @@ const App: React.FC = () => {
     if (currentUser?.role === 'Accounting') return 'expenses';
     return (sessionStorage.getItem('interfaceMode') as InterfaceMode) || 'projects';
   });
+
+  // تحديث interfaceMode عند تغيير المستخدم أو دوره
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.role === 'Sales') {
+        setInterfaceMode('projects');
+      } else if (currentUser.role === 'Accounting') {
+        setInterfaceMode('expenses');
+      }
+      // Admin يحتفظ بآخر وضع اختاره
+    }
+  }, [currentUser?.id, currentUser?.role]);
 
   // Load accent color and clean up invalid currency on mount
   useEffect(() => {
@@ -149,8 +162,27 @@ const App: React.FC = () => {
 
   const renderPage = () => {
     // التحقق من صلاحية الوصول للصفحة
-    if (currentUser && !canAccessPage(currentUser.role, activePage)) {
-      // إعادة التوجيه للصفحة الافتراضية إذا لم يكن لديه صلاحية
+    // أولاً: التحقق من الصلاحيات المخصصة
+    const customMenuAccess = (currentUser as any)?.customMenuAccess;
+    if (customMenuAccess && customMenuAccess.length > 0) {
+      const menuItem = customMenuAccess.find((m: any) => m.menuKey === activePage);
+      if (menuItem !== undefined) {
+        // إذا الصفحة موجودة في الصلاحيات المخصصة
+        if (!menuItem.isVisible) {
+          // إذا غير مسموح، أعد التوجيه
+          const defaultPage = getDefaultPage(currentUser!.role);
+          setActivePage(defaultPage);
+          return null;
+        }
+        // إذا مسموح، استمر للعرض
+      } else if (currentUser?.role !== 'Admin') {
+        // الصفحة غير موجودة في التخصيص وليس مدير
+        const defaultPage = getDefaultPage(currentUser!.role);
+        setActivePage(defaultPage);
+        return null;
+      }
+    } else if (currentUser && !canAccessPage(currentUser.role, activePage)) {
+      // لا توجد صلاحيات مخصصة، استخدم الافتراضية
       const defaultPage = getDefaultPage(currentUser.role);
       setActivePage(defaultPage);
       return null;
@@ -184,21 +216,21 @@ const App: React.FC = () => {
       // System - Protected Pages
       case 'projects-management': 
         return (
-          <ProtectedRoute allowedRoles={['Admin']}>
+          <ProtectedRoute allowedRoles={['Admin']} pageKey="projects-management">
             <ProjectsManagement />
           </ProtectedRoute>
         );
       
       case 'customization': 
         return (
-          <ProtectedRoute allowedRoles={['Admin']}>
+          <ProtectedRoute allowedRoles={['Admin']} pageKey="customization">
             <Customization />
           </ProtectedRoute>
         );
       
       case 'users': 
         return (
-          <ProtectedRoute allowedRoles={['Admin']}>
+          <ProtectedRoute allowedRoles={['Admin']} pageKey="users">
             <Users />
           </ProtectedRoute>
         );
@@ -207,8 +239,15 @@ const App: React.FC = () => {
       
       case 'project-user-management': 
         return (
-          <ProtectedRoute allowedRoles={['Admin']}>
+          <ProtectedRoute allowedRoles={['Admin']} pageKey="project-user-management">
             <ProjectUserManagement />
+          </ProtectedRoute>
+        );
+      
+      case 'user-permissions-manager': 
+        return (
+          <ProtectedRoute allowedRoles={['Admin']} pageKey="user-permissions-manager">
+            <UserPermissionsManager />
           </ProtectedRoute>
         );
       
@@ -219,7 +258,7 @@ const App: React.FC = () => {
       // Admin Tools
       case 'data-import': 
         return (
-          <ProtectedRoute allowedRoles={['Admin']}>
+          <ProtectedRoute allowedRoles={['Admin']} pageKey="data-import">
             <DataImport />
           </ProtectedRoute>
         );

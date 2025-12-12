@@ -1,4 +1,4 @@
--- ============================================
+ -- ============================================
 -- Final Storage RLS Policies Configuration
 -- ============================================
 -- This is the FINAL correct configuration

@@ -7,6 +7,7 @@ interface ProtectedRouteProps {
   resource?: string;
   action?: PermissionAction;
   allowedRoles?: UserRole[];
+  pageKey?: string; // مفتاح الصفحة للتحقق من الصلاحيات المخصصة
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -14,6 +15,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   resource,
   action = 'view',
   allowedRoles,
+  pageKey,
 }) => {
   const { currentUser } = useAuth();
 
@@ -34,7 +36,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // التحقق من الدور المسموح
+  // أولاً: التحقق من الصلاحيات المخصصة للقوائم
+  const customMenuAccess = (currentUser as any).customMenuAccess;
+  if (pageKey && customMenuAccess && customMenuAccess.length > 0) {
+    const menuItem = customMenuAccess.find((m: any) => m.menuKey === pageKey);
+    if (menuItem !== undefined && menuItem.isVisible) {
+      // الصلاحية المخصصة تسمح - تجاوز فحص الدور
+      return <>{children}</>;
+    }
+  }
+
+  // التحقق من الدور المسموح (فقط إذا لم تكن هناك صلاحية مخصصة)
   if (allowedRoles && !allowedRoles.includes(currentUser.role as UserRole)) {
     return (
       <div className="flex items-center justify-center min-h-screen">

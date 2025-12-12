@@ -34,6 +34,73 @@ export interface ProjectAssignment {
   assignedAt?: string;
 }
 
+// ============================================================================
+// نظام الصلاحيات المتقدم
+// ============================================================================
+
+/** صلاحيات المستخدم على مورد معين */
+export interface UserResourcePermission {
+  id?: string;
+  userId: string;
+  resource: string; // customers, units, bookings, payments, etc.
+  canView: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+/** القوائم المتاحة للمستخدم */
+export interface UserMenuAccess {
+  id?: string;
+  userId: string;
+  menuKey: string; // dashboard, customers, units, etc.
+  isVisible: boolean;
+}
+
+/** الأزرار المتاحة للمستخدم في كل صفحة */
+export interface UserButtonAccess {
+  id?: string;
+  userId: string;
+  pageKey: string; // الصفحة
+  buttonKey: string; // add, edit, delete, export, print, etc.
+  isVisible: boolean;
+}
+
+/** ربط المستخدم بالمشاريع */
+export interface UserProjectAssignment {
+  id?: string;
+  userId: string;
+  projectId: string;
+  projectName?: string;
+  interfaceMode: 'projects' | 'expenses';
+  assignedAt?: string;
+  assignedBy?: string;
+}
+
+/** تعريف قائمة متاحة في النظام */
+export interface MenuDefinition {
+  key: string;
+  label: string;
+  icon?: string;
+  interface: 'projects' | 'expenses' | 'both';
+}
+
+/** تعريف زر متاح في النظام */
+export interface ButtonDefinition {
+  key: string;
+  label: string;
+  page: string;
+  interface?: 'projects' | 'expenses' | 'both';
+}
+
+/** إعدادات صلاحيات المستخدم الكاملة */
+export interface UserFullPermissions {
+  resourcePermissions: UserResourcePermission[];
+  menuAccess: UserMenuAccess[];
+  buttonAccess: UserButtonAccess[];
+  projectAssignments: UserProjectAssignment[];
+}
+
 export interface UnitType {
   id: string;
   name: string;
@@ -82,16 +149,23 @@ export interface Booking {
 export interface Payment {
     id: string;
     bookingId: string;
+    amount: number;
+    paymentDate: string;
+    paymentType: 'booking' | 'installment' | 'final'; // نوع الدفعة
+    accountId?: string;
+    accountName?: string;
+    notes?: string;
+    createdBy?: string;
+    // البيانات التالية تأتي من JOIN مع جداول أخرى (غير مخزنة مباشرة)
     customerId?: string;
     customerName?: string;
     unitId?: string;
     unitName?: string;
-    amount: number;
-    paymentDate: string;
-    unitPrice: number;
-    remainingAmount: number;
-    accountId?: string;
-    transactionId?: string;
+    unitPrice?: number;
+    totalPaidSoFar?: number; // إجمالي المدفوع حتى هذه الدفعة (تراكمي)
+    remainingAmount?: number; // المتبقي بعد هذه الدفعة
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface Document {
@@ -161,6 +235,7 @@ export interface Employee {
     name: string;
     position: string;
     salary: number;
+    projectId?: string;
 }
 
 export interface Expense {

@@ -48,10 +48,18 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
                 const savedProject = userProjects.find(p => p.id === savedProjectId);
                 if (savedProject) {
                     setActiveProjectState(savedProject);
-                } else if (userProjects.length > 0) {
+                } else if (currentUser?.role !== 'Admin' && userProjects.length > 0) {
+                    // Non-admin users default to first project
                     setActiveProjectState(userProjects[0]);
+                } else {
+                    // Admin defaults to null (all projects)
+                    setActiveProjectState(null);
                 }
+            } else if (currentUser?.role === 'Admin') {
+                // Admin defaults to null (all projects) - shows all projects by default
+                setActiveProjectState(null);
             } else if (userProjects.length > 0) {
+                // Non-admin users default to first project
                 setActiveProjectState(userProjects[0]);
             }
         } catch (error) {

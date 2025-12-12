@@ -1,5 +1,6 @@
 import { User } from '../types.ts';
 import { activityLogService } from '../src/services/supabaseService';
+import { devError, devWarn } from './devLogger';
 
 let currentUser: User | null = null;
 
@@ -10,7 +11,7 @@ try {
     currentUser = JSON.parse(storedUser);
   }
 } catch (error) {
-  console.error('Failed to load current user:', error);
+  devError(error, 'activityLogger: Failed to load current user');
 }
 
 /**
@@ -21,12 +22,8 @@ const logActivity = async (action: string, details: string) => {
     try {
         await activityLogService.log(action, details, currentUser?.id);
     } catch (error) {
-        console.error('❌ Failed to log activity:', error);
-        // لا نحفظ في localStorage لأسباب أمنية
-        // بدلاً من ذلك، نرسل تنبيه للمطورين
-        if (process.env.NODE_ENV === 'development') {
-            console.warn('Activity log failed:', { action, details, userId: currentUser?.id });
-        }
+        devError(error, 'activityLogger: Failed to log activity');
+        devWarn('Activity log failed:', { action, details, userId: currentUser?.id });
     }
 };
 
