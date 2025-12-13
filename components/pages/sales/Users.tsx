@@ -175,6 +175,26 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
     const [activeTab, setActiveTab] = useState<'menus' | 'resources' | 'buttons' | 'projects'>('menus');
     const [saving, setSaving] = useState(false);
     
+    // Modal animation refs
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const modalRef = useRef<HTMLDivElement>(null);
+    
+    // GSAP animation
+    useLayoutEffect(() => {
+        if (overlayRef.current && modalRef.current) {
+            const tl = gsap.timeline();
+            tl.fromTo(overlayRef.current,
+                { opacity: 0 },
+                { opacity: 1, duration: 0.25, ease: "power2.out" }
+            );
+            tl.fromTo(modalRef.current,
+                { opacity: 0, scale: 0.85, y: 30 },
+                { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: "back.out(1.5)" },
+                0.05
+            );
+        }
+    }, []);
+    
     // حالة الصلاحيات
     const [menuAccess, setMenuAccess] = useState<{ menuKey: string; isVisible: boolean }[]>([]);
     const [resourcePermissions, setResourcePermissions] = useState<{ 
@@ -329,15 +349,15 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
         }`;
 
     return (
-        <div className="fixed inset-0 z-[60] bg-black bg-opacity-50 flex justify-center items-start p-4 pt-10 overflow-y-auto" onClick={onClose}>
-            <div className="glass-card w-full max-w-4xl my-4" onClick={e => e.stopPropagation()}>
-                <div className="p-5 border-b border-white/20 flex justify-between items-center">
+        <div ref={overlayRef} className="fixed inset-0 z-[60] bg-slate-900/75 backdrop-blur-md flex items-start justify-center pt-20 pb-8 overflow-y-auto" onClick={onClose} style={{ perspective: '1000px' }}>
+            <div ref={modalRef} className="w-full max-w-4xl mx-4 backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 rounded-3xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="px-6 py-5 border-b border-white/20 flex justify-between items-center bg-gradient-to-br from-white/10 to-transparent">
                     <div>
                         <h2 className="text-xl font-bold text-white">إدارة صلاحيات المستخدم</h2>
                         <p className="text-slate-400 text-sm mt-1">{user.name} ({user.role})</p>
                     </div>
-                    <button onClick={onClose} className="p-1 rounded-full text-slate-300 hover:bg-white/10">
-                        <CloseIcon className="h-6 w-6"/>
+                    <button onClick={onClose} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-rose-500/30 hover:text-rose-100 transition-all duration-300 shadow-lg backdrop-blur-sm border border-white/20 hover:border-rose-400/50">
+                        <CloseIcon className="h-5 w-5"/>
                     </button>
                 </div>
 

@@ -9,17 +9,35 @@ import EmptyState from '../../shared/EmptyState';
 import { documentsService, expensesService } from '../../../src/services/supabaseService';
 
 const AttachmentViewerModal: React.FC<{ document: SaleDocument | null, onClose: () => void }> = ({ document, onClose }) => {
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const modalRef = useRef<HTMLDivElement>(null);
+    
+    useLayoutEffect(() => {
+        if (document && overlayRef.current && modalRef.current) {
+            const tl = gsap.timeline();
+            tl.fromTo(overlayRef.current,
+                { opacity: 0 },
+                { opacity: 1, duration: 0.25, ease: "power2.out" }
+            );
+            tl.fromTo(modalRef.current,
+                { opacity: 0, scale: 0.85, y: 30 },
+                { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: "back.out(1.5)" },
+                0.05
+            );
+        }
+    }, [document]);
+    
     if (!document) return null;
 
     const url = `data:${document.mimeType};base64,${document.content}`;
 
     return (
-        <div className="fixed inset-0 z-[60] bg-black bg-opacity-60 flex justify-center items-center p-4 animate-drawer-overlay-show" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col animate-fade-in-scale-up" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{document.name}</h2>
-                    <button onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <CloseIcon className="h-6 w-6"/>
+        <div ref={overlayRef} className="fixed inset-0 z-[60] bg-slate-900/75 backdrop-blur-md flex items-start justify-center pt-20 pb-8 overflow-y-auto" onClick={onClose} style={{ perspective: '1000px' }}>
+            <div ref={modalRef} className="w-full max-w-3xl mx-4 h-[80vh] backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 rounded-3xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="px-6 py-5 border-b border-white/20 flex justify-between items-center bg-gradient-to-br from-white/10 to-transparent">
+                    <h2 className="text-xl font-bold text-white">{document.name}</h2>
+                    <button onClick={onClose} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-rose-500/30 hover:text-rose-100 transition-all duration-300 shadow-lg backdrop-blur-sm border border-white/20 hover:border-rose-400/50">
+                        <CloseIcon className="h-5 w-5"/>
                     </button>
                 </div>
                 <div className="flex-grow p-4 overflow-auto text-center">
@@ -30,7 +48,7 @@ const AttachmentViewerModal: React.FC<{ document: SaleDocument | null, onClose: 
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full">
                             <FileIcon mimeType={document.mimeType} className="h-24 w-24 text-slate-400" />
-                            <p className="mt-4 text-slate-600 dark:text-slate-300">لا يمكن عرض هذا النوع من الملفات.</p>
+                            <p className="mt-4 text-slate-300">لا يمكن عرض هذا النوع من الملفات.</p>
                             <a href={url} download={document.name} className="mt-4 bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm">
                                 تحميل الملف
                             </a>
@@ -51,6 +69,24 @@ const LinkExpenseModal: React.FC<{
     const { addToast } = useToast();
     const [selectedExpenseId, setSelectedExpenseId] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const modalRef = useRef<HTMLDivElement>(null);
+    
+    useLayoutEffect(() => {
+        if (overlayRef.current && modalRef.current) {
+            const tl = gsap.timeline();
+            tl.fromTo(overlayRef.current,
+                { opacity: 0 },
+                { opacity: 1, duration: 0.25, ease: "power2.out" }
+            );
+            tl.fromTo(modalRef.current,
+                { opacity: 0, scale: 0.85, y: 30 },
+                { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: "back.out(1.5)" },
+                0.05
+            );
+        }
+    }, []);
 
     const filteredExpenses = useMemo(() => {
         return expenses.filter(exp => 
@@ -68,32 +104,32 @@ const LinkExpenseModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 animate-drawer-overlay-show" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl animate-fade-in-scale-up flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start">
+        <div ref={overlayRef} className="fixed inset-0 z-[60] bg-slate-900/75 backdrop-blur-md flex items-start justify-center pt-20 pb-8 overflow-y-auto" onClick={onClose} style={{ perspective: '1000px' }}>
+            <div ref={modalRef} className="w-full max-w-2xl mx-4 backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 rounded-3xl flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="px-6 py-5 border-b border-white/20 flex justify-between items-start bg-gradient-to-br from-white/10 to-transparent">
                     <div>
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">ربط مستند بحركة مالية</h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">المستند: {documentToLink.name}</p>
+                        <h2 className="text-xl font-bold text-white">ربط مستند بحركة مالية</h2>
+                        <p className="text-sm text-slate-400">المستند: {documentToLink.name}</p>
                     </div>
-                    <button type="button" onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"><CloseIcon className="h-6 w-6"/></button>
+                    <button type="button" onClick={onClose} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-rose-500/30 hover:text-rose-100 transition-all duration-300 shadow-lg backdrop-blur-sm border border-white/20 hover:border-rose-400/50"><CloseIcon className="h-5 w-5"/></button>
                 </div>
                 
-                <div className="p-6 space-y-4 flex-grow overflow-y-auto">
+                <div className="p-6 space-y-4 flex-grow overflow-y-auto text-white">
                     <div className="relative">
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                             <SearchIcon className="h-5 w-5 text-slate-400" />
                         </div>
-                        <input type="text" placeholder="بحث بالوصف أو التاريخ..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-2.5 pr-10 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500" />
+                        <input type="text" placeholder="بحث بالوصف أو التاريخ..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-2.5 pr-10 border border-white/20 bg-white/10 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-primary-500" />
                     </div>
-                    <div className="border border-slate-300 dark:border-slate-600 rounded-lg max-h-80 overflow-y-auto">
+                    <div className="border border-white/20 rounded-lg max-h-80 overflow-y-auto">
                         {filteredExpenses.length > 0 ? (
                             <ul>
                                 {filteredExpenses.map(exp => (
-                                    <li key={exp.id} className={`border-b border-slate-200 dark:border-slate-700 last:border-0 ${selectedExpenseId === exp.id ? 'bg-primary-50 dark:bg-primary-500/10' : ''}`}>
+                                    <li key={exp.id} className={`border-b border-white/10 last:border-0 ${selectedExpenseId === exp.id ? 'bg-primary-500/20' : ''}`}>
                                         <label className="flex items-center justify-between p-3 cursor-pointer">
                                             <div>
-                                                <p className="font-semibold text-slate-800 dark:text-slate-200">{exp.description}</p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">{exp.date} - {formatCurrency(exp.amount)}</p>
+                                                <p className="font-semibold text-white">{exp.description}</p>
+                                                <p className="text-xs text-slate-400">{exp.date} - {formatCurrency(exp.amount)}</p>
                                             </div>
                                             <input type="radio" name="expense" value={exp.id} checked={selectedExpenseId === exp.id} onChange={(e) => setSelectedExpenseId(e.target.value)} className="form-radio h-5 w-5 text-primary-600" />
                                         </label>
@@ -101,14 +137,14 @@ const LinkExpenseModal: React.FC<{
                                 ))}
                             </ul>
                         ) : (
-                            <p className="text-center text-slate-500 p-4">لا توجد حركات مالية متاحة أو تطابق البحث.</p>
+                            <p className="text-center text-slate-400 p-4">لا توجد حركات مالية متاحة أو تطابق البحث.</p>
                         )}
                     </div>
                 </div>
                 
-                <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4 flex-shrink-0">
-                    <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold">إلغاء</button>
-                    <button type="button" onClick={handleConfirm} className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm disabled:opacity-50" disabled={!selectedExpenseId}>
+                <div className="px-6 py-5 border-t border-white/20 flex justify-end gap-4 flex-shrink-0">
+                    <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-lg bg-white/10 text-white border border-white/20 hover:bg-white/20 font-semibold">إلغاء</button>
+                    <button type="button" onClick={handleConfirm} className="bg-primary-600 text-white px-8 py-2.5 rounded-lg hover:bg-primary-700 font-semibold shadow-sm disabled:opacity-50" disabled={!selectedExpenseId}>
                         ربط المستند
                     </button>
                 </div>

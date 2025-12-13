@@ -14,10 +14,11 @@ export interface AuthUser extends Omit<User, 'password'> {
 
 interface AuthContextType {
   currentUser: AuthUser | null;
-  login: (username: string, password: string) => Promise<{ error: Error | null }>;
+  login: (username: string, password: string) => Promise<{ error: Error | null; user?: AuthUser }>;
   logout: () => Promise<void>;
   loading: boolean;
   refreshPermissions: () => Promise<void>;
+  setUser: (user: AuthUser | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,13 +33,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Function to load custom permissions for a user
   const loadCustomPermissions = async (userId: string) => {
     try {
-      console.log('🔄 Loading custom permissions for user:', userId);
       const { userFullPermissionsService } = await import('../src/services/supabaseService');
       const fullPermissions = await userFullPermissionsService.getByUserId(userId);
-      console.log('✅ Loaded permissions:', fullPermissions);
       return fullPermissions;
     } catch (error) {
-      console.error('❌ Error loading custom permissions:', error);
+      console.error('Error loading custom permissions:', error);
       return null;
     }
   };
@@ -174,8 +173,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .from('users')
             .update({ password: hashedPassword })
             .eq('id', user.id);
-          
-          console.log('تم تحديث كلمة المرور بنجاح إلى bcrypt');
         } catch (error) {
           console.error('فشل تحديث كلمة المرور:', error);
           // لا نوقف تسجيل الدخول - فقط نسجل الخطأ
@@ -206,23 +203,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       let projectAssignments = null;
       
       try {
-        console.log('🔄 Loading permissions for user:', user.id, 'role:', user.role);
         const { userFullPermissionsService } = await import('../src/services/supabaseService');
         const fullPermissions = await userFullPermissionsService.getByUserId(user.id);
-        console.log('📥 Full permissions loaded:', fullPermissions);
         customPermissions = fullPermissions.resourcePermissions;
         customMenuAccess = fullPermissions.menuAccess;
         customButtonAccess = fullPermissions.buttonAccess;
         projectAssignments = fullPermissions.projectAssignments;
-        console.log('📋 Menu access count:', customMenuAccess?.length || 0);
-        console.log('📋 Menu access items:', customMenuAccess);
         
         // إذا توجد تعيينات مشاريع مخصصة، استخدم أول مشروع
         if (projectAssignments && projectAssignments.length > 0 && !assignedProjectId) {
           assignedProjectId = projectAssignments[0].projectId;
         }
       } catch (error) {
-        console.error('❌ Error loading custom permissions:', error);
+        console.error('Error loading custom permissions:', error);
       }
       
       // Add permissions based on role + custom permissions
@@ -238,14 +231,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         projectAssignments: projectAssignments || [],
       };
 
-      setCurrentUser(userWithPermissions);
-      // Store user data WITHOUT password in localStorage
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userWithPermissions));
-
-      return { error: null };
+      // Return user without setting state - let Login component handle timing
+      return { error: null, user: userWithPermissions };
     } catch (error) {
       console.error('Login exception:', error);
       return { error: error as Error };
+    }
+  };
+
+  const setUser = (user: AuthUser | null) => {
+    setCurrentUser(user);
+    if (user) {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
     }
   };
 
@@ -264,6 +263,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     logout,
     loading,
     refreshPermissions,
+    setUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

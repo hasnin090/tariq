@@ -604,9 +604,21 @@
 }
 
 @layer utilities {
+  /* إخفاء شريط التمرير الأفقي */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* إخفاء شريط التمرير الأفقي في الجداول والعناصر القابلة للتمرير */
+  .overflow-x-auto::-webkit-scrollbar,
+  .overflow-auto::-webkit-scrollbar,
+  table::-webkit-scrollbar {
+    height: 0px;
+  }
+  
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
-    height: 6px;
+    height: 0px; /* إخفاء شريط التمرير الأفقي */
   }
 
   .scrollbar-track-transparent::-webkit-scrollbar-track {

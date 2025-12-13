@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import logActivity from '../../../utils/activityLogger';
@@ -29,6 +30,26 @@ const GeneralArchive: React.FC = () => {
     const [filterType, setFilterType] = useState<'all' | 'expense' | 'payment' | 'transaction' | 'sale'>('all');
     const { addToast } = useToast();
     const { currentUser } = useAuth();
+    
+    // Modal animation refs
+    const detailsOverlayRef = useRef<HTMLDivElement>(null);
+    const detailsModalRef = useRef<HTMLDivElement>(null);
+    
+    // GSAP animation for details modal
+    useLayoutEffect(() => {
+        if (showDetailsModal && detailsOverlayRef.current && detailsModalRef.current) {
+            const tl = gsap.timeline();
+            tl.fromTo(detailsOverlayRef.current,
+                { opacity: 0 },
+                { opacity: 1, duration: 0.25, ease: "power2.out" }
+            );
+            tl.fromTo(detailsModalRef.current,
+                { opacity: 0, scale: 0.85, y: 30 },
+                { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: "back.out(1.5)" },
+                0.05
+            );
+        }
+    }, [showDetailsModal]);
 
     useEffect(() => {
         loadData();
@@ -292,42 +313,42 @@ const GeneralArchive: React.FC = () => {
 
             {/* Details Modal */}
             {showDetailsModal && selectedItem && (
-                <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 pt-20" onClick={() => setShowDetailsModal(false)}>
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-                            <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">تفاصيل العنصر المؤرشف</h3>
+                <div ref={detailsOverlayRef} className="fixed inset-0 z-[60] bg-slate-900/75 backdrop-blur-md flex items-start justify-center pt-20 pb-8 overflow-y-auto" onClick={() => setShowDetailsModal(false)} style={{ perspective: '1000px' }}>
+                    <div ref={detailsModalRef} className="w-full max-w-2xl mx-4 backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 rounded-3xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="px-6 py-5 border-b border-white/20 bg-gradient-to-br from-white/10 to-transparent">
+                            <h3 className="text-xl font-bold text-white">تفاصيل العنصر المؤرشف</h3>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 text-white">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">النوع</p>
+                                    <p className="text-sm text-slate-400 mb-1">النوع</p>
                                     <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getTypeBadgeColor(selectedItem.type)}`}>
                                         {getTypeLabel(selectedItem.type)}
                                     </span>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">التاريخ</p>
-                                    <p className="font-semibold text-slate-800 dark:text-slate-100">{selectedItem.date}</p>
+                                    <p className="text-sm text-slate-400 mb-1">التاريخ</p>
+                                    <p className="font-semibold text-white">{selectedItem.date}</p>
                                 </div>
                                 <div className="col-span-2">
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">الوصف</p>
-                                    <p className="font-semibold text-slate-800 dark:text-slate-100">{selectedItem.description}</p>
+                                    <p className="text-sm text-slate-400 mb-1">الوصف</p>
+                                    <p className="font-semibold text-white">{selectedItem.description}</p>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">المبلغ</p>
-                                    <p className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedItem.amount)}</p>
+                                    <p className="text-sm text-slate-400 mb-1">المبلغ</p>
+                                    <p className="font-semibold text-emerald-400">{formatCurrency(selectedItem.amount)}</p>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">تاريخ الأرشفة</p>
-                                    <p className="font-semibold text-slate-800 dark:text-slate-100">{selectedItem.archivedAt}</p>
+                                    <p className="text-sm text-slate-400 mb-1">تاريخ الأرشفة</p>
+                                    <p className="font-semibold text-white">{selectedItem.archivedAt}</p>
                                 </div>
                                 <div className="col-span-2">
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">أرشفه</p>
-                                    <p className="font-semibold text-slate-800 dark:text-slate-100">{selectedItem.archivedBy}</p>
+                                    <p className="text-sm text-slate-400 mb-1">أرشفه</p>
+                                    <p className="font-semibold text-white">{selectedItem.archivedBy}</p>
                                 </div>
                             </div>
                         </div>
-                        <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
+                        <div className="px-6 py-5 border-t border-white/20 flex justify-end gap-3">
                             <button
                                 onClick={() => {
                                     setShowDetailsModal(false);
@@ -339,7 +360,7 @@ const GeneralArchive: React.FC = () => {
                             </button>
                             <button
                                 onClick={() => setShowDetailsModal(false)}
-                                className="px-6 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-semibold hover:bg-slate-300 dark:hover:bg-slate-600"
+                                className="px-6 py-2.5 bg-white/10 text-white rounded-lg font-semibold hover:bg-white/20 border border-white/20"
                             >
                                 إغلاق
                             </button>

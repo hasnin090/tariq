@@ -53,9 +53,9 @@ const StatCard: React.FC<{
 const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string; data: number[]; color: string }[] } }> = ({ data }) => {
     const chartRef = useRef<SVGSVGElement>(null);
     const hasAnimated = useRef(false);
-    const chartHeight = 220;
-    const chartWidth = 600;
-    const padding = { top: 15, right: 15, bottom: 35, left: 55 };
+    const chartHeight = 250;
+    const chartWidth = 700;
+    const padding = { top: 20, right: 30, bottom: 45, left: 60 };
 
     // 🎬 GSAP Line Chart Animation - runs only once
     useLayoutEffect(() => {
@@ -121,7 +121,7 @@ const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string;
         const dots = points.map((point, i) => {
             const x = padding.left + (i * (chartWidth - padding.left - padding.right)) / (points.length - 1);
             const y = padding.top + chartHeight - padding.top - padding.bottom - (point / maxValue) * (chartHeight - padding.top - padding.bottom);
-            return <circle key={i} className="chart-dot" cx={x} cy={y} r="5" fill={color} stroke="white" strokeWidth="2" />;
+            return <circle key={i} className="chart-dot" cx={x} cy={y} r="3" fill={color} stroke="white" strokeWidth="1.5" />;
         });
 
         return (
@@ -170,8 +170,8 @@ const DonutChart: React.FC<{ data: { label: string; value: number; color: string
     const chartRef = useRef<SVGSVGElement>(null);
     const centerRef = useRef<HTMLDivElement>(null);
     const hasAnimated = useRef(false);
-    const size = 150;
-    const strokeWidth = 20;
+    const size = 180;
+    const strokeWidth = 24;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
     const total = data.reduce((sum, item) => sum + item.value, 0);
@@ -448,16 +448,20 @@ const FinancialDashboard: React.FC = () => {
                 />
             </div>
 
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
-                 <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-3">الإيرادات مقابل المصروفات (آخر 6 أشهر)</h3>
-                 <LineChart data={monthlyChartData} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">الإيرادات مقابل المصروفات (آخر 6 أشهر)</h3>
+                    <div className="h-80">
+                        <LineChart data={monthlyChartData} />
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <DonutChart data={revenueSourcesData} title="مصادر الإيرادات" />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <DonutChart data={revenueSourcesData} title="مصادر الإيرادات" />
-                </div>
-                 <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                     <DonutChart data={expenseBreakdownData} title="توزيع المصروفات" />
                 </div>
             </div>

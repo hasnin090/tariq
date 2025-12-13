@@ -60,8 +60,7 @@ export function filterExpensesByProject(expenses: Expense[], projectId: string |
 
 /**
  * Get customers who have units/bookings in a specific project
- * Note: Always returns all customers regardless of project selection
- * since customers may not have bookings yet
+ * Returns customers who have at least one booking in the specified project
  */
 export function filterCustomersByProject(
     customers: Customer[],
@@ -69,9 +68,31 @@ export function filterCustomersByProject(
     units: Unit[],
     projectId: string | null
 ): Customer[] {
-    // Always return all customers, regardless of project selection
-    // Customers don't belong to a specific project until they have a booking
-    return customers;
+    // If no project filter, return all customers
+    if (!projectId) return customers;
+    
+    // Get unit IDs that belong to the selected project
+    const projectUnitIds = new Set(
+        units.filter(u => u.projectId === projectId).map(u => u.id)
+    );
+    
+    // Get customer IDs who have bookings in units belonging to this project
+    const customerIdsWithBookings = new Set(
+        bookings
+            .filter(b => projectUnitIds.has(b.unitId))
+            .map(b => b.customerId)
+    );
+    
+    // Also include customers directly assigned to this project
+    const customerIdsDirectlyAssigned = new Set(
+        customers.filter(c => c.projectId === projectId).map(c => c.id)
+    );
+    
+    // Merge both sets
+    const allCustomerIds = new Set([...customerIdsWithBookings, ...customerIdsDirectlyAssigned]);
+    
+    // Return customers who are in either set
+    return customers.filter(c => allCustomerIds.has(c.id));
 }
 
 /**

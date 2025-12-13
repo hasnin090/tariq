@@ -43,7 +43,7 @@ const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string;
     const hasAnimated = useRef(false);
     const chartHeight = 300;
     const chartWidth = 800;
-    const padding = { top: 20, right: 20, bottom: 40, left: 80 };
+    const padding = { top: 10, right: 20, bottom: 35, left: 50 };
 
     // 🎬 GSAP Line Chart Animation - runs only once
     useLayoutEffect(() => {
@@ -116,7 +116,7 @@ const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string;
         const dots = points.map((point, i) => {
             const x = padding.left + (i * (chartWidth - padding.left - padding.right)) / (points.length - 1 || 1);
             const y = padding.top + chartHeight - padding.top - padding.bottom - (point / maxValue) * (chartHeight - padding.top - padding.bottom);
-            return <circle key={i} className="chart-dot" cx={x} cy={y} r="6" fill={color} stroke="white" strokeWidth="2" />;
+            return <circle key={i} className="chart-dot" cx={x} cy={y} r="3" fill={color} stroke="white" strokeWidth="1.5" />;
         });
 
         return (
@@ -352,7 +352,7 @@ const Dashboard: React.FC = () => {
         const today = new Date();
         for(let i = 5; i >= 0; i--) {
             const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            labels.push(d.toLocaleString('ar-EG', { month: 'short', year: 'numeric' }));
+            labels.push(d.toLocaleString('ar-EG', { month: 'short' }));
             revenueData.push(0);
             salesCountData.push(0);
         }
@@ -428,12 +428,10 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">اتجاه المبيعات والإيرادات</h3>
-                    <div className="overflow-x-auto">
-                        <div className="h-96 min-w-[600px]">
-                            <LineChart data={salesTrendData} />
-                        </div>
+                <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-3">اتجاه المبيعات والإيرادات</h3>
+                    <div className="h-72">
+                        <LineChart data={salesTrendData} />
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">

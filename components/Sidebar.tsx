@@ -193,8 +193,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <CreditCardIcon />, label: 'الدفعات', page: 'payments', adminOnly: false },
         { icon: <TrendingUpIcon />, label: 'المبيعات', page: 'sales', adminOnly: false },
         { icon: <ArchiveIcon />, label: 'مستندات البيع', page: 'sales-documents', adminOnly: true },
-        { icon: <ChartBarIcon />, label: 'التقارير', page: 'reports', adminOnly: true },
-        { icon: <CollectionIcon />, label: 'الملخص الشامل', page: 'financial-summary', adminOnly: true },
         { icon: <ArchiveIcon />, label: 'أرشيف الحجوزات', page: 'bookings-archive', adminOnly: false },
         { icon: <ArchiveIcon />, label: 'الأرشيف العام', page: 'general-archive', adminOnly: false },
     ];
@@ -218,7 +216,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <CogIcon />, label: 'تخصيص', page: 'customization', adminOnly: true },
         { icon: <UserGroupIcon />, label: 'المستخدمون', page: 'users', adminOnly: true },
         { icon: <BellIcon />, label: 'الإشعارات', page: 'notifications', adminOnly: true },
-        { icon: <UserGroupIcon />, label: 'إدارة الصلاحيات', page: 'user-permissions-manager', adminOnly: true },
         { icon: <DocumentTextIcon />, label: 'استيراد البيانات', page: 'data-import', adminOnly: true },
     ];
 

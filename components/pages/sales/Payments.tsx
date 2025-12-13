@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Payment, Customer, Booking, Unit } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -7,8 +7,8 @@ import ProjectSelector from '../../shared/ProjectSelector';
 import { filterPaymentsByProject } from '../../../utils/projectFilters';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import logActivity from '../../../utils/activityLogger';
-import { paymentsService, customersService, bookingsService, unitsService } from '../../../src/services/supabaseService';
-import { CreditCardIcon, PrinterIcon, PlusIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon } from '../../shared/Icons';
+import { paymentsService, customersService, bookingsService, unitsService, documentsService } from '../../../src/services/supabaseService';
+import { CreditCardIcon, PrinterIcon, PlusIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, UploadIcon, FileIcon } from '../../shared/Icons';
 import ConfirmModal from '../../shared/ConfirmModal';
 
 // نوع لتجميع الدفعات حسب الحجز
@@ -46,6 +46,9 @@ const Payments: React.FC = () => {
         amount: '' as number | '',
         paymentDate: new Date().toISOString().split('T')[0],
     });
+    const [receiptFile, setReceiptFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const receiptInputRef = useRef<HTMLInputElement>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
     // تجميع الدفعات حسب الحجز
@@ -340,7 +343,20 @@ const Payments: React.FC = () => {
                 accountId: 'account_default_cash',
             };
 
-            await paymentsService.create(payment);
+            setIsUploading(true);
+            const savedPayment = await paymentsService.create(payment);
+            
+            // رفع إيصال الدفع إذا تم اختياره
+            if (receiptFile && savedPayment?.id) {
+                try {
+                    await documentsService.upload(receiptFile, { booking_id: booking.id });
+                    addToast('تم رفع إيصال الدفع بنجاح', 'success');
+                } catch (uploadError) {
+                    console.error('Error uploading receipt:', uploadError);
+                    addToast('تم إضافة الدفعة لكن فشل رفع الإيصال', 'warning');
+                }
+            }
+            setIsUploading(false);
             
             // ✅ تحديث حالة الحجز والوحدة إذا اكتملت الدفعات
             if (newTotalPaid >= unit.price) {
@@ -358,10 +374,15 @@ const Payments: React.FC = () => {
                 amount: '' as number | '',
                 paymentDate: new Date().toISOString().split('T')[0],
             });
+            setReceiptFile(null);
+            if (receiptInputRef.current) {
+                receiptInputRef.current.value = '';
+            }
             await loadAllData();
         } catch (error) {
             console.error('Error saving payment:', error);
             addToast('خطأ في حفظ الدفعة', 'error');
+            setIsUploading(false);
         }
     };
 
@@ -662,17 +683,70 @@ const Payments: React.FC = () => {
                                         className="input-field"
                                     />
                                 </div>
+
+                                {/* حقل رفع إيصال الدفع */}
+                                <div>
+                                    <label className="block text-slate-200 font-medium mb-2">
+                                        إيصال الدفع (اختياري)
+                                    </label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="file"
+                                            ref={receiptInputRef}
+                                            onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                                            className="hidden"
+                                            id="receipt-upload"
+                                            accept="image/*,application/pdf"
+                                        />
+                                        <label
+                                            htmlFor="receipt-upload"
+                                            className="flex-1 flex items-center gap-2 px-4 py-3 bg-white/10 border border-white/20 rounded-lg cursor-pointer hover:bg-white/20 transition-colors"
+                                        >
+                                            <UploadIcon className="h-5 w-5 text-slate-400" />
+                                            <span className="text-slate-300 truncate">
+                                                {receiptFile ? receiptFile.name : 'اختر ملف الإيصال...'}
+                                            </span>
+                                        </label>
+                                        {receiptFile && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setReceiptFile(null);
+                                                    if (receiptInputRef.current) {
+                                                        receiptInputRef.current.value = '';
+                                                    }
+                                                }}
+                                                className="p-2 text-rose-400 hover:bg-rose-500/20 rounded-lg transition-colors"
+                                            >
+                                                <TrashIcon className="h-5 w-5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {receiptFile && (
+                                        <div className="mt-2 flex items-center gap-2 text-sm text-emerald-400">
+                                            <FileIcon mimeType={receiptFile.type} className="h-4 w-4" />
+                                            <span>{(receiptFile.size / 1024).toFixed(1)} KB</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="flex gap-3 mt-6">
                                 <button
                                     onClick={handleSavePayment}
-                                    className="btn-primary flex-1"
+                                    disabled={isUploading}
+                                    className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    حفظ
+                                    {isUploading ? 'جاري الحفظ...' : 'حفظ'}
                                 </button>
                                 <button
-                                    onClick={() => setShowAddPayment(false)}
+                                    onClick={() => {
+                                        setShowAddPayment(false);
+                                        setReceiptFile(null);
+                                        if (receiptInputRef.current) {
+                                            receiptInputRef.current.value = '';
+                                        }
+                                    }}
                                     className="flex-1 bg-white/10 text-slate-200 px-6 py-2.5 rounded-lg font-semibold hover:bg-white/20 transition-colors border border-white/20"
                                 >
                                     إلغاء

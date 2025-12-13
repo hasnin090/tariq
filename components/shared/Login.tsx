@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { useAuth } from '../../contexts/AuthContext';
 import { usersService } from '../../src/services/supabaseService';
 
@@ -78,7 +79,7 @@ const EyeOffIcon = ({ size = 18, className = "" }: { size?: number, className?: 
 );
 
 const Login: React.FC = () => {
-  const { login } = useAuth();
+  const { login, setUser } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -86,6 +87,159 @@ const Login: React.FC = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [pendingUser, setPendingUser] = useState<any>(null);
+
+  // GSAP Animation Refs
+  const containerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const glow1Ref = useRef<HTMLDivElement>(null);
+  const glow2Ref = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const successIconRef = useRef<HTMLDivElement>(null);
+
+  // 🎬 Initial page load animation
+  useLayoutEffect(() => {
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline();
+
+      // Animate glowing orbs
+      if (glow1Ref.current && glow2Ref.current) {
+        gsap.set([glow1Ref.current, glow2Ref.current], { scale: 0, opacity: 0 });
+        tl.to([glow1Ref.current, glow2Ref.current], {
+          scale: 1,
+          opacity: 1,
+          duration: 1.5,
+          ease: "power2.out",
+          stagger: 0.2
+        }, 0);
+
+        // Continuous floating animation for orbs
+        gsap.to(glow1Ref.current, {
+          y: -30,
+          x: 20,
+          duration: 4,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+        gsap.to(glow2Ref.current, {
+          y: 20,
+          x: -30,
+          duration: 5,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
+      }
+
+      // Animate header
+      if (headerRef.current) {
+        const h1 = headerRef.current.querySelector('h1');
+        const p = headerRef.current.querySelector('p');
+        gsap.set([h1, p], { opacity: 0, y: -30 });
+        tl.to(h1, { opacity: 1, y: 0, duration: 0.8, ease: "back.out(1.7)" }, 0.3);
+        tl.to(p, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 0.5);
+      }
+
+      // Animate card
+      if (cardRef.current) {
+        gsap.set(cardRef.current, { opacity: 0, y: 50, scale: 0.9 });
+        tl.to(cardRef.current, {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.8,
+          ease: "back.out(1.4)"
+        }, 0.4);
+      }
+
+      // Animate form fields
+      if (formRef.current) {
+        const formElements = formRef.current.querySelectorAll('.form-field');
+        gsap.set(formElements, { opacity: 0, x: -20 });
+        tl.to(formElements, {
+          opacity: 1,
+          x: 0,
+          duration: 0.5,
+          stagger: 0.1,
+          ease: "power2.out"
+        }, 0.7);
+      }
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  // 🎬 Login success animation - Simple and clean
+  const playLoginSuccessAnimation = () => {
+    return new Promise<void>((resolve) => {
+      setIsLoggingIn(true);
+      
+      const tl = gsap.timeline({
+        onComplete: () => resolve()
+      });
+
+      // Hide form elements
+      if (formRef.current) {
+        tl.to(formRef.current, {
+          opacity: 0,
+          scale: 0.95,
+          duration: 0.3,
+          ease: "power2.in"
+        }, 0);
+      }
+
+      // Show success icon inside card
+      if (successIconRef.current) {
+        tl.set(successIconRef.current, { display: 'flex' }, 0.2);
+        tl.fromTo(successIconRef.current,
+          { opacity: 0, scale: 0 },
+          { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.7)" },
+          0.3
+        );
+      }
+
+      // Card gets green glow
+      if (cardRef.current) {
+        tl.to(cardRef.current, {
+          boxShadow: "0 0 40px 10px rgba(16, 185, 129, 0.5)",
+          borderColor: "rgba(16, 185, 129, 0.8)",
+          duration: 0.4,
+          ease: "power2.out"
+        }, 0.3);
+      }
+
+      // Brief pause then fade everything out
+      tl.to(cardRef.current, {
+        opacity: 0,
+        y: -30,
+        scale: 0.95,
+        duration: 0.4,
+        ease: "power2.in"
+      }, 1.2);
+
+      // Header fades out
+      if (headerRef.current) {
+        tl.to(headerRef.current, {
+          opacity: 0,
+          y: -20,
+          duration: 0.3,
+          ease: "power2.in"
+        }, 1.2);
+      }
+
+      // Glow orbs fade out gently
+      if (glow1Ref.current && glow2Ref.current) {
+        tl.to([glow1Ref.current, glow2Ref.current], {
+          opacity: 0,
+          duration: 0.4,
+          ease: "power2.in"
+        }, 1.2);
+      }
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,14 +247,30 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = await login(username, password);
+      const { error, user } = await login(username, password);
 
       if (error) {
+        // Error shake animation
+        if (cardRef.current) {
+          gsap.to(cardRef.current, {
+            x: [-10, 10, -10, 10, 0],
+            duration: 0.4,
+            ease: "power2.out"
+          });
+        }
         setError(error.message);
+        setLoading(false);
+      } else if (user) {
+        // Store user for later and play success animation
+        setPendingUser(user);
+        setLoading(false);
+        // Play success animation then set user
+        await playLoginSuccessAnimation();
+        // Now set the user to trigger navigation
+        setUser(user);
       }
     } catch (err) {
       setError('حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.');
-    } finally {
       setLoading(false);
     }
   };
@@ -128,33 +298,48 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div dir="rtl" className="flex items-center justify-center min-h-screen bg-slate-900 font-sans relative overflow-hidden">
+    <div ref={containerRef} dir="rtl" className="flex items-center justify-center min-h-screen bg-slate-900 font-sans relative overflow-hidden">
       {/* Background with gradient and pattern */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"></div>
       <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
 
       {/* Decorative Glow Effects */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div ref={glow1Ref} className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div ref={glow2Ref} className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="w-full max-w-md p-8 space-y-8 relative z-10">
         {/* Header Text */}
-        <div className="text-center space-y-2 mb-8">
+        <div ref={headerRef} className="text-center space-y-2 mb-8">
           <h1 className="text-3xl font-bold text-white tracking-wide">إدارة المجمعات - البيانات المالية</h1>
           <p className="text-slate-400 text-sm font-light tracking-wider uppercase">Complex Management & Finance</p>
         </div>
 
         {/* Glassmorphism Card */}
-        <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-8 shadow-2xl shadow-black/50">
+        <div ref={cardRef} className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-8 shadow-2xl shadow-black/50 transition-all duration-300 relative overflow-hidden">
+          {/* Success Icon (hidden by default) */}
+          <div 
+            ref={successIconRef} 
+            className="absolute inset-0 flex-col items-center justify-center bg-slate-900/95 z-20"
+            style={{ display: 'none' }}
+          >
+            <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/50">
+              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-xl font-bold text-white">تم تسجيل الدخول بنجاح!</p>
+            <p className="text-emerald-400 text-sm mt-2">جاري التحويل...</p>
+          </div>
+
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-white">
               تسجيل الدخول
             </h2>
           </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form ref={formRef} className="space-y-6" onSubmit={handleSubmit}>
 
-            <div>
+            <div className="form-field">
               <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-1">
                 اسم المستخدم
               </label>
@@ -177,7 +362,7 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            <div>
+            <div className="form-field">
               <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1">
                 كلمة المرور
               </label>
@@ -217,22 +402,33 @@ const Login: React.FC = () => {
             </div>
 
             {error && (
-              <div className="text-red-400 text-sm text-center bg-red-900/20 p-2 rounded border border-red-900/50">{error}</div>
+              <div className="form-field text-red-400 text-sm text-center bg-red-900/20 p-2 rounded border border-red-900/50">{error}</div>
             )}
 
             {forgotPasswordSuccess && (
-              <div className="text-green-400 text-sm text-center bg-green-900/20 p-3 rounded-lg border border-green-900/50">
+              <div className="form-field text-green-400 text-sm text-center bg-green-900/20 p-3 rounded-lg border border-green-900/50">
                 تم إرسال طلب استعادة كلمة المرور للمدير. سيتم التواصل معك قريباً.
               </div>
             )}
 
-            <div>
+            <div className="form-field">
               <button
                 type="submit"
-                disabled={loading}
-                className="btn-primary w-full flex justify-center py-3 px-4 text-sm font-bold disabled:opacity-50"
+                disabled={loading || isLoggingIn}
+                className="btn-primary w-full flex justify-center items-center gap-2 py-3 px-4 text-sm font-bold disabled:opacity-50 relative overflow-hidden group"
               >
-                {loading ? 'جاري التحميل...' : 'تسجيل الدخول'}
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    جاري التحميل...
+                  </>
+                ) : (
+                  'تسجيل الدخول'
+                )}
+                <span className="absolute inset-0 bg-white/20 transform -skewX-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></span>
               </button>
             </div>
           </form>

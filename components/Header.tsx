@@ -59,7 +59,7 @@ const Header: React.FC<{
         fetchProjects();
     }, []);
 
-    // Database connection check
+    // Database connection check - Real-time latency monitoring
     useEffect(() => {
         const checkConnection = async () => {
             const startTime = Date.now();
@@ -81,7 +81,8 @@ const Header: React.FC<{
         };
 
         checkConnection();
-        connectionCheckInterval.current = setInterval(checkConnection, 10000);
+        // فحص كل 3 ثواني للحصول على قراءات آنية وحقيقية
+        connectionCheckInterval.current = setInterval(checkConnection, 3000);
 
         return () => {
             if (connectionCheckInterval.current) {
@@ -239,14 +240,17 @@ const Header: React.FC<{
                             {connectionStatus === 'connected' && (
                                 <div className="relative">
                                     <svg className={`h-6 w-6 ${
-                                        connectionLatency && connectionLatency <= 160 ? 'text-emerald-500' : 
-                                        connectionLatency && connectionLatency <= 200 ? 'text-green-500' : 
-                                        connectionLatency && connectionLatency <= 250 ? 'text-amber-500' : 
+                                        connectionLatency && connectionLatency <= 250 ? 'text-emerald-500' : 
+                                        connectionLatency && connectionLatency <= 300 ? 'text-amber-500' : 
                                         'text-rose-500'
-                                    }`} fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+                                    }`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M2 20h.01" />
+                                        <path d="M7 20v-4" className={connectionLatency && connectionLatency <= 300 ? 'opacity-100' : 'opacity-30'} />
+                                        <path d="M12 20v-8" className={connectionLatency && connectionLatency <= 250 ? 'opacity-100' : 'opacity-30'} />
+                                        <path d="M17 20v-12" className={connectionLatency && connectionLatency <= 220 ? 'opacity-100' : 'opacity-30'} />
+                                        <path d="M22 20v-16" className={connectionLatency && connectionLatency <= 180 ? 'opacity-100' : 'opacity-30'} />
                                     </svg>
-                                    {connectionLatency && connectionLatency > 250 && (
+                                    {connectionLatency && connectionLatency > 300 && (
                                         <span className="absolute -top-1 -right-1 flex items-center justify-center">
                                             <svg className="h-3 w-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -257,9 +261,13 @@ const Header: React.FC<{
                             )}
                             {connectionStatus === 'disconnected' && (
                                 <div className="relative">
-                                    <svg className="h-6 w-6 text-rose-500" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
-                                        <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                    <svg className="h-6 w-6 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M2 20h.01" />
+                                        <path d="M7 20v-4" className="opacity-30" />
+                                        <path d="M12 20v-8" className="opacity-30" />
+                                        <path d="M17 20v-12" className="opacity-30" />
+                                        <path d="M22 20v-16" className="opacity-30" />
+                                        <line x1="4" y1="4" x2="20" y2="20" strokeWidth="2.5" />
                                     </svg>
                                     <span className="absolute -top-1 -right-1 flex items-center justify-center">
                                         <svg className="h-3.5 w-3.5 text-rose-500 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
@@ -276,35 +284,37 @@ const Header: React.FC<{
                             )}
                         </button>
                         {showConnectionTooltip && (
-                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-56 glass-card rounded-xl shadow-2xl border border-white/10 p-4 z-50 animate-fade-in-scale-up">
-                                <div className="text-center">
-                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">حالة الاتصال</p>
-                                    <div className="flex items-center justify-center gap-2 mb-2">
-                                        <div className={`w-3 h-3 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'disconnected' ? 'bg-rose-500' : 'bg-amber-500'} animate-pulse`}></div>
-                                        <span className={`text-sm font-semibold ${connectionStatus === 'connected' ? 'text-emerald-600 dark:text-emerald-400' : connectionStatus === 'disconnected' ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                            {connectionStatus === 'connected' ? 'متصل' : connectionStatus === 'disconnected' ? 'غير متصل' : 'جاري الفحص...'}
+                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-48 bg-slate-800 dark:bg-slate-900 rounded-lg shadow-xl border border-slate-700 p-3 z-50 animate-fade-in-scale-up">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-xs text-slate-400">حالة الاتصال</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'disconnected' ? 'bg-rose-500' : 'bg-amber-500'} animate-pulse`}></div>
+                                        <span className={`text-xs font-medium ${connectionStatus === 'connected' ? 'text-emerald-400' : connectionStatus === 'disconnected' ? 'text-rose-400' : 'text-amber-400'}`}>
+                                            {connectionStatus === 'connected' ? 'متصل' : connectionStatus === 'disconnected' ? 'غير متصل' : 'جاري...'}
                                         </span>
                                     </div>
-                                    {connectionLatency !== null && (
-                                        <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                                            <p className="text-xs text-slate-600 dark:text-slate-300">زمن الاستجابة</p>
-                                            <p className={`text-lg font-bold ${
-                                                connectionLatency <= 160 ? 'text-emerald-600 dark:text-emerald-400' : 
-                                                connectionLatency <= 200 ? 'text-green-600 dark:text-green-400' : 
-                                                connectionLatency <= 250 ? 'text-amber-600 dark:text-amber-400' : 
-                                                'text-rose-600 dark:text-rose-400'
-                                            }`}>
-                                                {connectionLatency} ms
-                                            </p>
-                                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                                                {connectionLatency <= 160 ? 'ممتاز' : connectionLatency <= 200 ? 'جيد' : connectionLatency <= 250 ? 'متوسط' : 'بطيء'}
-                                            </p>
-                                        </div>
-                                    )}
-                                    {connectionStatus === 'disconnected' && (
-                                        <p className="text-xs text-rose-600 dark:text-rose-400 mt-2">⚠️ تحقق من اتصال الإنترنت</p>
-                                    )}
                                 </div>
+                                {connectionLatency !== null && (
+                                    <>
+                                        <div className="flex items-baseline justify-center gap-1 mb-2">
+                                            <span className={`text-3xl font-bold tabular-nums transition-all duration-300 ${
+                                                connectionLatency <= 250 ? 'text-emerald-400' : 
+                                                connectionLatency <= 300 ? 'text-amber-400' : 
+                                                'text-rose-400'
+                                            }`}>
+                                                {connectionLatency}
+                                            </span>
+                                            <span className="text-sm text-slate-500">ms</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                            <span>{connectionLatency <= 250 ? 'ممتاز' : connectionLatency <= 300 ? 'متوسط' : 'بطيء'}</span>
+                                            <span>⟳ 3s</span>
+                                        </div>
+                                    </>
+                                )}
+                                {connectionStatus === 'disconnected' && (
+                                    <p className="text-xs text-rose-400 text-center">⚠️ تحقق من الاتصال</p>
+                                )}
                             </div>
                         )}
                     </div>
@@ -378,14 +388,14 @@ const Header: React.FC<{
                             </div>
                         </button>
                         {isUserMenuVisible && (
-                            <div className="absolute top-full mt-2 w-56 glass-card rounded-2xl shadow-2xl border border-white/10 text-right left-0 animate-fade-in-scale-up overflow-hidden z-50">
-                                <div className="p-4 border-b border-slate-600/30 bg-slate-700/30">
+                            <div className="absolute top-full mt-2 w-56 bg-slate-800 rounded-2xl shadow-2xl border border-slate-600/50 text-right left-0 animate-fade-in-scale-up overflow-hidden z-50">
+                                <div className="p-4 border-b border-slate-600/50 bg-slate-700/80">
                                     <p className="text-sm font-bold text-slate-100">{currentUser?.name}</p>
                                     <p className="text-xs text-slate-400">{currentUser?.email}</p>
                                 </div>
-                                <ul className="p-2">
+                                <ul className="p-2 bg-slate-800">
                                     <li>
-                                        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors duration-200 font-medium">
+                                        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/20 rounded-xl transition-colors duration-200 font-medium">
                                             <LogoutIcon />
                                             <span>تسجيل الخروج</span>
                                         </button>

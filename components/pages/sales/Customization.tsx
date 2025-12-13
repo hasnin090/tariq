@@ -308,26 +308,22 @@ const Customization: React.FC = () => {
     };
 
     const handleColorChange = async (newColor: string) => {
-        console.log('🎨 Changing color to:', newColor);
         setAccentColor(newColor);
         try {
             // Save to database
             await settingsService.set('accentColor', newColor);
-            console.log('✅ Color saved to database');
             
             // Save to localStorage as backup
             localStorage.setItem('accentColor', newColor);
             
             // Apply to DOM immediately
             document.documentElement.setAttribute('data-accent-color', newColor);
-            console.log('✅ Color applied to DOM:', document.documentElement.getAttribute('data-accent-color'));
             
             logActivity('Update Accent Color', `Set system accent color to ${newColor}`);
             addToast(`تم تحديث نظام الألوان إلى ${newColor} بنجاح!`, 'success');
             
             // Force reload page to apply color changes everywhere
             setTimeout(() => {
-                console.log('🔄 Reloading page...');
                 window.location.reload();
             }, 800);
         } catch (error) {
@@ -430,13 +426,11 @@ const Customization: React.FC = () => {
                 {sectionPermissions.unitTypes && (
                     <CustomizationSection title="أنواع الوحدات" items={unitTypes} storageKey="unitTypes" onUpdate={setUnitTypes} />
                 )}
-                {sectionPermissions.unitStatuses && (
-                    <CustomizationSection title="حالات الوحدات" items={unitStatuses} storageKey="unitStatuses" onUpdate={setUnitStatuses} />
-                )}
+                {/* حالات الوحدات مخفية لأنها ثوابت نظام (متاح، محجوز، مباع) ولا يجب تعديلها */}
                 {sectionPermissions.expenseCategories && (
                     <CustomizationSection title="فئات المصروفات" items={expenseCategories} storageKey="expenseCategories" onUpdate={setExpenseCategories} />
                 )}
-                {!sectionPermissions.unitTypes && !sectionPermissions.unitStatuses && !sectionPermissions.expenseCategories && (
+                {!sectionPermissions.unitTypes && !sectionPermissions.expenseCategories && (
                     <p className="text-slate-400 text-center py-4">لا توجد صلاحيات لتخصيص البيانات</p>
                 )}
             </div>

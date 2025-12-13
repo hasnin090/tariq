@@ -30,18 +30,11 @@ const Customers: React.FC = () => {
     const tableBodyRef = useRef<HTMLTableSectionElement>(null);
     const hasAnimated = useRef(false);
 
-    // Filter customers by active project
+    // Filter customers by active project (based on bookings)
     const filteredCustomers = useMemo(() => {
-        if (currentUser?.assignedProjectId) {
-            // For assigned users, only show customers from their project
-            return customers.filter(c => c.projectId === currentUser.assignedProjectId);
-        } else if (activeProject) {
-            // For admin users, filter by selected project
-            return customers.filter(c => c.projectId === activeProject.id);
-        }
-        // Show all customers if no project filter
-        return customers;
-    }, [customers, activeProject, currentUser]);
+        const projectId = currentUser?.assignedProjectId || activeProject?.id || null;
+        return filterCustomersByProject(customers, bookings, units, projectId);
+    }, [customers, bookings, units, activeProject, currentUser]);
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
     const [isDocManagerOpen, setIsDocManagerOpen] = useState(false);

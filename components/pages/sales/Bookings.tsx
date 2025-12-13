@@ -344,29 +344,17 @@ export const Bookings: React.FC = () => {
     const confirmCancel = async () => {
         if (!bookingToCancel) return;
         try {
-            console.log('🔴 بدء إلغاء الحجز:', bookingToCancel.id);
-            console.log('🔵 معرف الوحدة:', bookingToCancel.unitId);
-            
             // تحديث حالة الحجز إلى ملغي
             await bookingsService.update(bookingToCancel.id, { status: 'Cancelled' } as any);
-            console.log('✅ تم تحديث حالة الحجز إلى Cancelled');
             
             // البحث عن الوحدة وتحديث حالتها
             const unit = units.find(u => u.id === bookingToCancel.unitId);
-            console.log('🔍 الوحدة المرتبطة:', unit);
             
             if (unit) {
-                console.log('⚙️ تحديث حالة الوحدة من', unit.status, 'إلى Available');
                 await unitsService.update(unit.id, { status: 'Available' } as any);
-                console.log('✅ تم تحديث حالة الوحدة بنجاح');
-            } else {
-                console.warn('⚠️ لم يتم العثور على الوحدة في القائمة المحلية');
+            } else if (bookingToCancel.unitId) {
                 // محاولة التحديث مباشرة باستخدام unitId من الحجز
-                if (bookingToCancel.unitId) {
-                    console.log('🔄 محاولة تحديث الوحدة مباشرة...');
-                    await unitsService.update(bookingToCancel.unitId, { status: 'Available' } as any);
-                    console.log('✅ تم تحديث الوحدة مباشرة');
-                }
+                await unitsService.update(bookingToCancel.unitId, { status: 'Available' } as any);
             }
             
             logActivity('Cancel Booking', `Cancelled booking for unit ${bookingToCancel.unitName}`);
@@ -449,7 +437,7 @@ export const Bookings: React.FC = () => {
                                 </td>
                                 <td className="p-4"><span className={`px-3 py-1 text-xs font-bold rounded-full ${getStatusStyle(booking.status)}`}>{booking.status}</span></td>
                                 <td className="p-4 space-x-4">
-                                    <button onClick={() => handleOpenDocManager(booking)} className="text-teal-600 hover:underline font-semibold">المستندات</button>
+                                    <button onClick={() => handleOpenDocManager(booking)} className="text-teal-600 hover:underline font-semibold">المرفقات</button>
                                     {booking.status === 'Active' && <button onClick={() => handleCancelRequest(booking)} className="text-rose-600 dark:text-rose-400 hover:underline font-semibold">إلغاء</button>}
                                 </td>
                             </tr>
@@ -468,6 +456,7 @@ export const Bookings: React.FC = () => {
                     entityId={selectedBookingForDocs.id}
                     entityType="booking"
                     entityName={`حجز ${selectedBookingForDocs.unitName}`}
+                    directView={true}
                 />
             )}
             <ConfirmModal isOpen={!!bookingToCancel} onClose={() => setBookingToCancel(null)} onConfirm={confirmCancel} title="تأكيد إلغاء الحجز" message={`هل أنت متأكد من إلغاء حجز الوحدة "${bookingToCancel?.unitName}"؟ ستعود الوحدة متاحة.`} />

@@ -12,6 +12,7 @@ interface ModalProps {
     footer?: React.ReactNode;
     preventCloseOnBackdrop?: boolean;
     noPadding?: boolean;
+    topOffset?: string; // مثل 'pt-8' أو 'pt-12' للتحكم في الحاشية العلوية
 }
 
 const sizeClasses: Record<ModalSize, string> = {
@@ -22,7 +23,7 @@ const sizeClasses: Record<ModalSize, string> = {
     full: 'w-full h-full rounded-none',
 };
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', footer, preventCloseOnBackdrop = false, noPadding = false }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', footer, preventCloseOnBackdrop = false, noPadding = false, topOffset = 'pt-20' }) => {
     const overlayRef = useRef<HTMLDivElement>(null);
     const modalRef = useRef<HTMLDivElement>(null);
 
@@ -75,8 +76,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
     const containerSize = size === 'full' ? sizeClasses.full : `w-full ${sizeClasses[size]} mx-4`;
 
     return (
-        <div ref={overlayRef} className="fixed inset-0 z-[60] bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-0" onClick={handleBackdrop} role="dialog" aria-modal="true" style={{ perspective: '1000px' }}>
-            <div ref={modalRef} className={`${containerSize} backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 ${size === 'full' ? 'h-[calc(100vh-4rem)] my-8' : 'rounded-3xl max-h-[calc(100vh-10rem)] my-20'} flex flex-col transform transition-all overflow-hidden`} onClick={e => e.stopPropagation()}>
+        <div ref={overlayRef} className={`fixed inset-0 z-[60] bg-slate-900/75 backdrop-blur-md flex items-start justify-center ${topOffset} pb-8 overflow-y-auto`} onClick={handleBackdrop} role="dialog" aria-modal="true" style={{ perspective: '1000px' }}>
+            <div ref={modalRef} className={`${containerSize} backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 ${size === 'full' ? 'h-[calc(100vh-4rem)] my-8' : 'rounded-3xl max-h-[calc(100vh-10rem)]'} flex flex-col transform transition-all overflow-hidden`} onClick={e => e.stopPropagation()}>
                 {title && (
                     <div className="px-6 sm:px-8 py-5 border-b border-white/20 flex items-center justify-between bg-gradient-to-br from-white/10 to-transparent backdrop-blur-sm flex-shrink-0">
                         <h2 className="text-xl sm:text-2xl font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] tracking-tight">{title}</h2>

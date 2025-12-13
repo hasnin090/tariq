@@ -18,8 +18,6 @@ import { Bookings } from './components/pages/sales/Bookings';
 import Payments from './components/pages/sales/Payments';
 import UnitSales from './components/pages/sales/UnitSales';
 import SalesDocuments from './components/pages/sales/SalesDocuments';
-import Reports from './components/pages/sales/Reports';
-import FinancialSummary from './components/pages/sales/FinancialSummary';
 import Customization from './components/pages/sales/Customization';
 import Users from './components/pages/sales/Users';
 import Notifications from './components/pages/sales/Notifications';
@@ -27,7 +25,6 @@ import ProjectsManagement from './components/pages/sales/ProjectsManagement';
 import BookingsArchive from './components/pages/sales/BookingsArchive';
 import GeneralArchive from './components/pages/sales/GeneralArchive';
 import DataImport from './components/pages/sales/DataImport';
-import UserPermissionsManager from './components/pages/sales/UserPermissionsManager';
 
 // Accounting Interface Pages
 import FinancialDashboard from './components/pages/accounting/FinancialDashboard';
@@ -82,7 +79,6 @@ const App: React.FC = () => {
         // Use saved color or default to amber
         const colorToUse = savedColor || 'amber';
         
-        console.log('🎨 Loading accent color:', colorToUse);
         document.documentElement.setAttribute('data-accent-color', colorToUse);
         
         // Save to localStorage if not there
@@ -111,8 +107,6 @@ const App: React.FC = () => {
         const isValid = currentCurrency && /^[A-Z]{3}$/.test(currentCurrency);
         
         if (!isValid) {
-          console.warn(`Invalid currency code detected: "${currentCurrency}", fixing to IQD`);
-          
           // Fix in database
           await settingsService.set('systemCurrency', 'IQD');
           
@@ -123,8 +117,6 @@ const App: React.FC = () => {
           // Refresh currency cache
           const { refreshCurrencyCache } = await import('./utils/currencyFormatter');
           await refreshCurrencyCache();
-          
-          console.log('✅ Currency fixed to IQD');
         }
         
         // Mark as done for this session
@@ -196,8 +188,6 @@ const App: React.FC = () => {
       case 'payments': return <Payments />;
       case 'sales': return <UnitSales />;
       case 'sales-documents': return <SalesDocuments />;
-      case 'reports': return <Reports />;
-      case 'financial-summary': return <FinancialSummary />;
       
       // Expenses
       case 'expense_dashboard': return <FinancialDashboard />;
@@ -235,13 +225,6 @@ const App: React.FC = () => {
         );
       
       case 'notifications': return <Notifications />;
-      
-      case 'user-permissions-manager': 
-        return (
-          <ProtectedRoute allowedRoles={['Admin']} pageKey="user-permissions-manager">
-            <UserPermissionsManager />
-          </ProtectedRoute>
-        );
       
       // Archive
       case 'bookings-archive': return <BookingsArchive />;
