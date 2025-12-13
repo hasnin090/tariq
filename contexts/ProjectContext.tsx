@@ -20,6 +20,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const loadProjects = useCallback(async () => {
         if (!currentUser) {
+            setAvailableProjects([]);
+            setActiveProjectState(null);
             setLoading(false);
             return;
         }
