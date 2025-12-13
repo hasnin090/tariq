@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { User, Project, UserResourcePermission, UserMenuAccess, UserButtonAccess, UserProjectAssignment } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import logActivity from '../../../utils/activityLogger';
@@ -716,6 +717,10 @@ const Users: React.FC = () => {
     const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
     const [roleFilter, setRoleFilter] = useState('All');
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -852,6 +857,26 @@ const Users: React.FC = () => {
             .filter(user => user.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [users, roleFilter, searchTerm]);
 
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && filteredUsers.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [filteredUsers]);
+
     return (
         <div className="container mx-auto">
             <div className="flex justify-between items-center mb-6">
@@ -905,7 +930,7 @@ const Users: React.FC = () => {
                             <th className="p-4 font-bold text-sm text-slate-200">إجراءات</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody ref={tableBodyRef}>
                         {filteredUsers.map(user => {
                             const assignedProject = projects.find(p => p.assignedUserId === user.id);
                             return (

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { Unit, Customer, UnitSaleRecord, Payment, UnitStatus, Booking } from '../../../types.ts';
 import { formatCurrency } from '../../../utils/currencyFormatter.ts';
 import { BuildingIcon, UsersIcon, TrendingUpIcon, CreditCardIcon } from '../../shared/Icons.tsx';
@@ -7,22 +8,78 @@ import { useProject } from '../../../contexts/ProjectContext.tsx';
 import { useAuth } from '../../../contexts/AuthContext.tsx';
 import ProjectSelector from '../../shared/ProjectSelector.tsx';
 
-const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string }> = ({ title, value, icon, color }) => (
-    <div className="glass-card p-4 sm:p-6 hover:scale-[1.02] transition-all duration-300 flex items-center min-w-0">
-        <div className={`p-3 sm:p-4 rounded-xl ${color} flex-shrink-0`}>
-            {icon}
+const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; color: string; delay?: number }> = ({ title, value, icon, color, delay = 0 }) => {
+    const cardRef = useRef<HTMLDivElement>(null);
+    
+    useLayoutEffect(() => {
+        if (cardRef.current) {
+            gsap.fromTo(cardRef.current,
+                { opacity: 0, y: 30, scale: 0.9 },
+                { 
+                    opacity: 1, y: 0, scale: 1, 
+                    duration: 0.5, 
+                    delay: delay * 0.1, 
+                    ease: "back.out(1.7)"
+                }
+            );
+        }
+    }, [delay]);
+    
+    return (
+        <div ref={cardRef} style={{opacity: 0}} className="glass-card p-4 sm:p-6 hover:scale-[1.02] transition-all duration-300 flex items-center min-w-0">
+            <div className={`p-3 sm:p-4 rounded-xl ${color} flex-shrink-0`}>
+                {icon}
+            </div>
+            <div className="mr-3 sm:mr-4 flex-1 min-w-0">
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-slate-100 break-words">{value}</p>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">{title}</p>
+            </div>
         </div>
-        <div className="mr-3 sm:mr-4 flex-1 min-w-0">
-            <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-slate-100 break-words">{value}</p>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">{title}</p>
-        </div>
-    </div>
-);
+    );
+};
 
 const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string; data: number[]; color: string }[] } }> = ({ data }) => {
+    const chartRef = useRef<SVGSVGElement>(null);
+    const hasAnimated = useRef(false);
     const chartHeight = 300;
     const chartWidth = 800;
     const padding = { top: 20, right: 20, bottom: 40, left: 80 };
+
+    // 🎬 GSAP Line Chart Animation - runs only once
+    useLayoutEffect(() => {
+        if (chartRef.current && !hasAnimated.current && data.datasets.some(ds => ds.data.length > 0)) {
+            hasAnimated.current = true;
+            const paths = chartRef.current.querySelectorAll('.chart-line');
+            const areas = chartRef.current.querySelectorAll('.chart-area');
+            const dots = chartRef.current.querySelectorAll('.chart-dot');
+            
+            const tl = gsap.timeline();
+            
+            // Animate lines drawing
+            paths.forEach((path) => {
+                const length = (path as SVGPathElement).getTotalLength();
+                tl.fromTo(path,
+                    { strokeDasharray: length, strokeDashoffset: length },
+                    { strokeDashoffset: 0, duration: 1.2, ease: "power2.out" },
+                    0.2
+                );
+            });
+            
+            // Animate areas fading in
+            tl.fromTo(areas,
+                { opacity: 0 },
+                { opacity: 1, duration: 0.8, ease: "power2.out" },
+                0.6
+            );
+            
+            // Animate dots appearing
+            tl.fromTo(dots,
+                { scale: 0, opacity: 0, transformOrigin: 'center center' },
+                { scale: 1, opacity: 1, duration: 0.3, stagger: 0.05, ease: "back.out(2)" },
+                0.8
+            );
+        }
+    }, [data]);
 
     const maxValue = useMemo(() => {
         const allData = data.datasets.flatMap(ds => ds.data);
@@ -55,18 +112,26 @@ const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string;
 
         const areaPath = `${path} L ${(chartWidth - padding.right).toFixed(2)},${(chartHeight-padding.bottom).toFixed(2)} L ${padding.left.toFixed(2)},${(chartHeight-padding.bottom).toFixed(2)} Z`;
 
+        // Generate dots for each data point
+        const dots = points.map((point, i) => {
+            const x = padding.left + (i * (chartWidth - padding.left - padding.right)) / (points.length - 1 || 1);
+            const y = padding.top + chartHeight - padding.top - padding.bottom - (point / maxValue) * (chartHeight - padding.top - padding.bottom);
+            return <circle key={i} className="chart-dot" cx={x} cy={y} r="6" fill={color} stroke="white" strokeWidth="2" />;
+        });
+
         return (
             <g>
                 <defs><linearGradient id={`gradient-${color}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.2" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
-                <path d={areaPath} fill={`url(#gradient-${color})`} />
-                <path d={path} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <path className="chart-area" d={areaPath} fill={`url(#gradient-${color})`} />
+                <path className="chart-line" d={path} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                {dots}
             </g>
         );
     };
 
     return (
         <div className="h-full flex flex-col">
-             <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto flex-grow">
+             <svg ref={chartRef} viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto flex-grow">
                 <g className="text-slate-500 dark:text-slate-400 text-xs">
                     {yAxisLabels.map((label, i) => (
                         <g key={i}>
@@ -98,11 +163,47 @@ const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string;
 
 
 const DonutChart: React.FC<{ data: { label: string; value: number; color: string }[], title: string, centerLabel?: string }> = ({ data, title, centerLabel = "الإجمالي" }) => {
+    const chartRef = useRef<SVGSVGElement>(null);
+    const centerRef = useRef<HTMLDivElement>(null);
+    const hasAnimated = useRef(false);
     const size = 200;
     const strokeWidth = 25;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
     const total = data.reduce((sum, item) => sum + item.value, 0);
+
+    // 🎬 GSAP Donut Chart Animation - runs only once
+    useLayoutEffect(() => {
+        if (chartRef.current && centerRef.current && total > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const circles = chartRef.current.querySelectorAll('.donut-segment');
+            
+            const tl = gsap.timeline();
+            
+            // Animate each segment
+            circles.forEach((circle, index) => {
+                const percentage = data[index]?.value / total || 0;
+                const offset = circumference * (1 - percentage);
+                
+                tl.fromTo(circle,
+                    { strokeDashoffset: circumference },
+                    { 
+                        strokeDashoffset: offset, 
+                        duration: 0.8, 
+                        ease: "power2.out" 
+                    },
+                    0.2 + (index * 0.15)
+                );
+            });
+            
+            // Animate center number
+            tl.fromTo(centerRef.current,
+                { scale: 0, opacity: 0 },
+                { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(2)" },
+                0.3
+            );
+        }
+    }, [data, total, circumference]);
 
     let cumulativeOffset = 0;
 
@@ -110,17 +211,16 @@ const DonutChart: React.FC<{ data: { label: string; value: number; color: string
         <div className="flex flex-col items-center">
             <h4 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">{title}</h4>
              <div className="relative" style={{ width: size, height: size }}>
-                 <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                 <svg ref={chartRef} width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
                     <circle cx={size/2} cy={size/2} r={radius} fill="none" strokeWidth={strokeWidth} className="stroke-slate-200 dark:stroke-slate-700" />
-                    {total > 0 && data.map(item => {
+                    {total > 0 && data.map((item, index) => {
                         const percentage = item.value / total;
-                        const offset = circumference * (1 - percentage);
                         const rotation = cumulativeOffset * 360;
                         cumulativeOffset += percentage;
-                        return <circle key={item.label} cx={size/2} cy={size/2} r={radius} fill="none" stroke={item.color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" transform={`rotate(${rotation - 90} ${size/2} ${size/2})`} />;
+                        return <circle key={item.label} className="donut-segment" cx={size/2} cy={size/2} r={radius} fill="none" stroke={item.color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={circumference} strokeLinecap="round" transform={`rotate(${rotation - 90} ${size/2} ${size/2})`} />;
                     })}
                 </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div ref={centerRef} className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-xs text-slate-500 dark:text-slate-400">{centerLabel}</span>
                     <span className="font-bold text-2xl text-slate-800 dark:text-slate-200">{total}</span>
                 </div>
@@ -317,14 +417,14 @@ const Dashboard: React.FC = () => {
             )}
             
             <div className={`grid grid-cols-1 md:grid-cols-2 ${currentUser?.role === 'Admin' ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-6 mb-6`}>
-                <StatCard title="إجمالي الوحدات" value={stats.totalUnits} icon={<BuildingIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" />
+                <StatCard title="إجمالي الوحدات" value={stats.totalUnits} icon={<BuildingIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" delay={0} />
                 {currentUser?.role === 'Admin' && (
-                    <StatCard title="إجمالي العملاء" value={stats.totalCustomers} icon={<UsersIcon className="h-8 w-8 text-white"/>} color="stat-card-amber-600" />
+                    <StatCard title="إجمالي العملاء" value={stats.totalCustomers} icon={<UsersIcon className="h-8 w-8 text-white"/>} color="stat-card-amber-600" delay={1} />
                 )}
                 {currentUser?.role === 'Admin' && (
-                    <StatCard title="إجمالي الإيرادات" value={formatCurrency(stats.totalRevenue)} icon={<TrendingUpIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" />
+                    <StatCard title="إجمالي الإيرادات" value={formatCurrency(stats.totalRevenue)} icon={<TrendingUpIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" delay={2} />
                 )}
-                <StatCard title="الوحدات المتاحة" value={stats.unitsAvailable} icon={<CreditCardIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" />
+                <StatCard title="الوحدات المتاحة" value={stats.unitsAvailable} icon={<CreditCardIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" delay={3} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

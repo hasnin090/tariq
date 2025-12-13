@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { Account, Transaction } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { useToast } from '../../../contexts/ToastContext';
@@ -15,6 +16,46 @@ const Treasury: React.FC = () => {
     const [editingAccount, setEditingAccount] = useState<Account | null>(null);
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
     const [loading, setLoading] = useState(true);
+    
+    // 🎬 GSAP Animation refs
+    const accountsListRef = useRef<HTMLDivElement>(null);
+    const transactionsListRef = useRef<HTMLUListElement>(null);
+    const hasAnimatedAccounts = useRef(false);
+    const hasAnimatedTransactions = useRef(false);
+    
+    // 🎬 GSAP Accounts Animation
+    useLayoutEffect(() => {
+        if (accountsListRef.current && accounts.length > 0 && !hasAnimatedAccounts.current) {
+            hasAnimatedAccounts.current = true;
+            const accountButtons = accountsListRef.current.querySelectorAll('.account-card');
+            gsap.fromTo(accountButtons,
+                { opacity: 0, x: -30, scale: 0.95 },
+                { 
+                    opacity: 1, x: 0, scale: 1, 
+                    duration: 0.4, 
+                    stagger: 0.1, 
+                    ease: "back.out(1.5)" 
+                }
+            );
+        }
+    }, [accounts]);
+    
+    // 🎬 GSAP Transactions Animation
+    useLayoutEffect(() => {
+        if (transactionsListRef.current && filteredTransactions.length > 0 && !hasAnimatedTransactions.current) {
+            hasAnimatedTransactions.current = true;
+            const transactionItems = transactionsListRef.current.querySelectorAll('.transaction-item');
+            gsap.fromTo(transactionItems,
+                { opacity: 0, y: 20 },
+                { 
+                    opacity: 1, y: 0, 
+                    duration: 0.3, 
+                    stagger: 0.05, 
+                    ease: "power2.out" 
+                }
+            );
+        }
+    }, [selectedAccount]);
     
     useEffect(() => {
         loadData();
@@ -138,9 +179,9 @@ const Treasury: React.FC = () => {
                 </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1 space-y-4">
+                <div ref={accountsListRef} className="lg:col-span-1 space-y-4">
                     {accounts.map(acc => (
-                         <button key={acc.id} onClick={() => setSelectedAccount(acc)} className={`w-full text-right p-4 rounded-xl border-2 transition-all ${selectedAccount?.id === acc.id ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-300'}`}>
+                         <button key={acc.id} onClick={() => { setSelectedAccount(acc); hasAnimatedTransactions.current = false; }} className={`account-card w-full text-right p-4 rounded-xl border-2 transition-all ${selectedAccount?.id === acc.id ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary-300'}`}>
                              <div className="flex items-center gap-4">
                                 <div className="p-3 bg-slate-100 dark:bg-slate-700 rounded-full">{acc.type === 'Bank' ? <BankIcon className="h-6 w-6 text-slate-600 dark:text-slate-300"/> : <CashIcon className="h-6 w-6 text-slate-600 dark:text-slate-300"/>}</div>
                                 <div>
@@ -155,11 +196,11 @@ const Treasury: React.FC = () => {
                     <div className="p-4 border-b border-slate-200 dark:border-slate-700">
                         <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">سجل الحركات لـ {selectedAccount?.name || "..."}</h3>
                     </div>
-                    <div className="overflow-y-auto max-h-[70vh]">
+                    <div>
                          {filteredTransactions.length > 0 ? (
-                            <ul>
+                            <ul ref={transactionsListRef}>
                                 {filteredTransactions.map(t => (
-                                     <li key={t.id} className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700 last:border-0">
+                                     <li key={t.id} className="transaction-item flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700 last:border-0">
                                          <div className="flex items-center gap-3">
                                             <div className={`p-2 rounded-full ${t.type === 'Deposit' ? 'bg-emerald-100 dark:bg-emerald-500/10' : 'bg-rose-100 dark:bg-rose-500/10'}`}>
                                                 {t.type === 'Deposit' ? <ArrowUpIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400"/> : <ArrowDownIcon className="h-5 w-5 text-rose-600 dark:text-rose-400"/>}

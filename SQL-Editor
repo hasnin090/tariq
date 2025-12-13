@@ -272,7 +272,7 @@ CREATE TABLE IF NOT EXISTS public.units (
     project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
     unit_number TEXT NOT NULL,
     type TEXT,
-    status TEXT CHECK (status IN ('Available', 'Booked', 'Sold')),
+    status TEXT CHECK (status IN ('Available', 'Booked', 'Sold', 'متاح', 'محجوز', 'مباع')),
     floor_number INTEGER,
     area NUMERIC(10, 2),
     price NUMERIC(15, 2) NOT NULL,
@@ -1277,12 +1277,15 @@ CREATE POLICY "user_project_assignments_update" ON public.user_project_assignmen
 CREATE POLICY "user_project_assignments_delete" ON public.user_project_assignments FOR DELETE USING (true);
 
 -- Triggers لتحديث updated_at
+DROP TRIGGER IF EXISTS update_user_permissions_updated_at ON public.user_permissions;
 CREATE TRIGGER update_user_permissions_updated_at BEFORE UPDATE ON public.user_permissions
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_user_menu_access_updated_at ON public.user_menu_access;
 CREATE TRIGGER update_user_menu_access_updated_at BEFORE UPDATE ON public.user_menu_access
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_user_button_access_updated_at ON public.user_button_access;
 CREATE TRIGGER update_user_button_access_updated_at BEFORE UPDATE ON public.user_button_access
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

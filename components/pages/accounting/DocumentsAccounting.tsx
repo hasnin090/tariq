@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { Expense, SaleDocument } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import logActivity from '../../../utils/activityLogger';
@@ -279,6 +280,10 @@ const DocumentsAccounting: React.FC = () => {
     const [filter, setFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
     const [loading, setLoading] = useState(true);
     const { addToast } = useToast();
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
 
     const loadData = async () => {
         try {
@@ -339,6 +344,26 @@ const DocumentsAccounting: React.FC = () => {
         if (filter === 'unlinked') docs = docs.filter(d => !d.expenseId);
         return docs.sort((a,b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
     }, [allDocuments, filter]);
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && filteredDocuments.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [filteredDocuments]);
 
     const handleSaveUploads = async (newDocs: SaleDocument[]) => {
         try {
@@ -450,7 +475,7 @@ const DocumentsAccounting: React.FC = () => {
                                 <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody ref={tableBodyRef}>
                             {filteredDocuments.map(doc => {
                                 const linkedExpense = doc.expenseId ? expenseMap.get(doc.expenseId) : null;
                                 return (

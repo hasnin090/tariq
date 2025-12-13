@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { Employee, Expense, ExpenseCategory, Account, Transaction, Project } from '../../../types';
 import logActivity from '../../../utils/activityLogger';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -85,6 +86,30 @@ const Employees: React.FC = () => {
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
     const [payingEmployee, setPayingEmployee] = useState<Employee | null>(null);
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && employees.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [employees]);
 
     const salaryStatus = useMemo(() => {
         const status: { [key: string]: { paidAmount: number, status: 'Paid' | 'Partially Paid' | 'Not Paid'} } = {};
@@ -276,7 +301,7 @@ const Employees: React.FC = () => {
                                 {currentUser?.role === 'Admin' && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>}
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody ref={tableBodyRef}>
                             {employees.map(emp => {
                                 const statusInfo = salaryStatus[emp.id] || { paidAmount: 0, status: 'Not Paid' };
                                 return (

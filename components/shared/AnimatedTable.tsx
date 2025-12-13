@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef, useEffect, useLayoutEffect } from 'react';
 import { useTableRipple } from '../../utils/scrollAnimations';
+import gsap from 'gsap';
 
 interface TableCellProps {
   children: React.ReactNode;
@@ -54,32 +55,126 @@ export const AnimatedTableRow: React.FC<TableRowProps> = ({
   );
 };
 
-// HOC to wrap existing tables with animation
-export const withTableAnimations = <P extends object>(
-  Component: React.ComponentType<P>
-): React.FC<P> => {
-  return (props: P) => {
-    React.useEffect(() => {
-      // Add animations to all table cells
-      const tables = document.querySelectorAll('table tbody td');
-      const { createRipple } = useTableRipple();
+// ============================================
+// 🎬 GSAP Animated Table Component
+// ============================================
+
+interface GsapTableProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const GsapTable: React.FC<GsapTableProps> = ({ children, className = '' }) => {
+  const tableRef = useRef<HTMLTableElement>(null);
+  const hasAnimated = useRef(false);
+
+  useLayoutEffect(() => {
+    if (tableRef.current && !hasAnimated.current) {
+      hasAnimated.current = true;
+      const rows = tableRef.current.querySelectorAll('tbody tr');
       
-      const handleCellClick = (e: MouseEvent) => {
-        const target = e.currentTarget as HTMLTableCellElement;
-        createRipple(e as any);
-      };
+      gsap.fromTo(rows,
+        { opacity: 0, y: 20 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.4,
+          stagger: 0.05,
+          ease: "power2.out",
+          delay: 0.1
+        }
+      );
+    }
+  }, []);
 
-      tables.forEach(cell => {
-        cell.addEventListener('click', handleCellClick);
-      });
-
-      return () => {
-        tables.forEach(cell => {
-          cell.removeEventListener('click', handleCellClick);
-        });
-      };
-    }, []);
-
-    return <Component {...props} />;
-  };
+  return (
+    <table ref={tableRef} className={className}>
+      {children}
+    </table>
+  );
 };
+
+interface GsapTableBodyProps {
+  children: React.ReactNode;
+  className?: string;
+  deps?: any[]; // Dependencies to trigger re-animation
+}
+
+export const GsapTableBody: React.FC<GsapTableBodyProps> = ({ children, className = '', deps = [] }) => {
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const hasAnimated = useRef(false);
+
+  useLayoutEffect(() => {
+    if (tbodyRef.current && !hasAnimated.current) {
+      hasAnimated.current = true;
+      const rows = tbodyRef.current.querySelectorAll('tr');
+      
+      // Animate rows
+      gsap.fromTo(rows,
+        { opacity: 0, y: 20 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.35,
+          stagger: 0.04,
+          ease: "power2.out",
+          delay: 0.05
+        }
+      );
+    }
+  }, deps);
+
+  return (
+    <tbody ref={tbodyRef} className={className}>
+      {children}
+    </tbody>
+  );
+};
+
+// Hook for animating table on data change
+export const useTableAnimation = (deps: any[] = []) => {
+  const tableRef = useRef<HTMLTableElement>(null);
+
+  useEffect(() => {
+    if (tableRef.current) {
+      const rows = tableRef.current.querySelectorAll('tbody tr');
+      
+      gsap.fromTo(rows,
+        { opacity: 0, x: -20 },
+        {
+          opacity: 1,
+          x: 0,
+          duration: 0.3,
+          stagger: 0.03,
+          ease: "power2.out"
+        }
+      );
+    }
+  }, deps);
+
+  return tableRef;
+};
+
+// Hook for row hover animation
+export const useRowHoverAnimation = () => {
+  const handleMouseEnter = (e: React.MouseEvent<HTMLTableRowElement>) => {
+    gsap.to(e.currentTarget, {
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      x: -5,
+      duration: 0.2,
+      ease: "power2.out"
+    });
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent<HTMLTableRowElement>) => {
+    gsap.to(e.currentTarget, {
+      backgroundColor: 'transparent',
+      x: 0,
+      duration: 0.2,
+      ease: "power2.out"
+    });
+  };
+
+  return { handleMouseEnter, handleMouseLeave };
+};
+

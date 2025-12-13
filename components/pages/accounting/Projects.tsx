@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { Project, User } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import logActivity from '../../../utils/activityLogger';
@@ -12,6 +13,30 @@ const Projects: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && !loading && projects.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [projects, loading]);
 
     useEffect(() => {
         loadData();
@@ -79,7 +104,7 @@ const Projects: React.FC = () => {
                 <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-xl shadow-lg border border-white/20 dark:border-white/10 overflow-hidden">
                     <table className="w-full text-right">
                         <thead><tr className="border-b-2 bg-slate-100/50 dark:bg-slate-700/50"><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">اسم المشروع</th><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">الوصف</th><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">المحاسب المسؤول</th><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">إجراءات</th></tr></thead>
-                        <tbody>
+                        <tbody ref={tableBodyRef}>
                             {projects.map(project => (
                                 <tr key={project.id} className="border-b border-white/10 dark:border-slate-700 hover:bg-white/5 transition-colors">
                                     <td className="p-4 font-medium text-slate-900 dark:text-slate-100">{project.name}</td>

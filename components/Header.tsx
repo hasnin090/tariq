@@ -169,7 +169,7 @@ const Header: React.FC<{
     const MenuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>;
 
     return (
-        <header className="sticky top-0 z-30 backdrop-blur-xl bg-slate-900/80 border-b border-white/5 shadow-lg no-print transition-all duration-300">
+        <header className="sticky top-0 z-30 glass-card border-b border-white/10 shadow-xl no-print transition-all duration-300">
             <div className="h-20 flex items-center justify-between px-6 mx-auto gap-6">
                 
                 <div className="flex items-center gap-4">
@@ -177,7 +177,7 @@ const Header: React.FC<{
                         <MenuIcon />
                     </button>
                     {currentUser?.role === 'Admin' && (
-                        <div className="hidden sm:flex items-center bg-slate-800/50 p-1 rounded-xl border border-slate-700 shadow-sm">
+                        <div className="hidden sm:flex items-center bg-slate-700/30 p-1 rounded-xl border border-slate-600/30 shadow-sm backdrop-blur-sm">
                             <button 
                                 onClick={() => setInterfaceMode('projects')}
                                 className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group mode-switcher-btn ${interfaceMode === 'projects' ? 'mode-active' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
@@ -276,7 +276,7 @@ const Header: React.FC<{
                             )}
                         </button>
                         {showConnectionTooltip && (
-                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-56 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 p-4 z-50 animate-fade-in-scale-up">
+                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-56 glass-card rounded-xl shadow-2xl border border-white/10 p-4 z-50 animate-fade-in-scale-up">
                                 <div className="text-center">
                                     <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">حالة الاتصال</p>
                                     <div className="flex items-center justify-center gap-2 mb-2">
@@ -319,10 +319,10 @@ const Header: React.FC<{
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             onFocus={() => setIsSearchFocused(true)}
-                            className="w-full pr-10 pl-3 py-2.5 border border-slate-700 rounded-xl bg-slate-800/50 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-slate-100 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
+                            className="w-full pr-10 pl-3 py-2.5 border border-slate-600/30 rounded-xl bg-slate-700/40 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500/50 text-slate-100 placeholder:text-slate-500 transition-all duration-200 shadow-sm backdrop-blur-sm"
                         />
                          {isSearchFocused && searchResults.length > 0 && (
-                            <div className="absolute top-full mt-2 w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-100 dark:border-slate-700 text-right max-h-80 overflow-y-auto z-50">
+                            <div className="absolute top-full mt-2 w-full glass-card rounded-xl shadow-2xl border border-white/10 text-right max-h-80 overflow-y-auto z-50">
                                 <ul className="py-2">
                                     {searchResults.map(result => (
                                         <li key={`${result.type}-${result.id}`}>
@@ -344,7 +344,7 @@ const Header: React.FC<{
                     
                     <button 
                         onClick={() => setActivePage('notifications')}
-                        className="text-slate-500 dark:text-slate-400 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 ease-in-out border border-transparent hover:border-slate-200 dark:hover:border-slate-700 relative group hover:scale-[1.02] active:scale-[0.98]"
+                        className="text-slate-400 p-2.5 rounded-xl hover:bg-slate-700/50 transition-all duration-200 ease-in-out border border-transparent hover:border-slate-600/30 relative group hover:scale-[1.02] active:scale-[0.98]"
                         onMouseEnter={(e) => {
                             const bell = e.currentTarget.querySelector('.bell-icon');
                             bell?.classList.add('animate-bell-ring');
@@ -361,12 +361,12 @@ const Header: React.FC<{
                     </button>
 
                     <div className="relative" ref={userMenuRef}>
-                        <button onClick={() => setIsUserMenuVisible(prev => !prev)} className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
-                             <div className="w-9 h-9 bg-gradient-to-tr from-primary-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white dark:ring-slate-800">
+                        <button onClick={() => setIsUserMenuVisible(prev => !prev)} className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-full hover:bg-slate-700/40 transition-colors border border-transparent hover:border-slate-600/30">
+                             <div className="w-9 h-9 bg-gradient-to-tr from-primary-500/80 to-purple-600/80 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-slate-700/50">
                                 {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'A'}
                             </div>
                             <div className="hidden md:block text-right">
-                                <span className="font-semibold text-slate-800 dark:text-slate-100 block leading-tight text-sm">{currentUser?.name}</span>
+                                <span className="font-semibold text-slate-200 block leading-tight text-sm">{currentUser?.name}</span>
                                 {assignedProjectName ? (
                                      <span className="text-[10px] text-accent font-medium flex items-center justify-end gap-1 leading-tight mt-0.5">
                                         <BriefcaseIcon className="h-3 w-3" />
@@ -378,14 +378,14 @@ const Header: React.FC<{
                             </div>
                         </button>
                         {isUserMenuVisible && (
-                            <div className="absolute top-full mt-2 w-56 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 text-right left-0 animate-fade-in-scale-up overflow-hidden z-50">
-                                <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
-                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{currentUser?.name}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">{currentUser?.email}</p>
+                            <div className="absolute top-full mt-2 w-56 glass-card rounded-2xl shadow-2xl border border-white/10 text-right left-0 animate-fade-in-scale-up overflow-hidden z-50">
+                                <div className="p-4 border-b border-slate-600/30 bg-slate-700/30">
+                                    <p className="text-sm font-bold text-slate-100">{currentUser?.name}</p>
+                                    <p className="text-xs text-slate-400">{currentUser?.email}</p>
                                 </div>
                                 <ul className="p-2">
                                     <li>
-                                        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors duration-200 font-medium">
+                                        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors duration-200 font-medium">
                                             <LogoutIcon />
                                             <span>تسجيل الخروج</span>
                                         </button>

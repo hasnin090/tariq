@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { Booking, Unit, Customer, Payment, Account, Transaction } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -15,6 +15,7 @@ import CompactDocumentUploader from '../../shared/CompactDocumentUploader';
 import PaymentTimeline from '../../shared/PaymentTimeline';
 import { CloseIcon, DocumentTextIcon, EditIcon } from '../../shared/Icons';
 import { useButtonPermissions } from '../../../hooks/useButtonPermission';
+import gsap from 'gsap';
 
 export const Bookings: React.FC = () => {
     const { addToast } = useToast();
@@ -24,6 +25,10 @@ export const Bookings: React.FC = () => {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
 
     // صلاحيات الأزرار
     const canCancelBooking = currentUser?.role === 'Admin' || canShow('bookings', 'cancel-booking');
@@ -52,7 +57,25 @@ export const Bookings: React.FC = () => {
     const [selectedBookingPayments, setSelectedBookingPayments] = useState<Payment[]>([]);
     const [selectedUnitPrice, setSelectedUnitPrice] = useState(0);
 
-    const handleOpenDocManager = (booking: Booking) => {
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && !loading && filteredBookings.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [filteredBookings, loading]);    const handleOpenDocManager = (booking: Booking) => {
         setSelectedBookingForDocs(booking);
         setIsDocManagerOpen(true);
     };
@@ -258,9 +281,9 @@ export const Bookings: React.FC = () => {
                 unit_id: bookingData.unitId,
                 customer_id: bookingData.customerId,
                 booking_date: bookingData.bookingDate,
+                total_price: unit.price, // إضافة السعر الإجمالي (مطلوب في قاعدة البيانات)
                 amount_paid: bookingData.amountPaid,
-                unit_name: unit.name,
-                customer_name: customer.name,
+                // unit_name و customer_name غير موجودين في جدول bookings - يتم جلبهم عبر join
             };
 
             if (editingBooking) {
@@ -384,13 +407,14 @@ export const Bookings: React.FC = () => {
                 <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
                     <table className="w-full text-right min-w-[900px]">
                     <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الحجز</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">سعر الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجمالي المدفوع</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">عدد الدفعات</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المتبقي</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th></tr></thead>
-                    <tbody>
+                    <tbody ref={tableBodyRef}>
                         {filteredBookings.filter(booking => booking.status !== 'Cancelled').map(booking => {
                             const unit = units.find(u => u.id === booking.unitId);
                             const unitPrice = unit?.price || 0;
                             const bookingPaymentInfo = bookingPayments.get(booking.id);
-                            const totalPaid = (bookingPaymentInfo?.totalPaid || 0) + booking.amountPaid;
-                            const paymentCount = (bookingPaymentInfo?.paymentCount || 0) + (booking.amountPaid > 0 ? 1 : 0);
+                            // booking.amountPaid يتم تحديثه تلقائياً بواسطة trigger ليكون مجموع كل المدفوعات
+                            const totalPaid = bookingPaymentInfo?.totalPaid || booking.amountPaid || 0;
+                            const paymentCount = bookingPaymentInfo?.paymentCount || (booking.amountPaid > 0 ? 1 : 0);
                             const remainingAmount = unitPrice - totalPaid;
                             return (
                             <tr key={booking.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
@@ -476,7 +500,8 @@ export const Bookings: React.FC = () => {
                                 const unitPrice = unit?.price || 0;
                                 const bookingPaymentsList = allPayments.filter(p => p.bookingId === selectedBookingForPayments.id);
                                 const totalFromPayments = bookingPaymentsList.reduce((sum, p) => sum + p.amount, 0);
-                                const totalPaid = totalFromPayments + selectedBookingForPayments.amountPaid;
+                                // استخدام مجموع المدفوعات من جدول payments فقط (لأن دفعة الحجز موجودة هناك)
+                                const totalPaid = totalFromPayments;
                                 const remainingAmount = unitPrice - totalPaid;
 
                                 return (
@@ -497,7 +522,7 @@ export const Bookings: React.FC = () => {
                                             </div>
                                             <div className="bg-blue-100 dark:bg-blue-900 rounded-lg p-4">
                                                 <p className="text-sm text-blue-700 dark:text-blue-300 mb-1">عدد الدفعات</p>
-                                                <p className="text-xl font-bold text-blue-800 dark:text-blue-200">{bookingPaymentsList.length + 1}</p>
+                                                <p className="text-xl font-bold text-blue-800 dark:text-blue-200">{bookingPaymentsList.length}</p>
                                             </div>
                                         </div>
 
@@ -517,80 +542,23 @@ export const Bookings: React.FC = () => {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {/* Initial Payment from Booking */}
-                                                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-blue-50 dark:bg-blue-900/20">
-                                                        <td className="p-3 font-semibold">1</td>
-                                                        <td className="p-3">{selectedBookingForPayments.bookingDate}</td>
-                                                        <td className="p-3">
-                                                            <span className="inline-block px-2 py-1 bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 rounded text-xs font-semibold">
-                                                                دفعة الحجز
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">
-                                                            {editingPayment?.id === selectedBookingForPayments.id && editingPayment?.isBooking ? (
-                                                                <div className="flex items-center gap-2">
-                                                                    <input
-                                                                        type="number"
-                                                                        value={editingPayment.amount}
-                                                                        onChange={(e) => setEditingPayment({ ...editingPayment, amount: parseFloat(e.target.value) || 0 })}
-                                                                        step="0.01"
-                                                                        className="w-32 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                                                                    />
-                                                                    <button
-                                                                        onClick={handleSavePaymentEdit}
-                                                                        className="px-3 py-1 bg-emerald-500 text-white rounded hover:bg-emerald-600 text-sm"
-                                                                    >
-                                                                        حفظ
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => setEditingPayment(null)}
-                                                                        className="px-3 py-1 bg-slate-400 text-white rounded hover:bg-slate-500 text-sm"
-                                                                    >
-                                                                        إلغاء
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
-                                                                formatCurrency(selectedBookingForPayments.amountPaid)
-                                                            )}
-                                                        </td>
-                                                        <td className="p-3 font-semibold">
-                                                            {unitPrice - selectedBookingForPayments.amountPaid === 0 ? (
-                                                                <span className="text-emerald-600 dark:text-emerald-400">لا يوجد</span>
-                                                            ) : (
-                                                                <span className="text-amber-600 dark:text-amber-400">{formatCurrency(unitPrice - selectedBookingForPayments.amountPaid)}</span>
-                                                            )}
-                                                        </td>
-                                                        {canEditPayment && (
-                                                            <td className="p-3">
-                                                                {!(editingPayment?.id === selectedBookingForPayments.id && editingPayment?.isBooking) && (
-                                                                    <button
-                                                                        onClick={() => handleEditPayment(selectedBookingForPayments.id, selectedBookingForPayments.amountPaid, true)}
-                                                                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                                                                        title="تعديل المبلغ"
-                                                                    >
-                                                                        <EditIcon />
-                                                                    </button>
-                                                                )}
-                                                            </td>
-                                                        )}
-                                                    </tr>
-                                                    
-                                                    {/* Subsequent Payments */}
+                                                    {/* All Payments from payments table */}
                                                     {bookingPaymentsList.map((payment, index) => {
-                                                        const paidSoFar = selectedBookingForPayments.amountPaid + bookingPaymentsList.slice(0, index + 1).reduce((sum, p) => sum + p.amount, 0);
+                                                        const paidSoFar = bookingPaymentsList.slice(0, index + 1).reduce((sum, p) => sum + p.amount, 0);
                                                         const remainingAfterThis = unitPrice - paidSoFar;
+                                                        const isBookingPayment = payment.paymentType === 'booking';
                                                         
                                                         return (
-                                                            <tr key={payment.id} className="border-b border-slate-200 dark:border-slate-700">
-                                                                <td className="p-3 font-semibold">{index + 2}</td>
+                                                            <tr key={payment.id} className={`border-b border-slate-200 dark:border-slate-700 ${isBookingPayment ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                                                                <td className="p-3 font-semibold">{index + 1}</td>
                                                                 <td className="p-3">{payment.paymentDate}</td>
                                                                 <td className="p-3">
-                                                                    <span className="inline-block px-2 py-1 bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 rounded text-xs font-semibold">
-                                                                        دفعة إضافية
+                                                                    <span className={`inline-block px-2 py-1 ${isBookingPayment ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100' : 'bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100'} rounded text-xs font-semibold`}>
+                                                                        {isBookingPayment ? 'دفعة الحجز' : payment.paymentType === 'installment' ? 'قسط' : 'دفعة إضافية'}
                                                                     </span>
                                                                 </td>
                                                                 <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">
-                                                                    {editingPayment?.id === payment.id && !editingPayment?.isBooking ? (
+                                                                    {editingPayment?.id === payment.id ? (
                                                                         <div className="flex items-center gap-2">
                                                                             <input
                                                                                 type="number"
@@ -618,14 +586,16 @@ export const Bookings: React.FC = () => {
                                                                 </td>
                                                                 <td className="p-3 font-semibold">
                                                                     {remainingAfterThis === 0 ? (
-                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">لا يوجد</span>
+                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">✅ مكتمل</span>
+                                                                    ) : remainingAfterThis < 0 ? (
+                                                                        <span className="text-rose-600 dark:text-rose-400">تجاوز بـ {formatCurrency(Math.abs(remainingAfterThis))}</span>
                                                                     ) : (
                                                                         <span className="text-amber-600 dark:text-amber-400">{formatCurrency(remainingAfterThis)}</span>
                                                                     )}
                                                                 </td>
                                                                 {canEditPayment && (
                                                                     <td className="p-3">
-                                                                        {!(editingPayment?.id === payment.id && !editingPayment?.isBooking) && (
+                                                                        {editingPayment?.id !== payment.id && (
                                                                             <button
                                                                                 onClick={() => handleEditPayment(payment.id, payment.amount, false)}
                                                                                 className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
@@ -639,6 +609,15 @@ export const Bookings: React.FC = () => {
                                                             </tr>
                                                         );
                                                     })}
+                                                    
+                                                    {/* Empty state if no payments */}
+                                                    {bookingPaymentsList.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan={canEditPayment ? 6 : 5} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                                                                لا توجد دفعات مسجلة لهذا الحجز
+                                                            </td>
+                                                        </tr>
+                                                    )}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -735,8 +714,8 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
                                 .filter(u => {
                                     // عند التعديل، اسمح بالوحدة الحالية فقط
                                     if (booking) return u.id === booking.unitId;
-                                    // عند الإضافة، اعرض فقط الوحدات المتاحة (Available)
-                                    return u.status === 'Available';
+                                    // عند الإضافة، اعرض فقط الوحدات المتاحة (Available أو متاح)
+                                    return u.status === 'Available' || u.status === 'متاح';
                                 })
                                 .map(u => <option key={u.id} value={u.id}>{`${u.name} (${formatCurrency(u.price)})`}</option>)}
                         </select>

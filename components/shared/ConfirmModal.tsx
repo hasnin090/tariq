@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -21,6 +22,35 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     cancelText = 'إلغاء',
     variant = 'danger'
 }) => {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const iconRef = useRef<HTMLDivElement>(null);
+
+  // 🎬 GSAP Confirm Modal Animation
+  useLayoutEffect(() => {
+    if (isOpen && overlayRef.current && modalRef.current && iconRef.current) {
+      const tl = gsap.timeline();
+      
+      // Animate overlay
+      tl.fromTo(overlayRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.2, ease: "power2.out" }
+      );
+      // Animate modal with bounce
+      tl.fromTo(modalRef.current,
+        { opacity: 0, scale: 0.6, y: -60 },
+        { opacity: 1, scale: 1, y: 0, duration: 0.4, ease: "back.out(1.5)" },
+        0.05
+      );
+      // Animate icon with shake effect
+      tl.fromTo(iconRef.current,
+        { rotation: -10, scale: 0 },
+        { rotation: 0, scale: 1, duration: 0.4, ease: "elastic.out(1, 0.4)" },
+        0.15
+      );
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const confirmButtonColorClasses = {
@@ -49,10 +79,10 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[70] bg-slate-900/75 backdrop-blur-md flex justify-center items-center p-4 no-print animate-fade-in" onClick={onClose}>
-      <div className="backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 rounded-3xl p-8 w-full max-w-lg shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 animate-scale-up" onClick={e => e.stopPropagation()}>
+    <div ref={overlayRef} className="fixed inset-0 z-[70] bg-slate-900/75 backdrop-blur-md flex justify-center items-center p-4 no-print" onClick={onClose}>
+      <div ref={modalRef} className="backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 rounded-3xl p-8 w-full max-w-lg shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20" onClick={e => e.stopPropagation()}>
         <div className="sm:flex sm:items-start sm:gap-5">
-          <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-14 w-14 rounded-2xl backdrop-blur-sm border-2 sm:mx-0 ${variant === 'danger' ? 'bg-rose-500/20 border-rose-400/50 text-rose-200' : 'bg-blue-500/20 border-blue-400/50 text-blue-200'}`}>
+          <div ref={iconRef} className={`mx-auto flex-shrink-0 flex items-center justify-center h-14 w-14 rounded-2xl backdrop-blur-sm border-2 sm:mx-0 ${variant === 'danger' ? 'bg-rose-500/20 border-rose-400/50 text-rose-200' : 'bg-blue-500/20 border-blue-400/50 text-blue-200'}`}>
             <Icon />
           </div>
           <div className="mt-4 text-center sm:mt-0 sm:text-right flex-1">

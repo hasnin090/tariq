@@ -21,10 +21,10 @@ const PaymentTimeline: React.FC<PaymentTimelineProps> = ({ payments, unitPrice, 
     const percentagePaid = (totalPaid / unitPrice) * 100;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 pt-20">
+            <div className="glass-card rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden border border-white/20">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-500 p-6 text-white">
+                <div className="bg-gradient-to-r from-slate-700/90 to-slate-600/90 p-6 text-white">
                     <div className="flex justify-between items-start">
                         <div>
                             <h2 className="text-2xl font-bold mb-2">تفاصيل الدفعات</h2>
@@ -53,7 +53,7 @@ const PaymentTimeline: React.FC<PaymentTimelineProps> = ({ payments, unitPrice, 
                         </div>
                         <div className="h-3 bg-white/20 rounded-full overflow-hidden">
                             <div 
-                                className="h-full bg-gradient-to-r from-emerald-400 to-emerald-300 transition-all duration-500"
+                                className="h-full bg-gradient-to-r from-emerald-500/70 to-emerald-400/70 transition-all duration-500"
                                 style={{ width: `${Math.min(percentagePaid, 100)}%` }}
                             />
                         </div>
@@ -61,49 +61,49 @@ const PaymentTimeline: React.FC<PaymentTimelineProps> = ({ payments, unitPrice, 
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-3 gap-4 p-6 bg-slate-50 dark:bg-slate-900/50">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                <div className="grid grid-cols-3 gap-4 p-6 bg-slate-800/30">
+                    <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl p-4 border border-slate-600/30">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 dark:bg-blue-500/20 rounded-lg">
-                                <BanknotesIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                            <div className="p-2 bg-blue-500/10 rounded-lg">
+                                <BanknotesIcon className="w-6 h-6 text-blue-400" />
                             </div>
                             <div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">سعر الوحدة</p>
-                                <p className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrency(unitPrice)}</p>
+                                <p className="text-xs text-slate-400">سعر الوحدة</p>
+                                <p className="text-lg font-bold text-white">{formatCurrency(unitPrice)}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                    <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl p-4 border border-slate-600/30">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-emerald-100 dark:bg-emerald-500/20 rounded-lg">
-                                <CheckCircleIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                            <div className="p-2 bg-emerald-500/10 rounded-lg">
+                                <CheckCircleIcon className="w-6 h-6 text-emerald-400/80" />
                             </div>
                             <div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">إجمالي المدفوع</p>
-                                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalPaid)}</p>
+                                <p className="text-slate-400 text-sm">المدفوع</p>
+                                <p className="text-lg font-bold text-emerald-400/90">{formatCurrency(totalPaid)}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                    <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl p-4 border border-slate-600/30">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-amber-100 dark:bg-amber-500/20 rounded-lg">
-                                <CreditCardIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                            <div className="p-2 bg-amber-500/10 rounded-lg">
+                                <CreditCardIcon className="w-6 h-6 text-amber-400/80" />
                             </div>
                             <div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">المتبقي</p>
-                                <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{formatCurrency(remaining)}</p>
+                                <p className="text-xs text-slate-400">المتبقي</p>
+                                <p className="text-lg font-bold text-amber-400/80">{formatCurrency(remaining)}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Timeline */}
-                <div className="p-6 overflow-y-auto max-h-[50vh]">
+                <div className="p-6 overflow-y-auto max-h-[45vh]">
                     <div className="relative">
                         {/* Vertical Line */}
-                        <div className="absolute right-[27px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-emerald-500 to-slate-300" />
+                        <div className="absolute right-[27px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-slate-500/50 via-slate-600/50 to-slate-700/50" />
 
                         {/* Payments List */}
                         <div className="space-y-6">
@@ -118,10 +118,10 @@ const PaymentTimeline: React.FC<PaymentTimelineProps> = ({ payments, unitPrice, 
                                         {/* Timeline Dot */}
                                         <div className={`absolute right-0 w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
                                             payment.paymentType === 'booking' 
-                                                ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
+                                                ? 'bg-gradient-to-br from-blue-600/70 to-blue-700/70' 
                                                 : payment.paymentType === 'final'
-                                                ? 'bg-gradient-to-br from-emerald-500 to-emerald-600'
-                                                : 'bg-gradient-to-br from-indigo-500 to-indigo-600'
+                                                ? 'bg-gradient-to-br from-emerald-600/70 to-emerald-700/70'
+                                                : 'bg-gradient-to-br from-slate-500/70 to-slate-600/70'
                                         }`}>
                                             {payment.paymentType === 'booking' ? (
                                                 <CreditCardIcon className="w-7 h-7 text-white" />
@@ -131,15 +131,15 @@ const PaymentTimeline: React.FC<PaymentTimelineProps> = ({ payments, unitPrice, 
                                         </div>
 
                                         {/* Payment Card */}
-                                        <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-md border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-shadow">
+                                        <div className="bg-slate-700/40 backdrop-blur-sm rounded-xl p-5 shadow-md border border-slate-600/30 hover:bg-slate-700/50 transition-all">
                                             {/* Payment Type Badge */}
                                             <div className="flex items-start justify-between mb-3">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                                     payment.paymentType === 'booking'
-                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
+                                                        ? 'bg-blue-500/10 text-blue-300/80'
                                                         : payment.paymentType === 'final'
-                                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
-                                                        : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300'
+                                                        ? 'bg-emerald-500/10 text-emerald-300/80'
+                                                        : 'bg-slate-500/20 text-slate-300/80'
                                                 }`}>
                                                     {payment.paymentType === 'booking' 
                                                         ? '🎯 دفعة الحجز' 
@@ -147,19 +147,19 @@ const PaymentTimeline: React.FC<PaymentTimelineProps> = ({ payments, unitPrice, 
                                                         ? '✅ دفعة نهائية'
                                                         : `📝 قسط ${index}`}
                                                 </span>
-                                                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                                                <span className="text-2xl font-bold text-slate-200">
                                                     {formatCurrency(payment.amount)}
                                                 </span>
                                             </div>
 
                                             {/* Payment Details */}
                                             <div className="grid grid-cols-2 gap-4 text-sm">
-                                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                                <div className="flex items-center gap-2 text-slate-400">
                                                     <CalendarIcon className="w-4 h-4" />
                                                     <span>{new Date(payment.paymentDate).toLocaleDateString('ar-IQ')}</span>
                                                 </div>
                                                 {payment.accountName && (
-                                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                                    <div className="flex items-center gap-2 text-slate-400">
                                                         <BanknotesIcon className="w-4 h-4" />
                                                         <span>{payment.accountName}</span>
                                                     </div>
@@ -168,27 +168,27 @@ const PaymentTimeline: React.FC<PaymentTimelineProps> = ({ payments, unitPrice, 
 
                                             {/* Notes */}
                                             {payment.notes && (
-                                                <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
-                                                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                                                <div className="mt-3 p-3 bg-slate-800/30 rounded-lg border border-slate-600/20">
+                                                    <p className="text-sm text-slate-400">
                                                         💬 {payment.notes}
                                                     </p>
                                                 </div>
                                             )}
 
                                             {/* Cumulative Info */}
-                                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 grid grid-cols-2 gap-4 text-xs">
+                                            <div className="mt-4 pt-4 border-t border-slate-600/20 grid grid-cols-2 gap-4 text-xs">
                                                 <div>
-                                                    <span className="text-slate-500 dark:text-slate-400">إجمالي المدفوع حتى الآن</span>
-                                                    <p className="text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+                                                    <span className="text-slate-500">إجمالي المدفوع حتى الآن</span>
+                                                    <p className="text-emerald-400/70 font-bold mt-1">
                                                         {formatCurrency(cumulativePaid)}
                                                     </p>
                                                 </div>
                                                 <div>
-                                                    <span className="text-slate-500 dark:text-slate-400">المتبقي بعد هذه الدفعة</span>
+                                                    <span className="text-slate-500">المتبقي بعد هذه الدفعة</span>
                                                     <p className={`font-bold mt-1 ${
                                                         remainingAfter === 0 
-                                                            ? 'text-emerald-600 dark:text-emerald-400' 
-                                                            : 'text-amber-600 dark:text-amber-400'
+                                                            ? 'text-emerald-400/70' 
+                                                            : 'text-amber-400/70'
                                                     }`}>
                                                         {remainingAfter === 0 ? '✅ مكتمل' : formatCurrency(remainingAfter)}
                                                     </p>
@@ -202,19 +202,26 @@ const PaymentTimeline: React.FC<PaymentTimelineProps> = ({ payments, unitPrice, 
 
                         {/* Completion Message */}
                         {remaining === 0 && (
-                            <div className="mt-8 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl p-6 text-white text-center">
-                                <CheckCircleIcon className="w-16 h-16 mx-auto mb-3" />
-                                <h3 className="text-2xl font-bold mb-2">تم سداد كامل المبلغ! 🎉</h3>
-                                <p className="text-emerald-100">تمت جميع الدفعات بنجاح</p>
+                            <div className="relative pr-16 mt-6">
+                                {/* Empty space for alignment with timeline dots */}
+                                <div className="absolute right-0 w-14 h-14" />
+                                
+                                <div className="bg-slate-700/40 rounded-lg p-4 text-center border border-emerald-500/20 flex items-center justify-center gap-3">
+                                    <CheckCircleIcon className="w-8 h-8 text-emerald-400/70" />
+                                    <div className="text-right">
+                                        <h3 className="text-lg font-bold text-slate-200">تم سداد كامل المبلغ ✓</h3>
+                                        <p className="text-sm text-slate-400">تمت جميع الدفعات بنجاح</p>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700">
+                <div className="p-6 bg-slate-800/30 border-t border-slate-600/20">
                     <div className="flex justify-between items-center">
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                        <p className="text-sm text-slate-500">
                             عدد الدفعات: <span className="font-bold">{sortedPayments.length}</span>
                         </p>
                         <button

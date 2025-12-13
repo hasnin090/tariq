@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { Project, Expense, ExpenseCategory, Booking, Payment, UnitSaleRecord, Unit, Customer } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { BriefcaseIcon, ArrowLeftIcon } from '../../shared/Icons';
@@ -17,6 +18,10 @@ const ProjectsAccounting: React.FC = () => {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('projects');
+    
+    // GSAP Table Animation Refs
+    const revenueTableRef = useRef<HTMLTableSectionElement>(null);
+    const expenseTableRef = useRef<HTMLTableSectionElement>(null);
 
     useEffect(() => {
         loadData();
@@ -363,7 +368,7 @@ const ProjectsAccounting: React.FC = () => {
                                         <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody ref={revenueTableRef}>
                                     {selectedProjectRevenues.map(revenue => (
                                         <tr key={revenue.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700/20">
                                             <td className="p-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">{revenue.date}</td>

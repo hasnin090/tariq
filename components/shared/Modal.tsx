@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 
 type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
@@ -22,6 +23,9 @@ const sizeClasses: Record<ModalSize, string> = {
 };
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', footer, preventCloseOnBackdrop = false, noPadding = false }) => {
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const modalRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         if (!isOpen) return;
         const onKey = (e: KeyboardEvent) => {
@@ -30,6 +34,37 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [isOpen, onClose]);
+
+    // 🎬 GSAP Modal Animation
+    useLayoutEffect(() => {
+        if (isOpen && overlayRef.current && modalRef.current) {
+            const tl = gsap.timeline();
+            
+            // Animate overlay
+            tl.fromTo(overlayRef.current,
+                { opacity: 0 },
+                { opacity: 1, duration: 0.25, ease: "power2.out" }
+            );
+            // Animate modal
+            tl.fromTo(modalRef.current,
+                { 
+                    opacity: 0, 
+                    scale: 0.85, 
+                    y: 30,
+                    rotateX: 10
+                },
+                { 
+                    opacity: 1, 
+                    scale: 1, 
+                    y: 0,
+                    rotateX: 0,
+                    duration: 0.35, 
+                    ease: "back.out(1.5)"
+                },
+                0.05
+            );
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -40,8 +75,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
     const containerSize = size === 'full' ? sizeClasses.full : `w-full ${sizeClasses[size]} mx-4`;
 
     return (
-        <div className="fixed inset-0 z-[60] bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-0 animate-fade-in" onClick={handleBackdrop} role="dialog" aria-modal="true">
-            <div className={`${containerSize} backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 ${size === 'full' ? 'h-[calc(100vh-4rem)] my-8' : 'rounded-3xl max-h-[calc(100vh-10rem)] my-20'} flex flex-col transform transition-all animate-scale-up overflow-hidden`} onClick={e => e.stopPropagation()}>
+        <div ref={overlayRef} className="fixed inset-0 z-[60] bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-0" onClick={handleBackdrop} role="dialog" aria-modal="true" style={{ perspective: '1000px' }}>
+            <div ref={modalRef} className={`${containerSize} backdrop-blur-2xl bg-gradient-to-br from-white/15 to-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border border-white/20 ${size === 'full' ? 'h-[calc(100vh-4rem)] my-8' : 'rounded-3xl max-h-[calc(100vh-10rem)] my-20'} flex flex-col transform transition-all overflow-hidden`} onClick={e => e.stopPropagation()}>
                 {title && (
                     <div className="px-6 sm:px-8 py-5 border-b border-white/20 flex items-center justify-between bg-gradient-to-br from-white/10 to-transparent backdrop-blur-sm flex-shrink-0">
                         <h2 className="text-xl sm:text-2xl font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] tracking-tight">{title}</h2>

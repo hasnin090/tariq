@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { UnitSaleRecord, Unit, Customer, Account, Transaction, SaleDocument, Document } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useProject } from '../../../contexts/ProjectContext';
@@ -15,6 +16,17 @@ const UnitSales: React.FC = () => {
     const { activeProject, availableProjects, setActiveProject } = useProject();
     const [sales, setSales] = useState<UnitSaleRecord[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [saleDocuments, setSaleDocuments] = useState<Map<string, Document[]>>(new Map());
+    const [documentUrls, setDocumentUrls] = useState<Map<string, string>>(new Map());
+    const [viewDoc, setViewDoc] = useState<{ url: string; name: string; mimeType?: string } | null>(null);
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
 
     // Filter sales by active project (through unit relationship)
     const filteredSales = useMemo(() => {
@@ -25,13 +37,26 @@ const UnitSales: React.FC = () => {
             return unit?.projectId === activeProject.id;
         });
     }, [sales, units, activeProject]);
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [saleDocuments, setSaleDocuments] = useState<Map<string, Document[]>>(new Map());
-    const [documentUrls, setDocumentUrls] = useState<Map<string, string>>(new Map());
-    const [viewDoc, setViewDoc] = useState<{ url: string; name: string; mimeType?: string } | null>(null);
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && !loading && filteredSales.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [filteredSales, loading]);
 
     useEffect(() => {
         loadData();
@@ -195,7 +220,7 @@ const UnitSales: React.FC = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-right min-w-[700px]">
                         <thead><tr className="border-b-2 border-white/20 bg-white/5"><th className="p-4 font-bold text-sm text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-200">تاريخ البيع</th><th className="p-4 font-bold text-sm text-slate-200">سعر البيع النهائي</th><th className="p-4 font-bold text-sm text-slate-200">المستندات</th></tr></thead>
-                        <tbody>
+                        <tbody ref={tableBodyRef}>
                             {filteredSales.map(sale => {
                                 const docs = saleDocuments.get(sale.id) || [];
                                 return (
@@ -242,7 +267,7 @@ const UnitSales: React.FC = () => {
                     {sales.length === 0 && <p className="text-center p-8 text-slate-300">لا توجد عمليات بيع مسجلة.</p>}
                 </div>
             )}
-            {isModalOpen && <SalePanel units={units.filter(u => u.status === 'Available')} customers={customers} accounts={accounts} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}
+            {isModalOpen && <SalePanel units={units.filter(u => u.status === 'Available' || u.status === 'متاح')} customers={customers} accounts={accounts} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}
             {viewDoc && (
                 <DocumentViewerModal
                     isOpen={true}

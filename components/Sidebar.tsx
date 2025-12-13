@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { InterfaceMode } from '../types.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { canAccessPage } from '../utils/permissions';
+import gsap from 'gsap';
 import { 
     HomeIcon, BuildingIcon, UsersIcon, CreditCardIcon, TrendingUpIcon, 
     DocumentTextIcon, ChartBarIcon, CogIcon, UserGroupIcon, ReceiptIcon, 
@@ -119,6 +120,60 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
     const systemMenuRef = React.useRef<HTMLDivElement>(null);
+    
+    // GSAP Refs
+    const sidebarRef = useRef<HTMLElement>(null);
+    const logoRef = useRef<HTMLDivElement>(null);
+    const navRef = useRef<HTMLElement>(null);
+    const linksRef = useRef<HTMLUListElement>(null);
+
+    // GSAP Animation on mount
+    useLayoutEffect(() => {
+        const ctx = gsap.context(() => {
+            // تحريك الشعار
+            if (logoRef.current) {
+                gsap.from(logoRef.current, {
+                    opacity: 0,
+                    y: -20,
+                    duration: 0.6,
+                    ease: "power3.out"
+                });
+            }
+        });
+        
+        return () => ctx.revert();
+    }, []);
+
+    // تحريك عناصر القائمة عند التحميل
+    useLayoutEffect(() => {
+        if (linksRef.current) {
+            const items = linksRef.current.querySelectorAll('li');
+            gsap.fromTo(items, 
+                { opacity: 0, x: 30 },
+                { 
+                    opacity: 1, 
+                    x: 0, 
+                    duration: 0.4,
+                    stagger: 0.05,
+                    ease: "power2.out",
+                    delay: 0.2
+                }
+            );
+        }
+    }, [interfaceMode]);
+
+    // تحريك فتح/إغلاق الشريط الجانبي على الموبايل
+    useEffect(() => {
+        if (sidebarRef.current) {
+            if (isOpen) {
+                gsap.to(sidebarRef.current, {
+                    x: 0,
+                    duration: 0.4,
+                    ease: "power3.out"
+                });
+            }
+        }
+    }, [isOpen]);
 
     // التمرير التلقائي عند فتح القائمة
     useEffect(() => {
@@ -325,10 +380,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
             ></div>
             
             {/* Sidebar Container */}
-            <aside className={`fixed lg:relative inset-y-0 right-0 w-72 backdrop-blur-2xl bg-white/10 border-l border-white/20 flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-out shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
+            <aside ref={sidebarRef} className={`fixed lg:relative inset-y-0 right-0 w-72 backdrop-blur-2xl bg-white/10 border-l border-white/20 flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-out shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
                 
                 {/* Logo Area */}
-                <div className="h-24 flex items-center justify-center relative overflow-hidden border-b border-white/20">
+                <div ref={logoRef} className="h-24 flex items-center justify-center relative overflow-hidden border-b border-white/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-transparent opacity-30"></div>
                     <div className="relative z-10 text-center px-4">
                         <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 tracking-tight">{systemTitle}</h1>
@@ -364,13 +419,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 )}
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                <nav ref={navRef} className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                     <div className="mb-6">
                         <h2 className="px-4 pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full dot-accent"></span>
                             {sectionTitle}
                         </h2>
-                        <ul className="space-y-1">
+                        <ul ref={linksRef} className="space-y-1">
                             {linksToShow.filter(link => {
                                 // إذا توجد صلاحيات مخصصة، تجاوز adminOnly
                                 const hasCustomPermissions = (currentUser as any)?.customMenuAccess?.length > 0;

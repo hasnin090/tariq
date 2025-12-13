@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { ExpenseCategory, Expense, Project } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { TagIcon, BriefcaseIcon, ArrowRightIcon } from '../../shared/Icons';
@@ -10,6 +11,10 @@ const CategoryAccounting: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
 
     useEffect(() => {
         loadData();
@@ -89,6 +94,26 @@ const CategoryAccounting: React.FC = () => {
 
         return txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [selectedCategory, selectedProjectId, expenses, categories]);
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && filteredTransactions.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [filteredTransactions]);
     
     const handleSelectCategory = (categoryId: string) => {
         setSelectedCategoryId(categoryId);
@@ -137,7 +162,7 @@ const CategoryAccounting: React.FC = () => {
                                     <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody ref={tableBodyRef}>
                                 {filteredTransactions.map(expense => (
                                     <tr key={expense.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                         <td className="p-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">{expense.date}</td>

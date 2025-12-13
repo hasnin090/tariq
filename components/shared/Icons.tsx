@@ -120,6 +120,7 @@ export const PaperClipIcon = (props: React.SVGProps<SVGSVGElement>) => <Papercli
 export const FilterIcon = (props: React.SVGProps<SVGSVGElement>) => <Filter strokeWidth={1.5} {...props} />;
 export const XCircleIcon = (props: React.SVGProps<SVGSVGElement>) => <XCircle strokeWidth={1.5} {...props} />;
 export const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => <ChevronDown strokeWidth={1.5} {...props} />;
+export const ChevronUpIcon = (props: React.SVGProps<SVGSVGElement>) => <ChevronUp strokeWidth={1.5} {...props} />;
 export const PlusCircleIcon = (props: React.SVGProps<SVGSVGElement>) => <PlusCircle strokeWidth={1.5} {...props} />;
 export const LinkIcon = (props: React.SVGProps<SVGSVGElement>) => <Link strokeWidth={1.5} {...props} />;
 

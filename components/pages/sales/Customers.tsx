@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { Customer, Unit, Payment, Booking } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -14,6 +14,7 @@ import DocumentManager from '../../shared/DocumentManager';
 import Modal from '../../shared/Modal';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { useButtonPermissions } from '../../../hooks/useButtonPermission';
+import gsap from 'gsap';
 
 const Customers: React.FC = () => {
     const { currentUser } = useAuth();
@@ -24,6 +25,10 @@ const Customers: React.FC = () => {
     const [units, setUnits] = useState<Unit[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
 
     // Filter customers by active project
     const filteredCustomers = useMemo(() => {
@@ -52,6 +57,26 @@ const Customers: React.FC = () => {
     const canDelete = currentUser?.role === 'Admin' || canShow('customers', 'delete');
     const canManageDocs = currentUser?.role === 'Admin' || canShow('customers', 'add-document');
     const canAdd = canShow('customers', 'add');
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && !loading && filteredCustomers.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [filteredCustomers, loading]);
 
     useEffect(() => {
         loadData();
@@ -221,7 +246,7 @@ const Customers: React.FC = () => {
                             <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">البريد الإلكتروني</th>
                             {(canEdit || canDelete) && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>}
                         </tr></thead>
-                        <tbody>
+                        <tbody ref={tableBodyRef}>
                             {filteredCustomers.map(customer => (
                                 <tr key={customer.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-100">
@@ -406,13 +431,13 @@ const CustomerPanel: React.FC<PanelProps> = ({ customer, units, activeProjectId,
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
     
-    const inputStyle = "w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200";
+    const inputStyle = "w-full p-2.5 border border-slate-600/30 bg-slate-700/50 text-slate-100 placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-colors duration-200";
 
     return (
-         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4 pt-20 animate-drawer-overlay-show" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-xl animate-fade-in-scale-up my-16 max-h-[calc(100vh-8rem)] overflow-y-auto" onClick={e => e.stopPropagation()}>
+         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 pt-20 animate-drawer-overlay-show" onClick={onClose}>
+            <div className="glass-card rounded-xl shadow-2xl w-full max-w-xl animate-fade-in-scale-up my-16 max-h-[calc(100vh-8rem)] overflow-y-auto border border-white/10" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit} className="flex flex-col h-full">
-                    <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start"><h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{customer ? 'تعديل عميل' : 'إضافة عميل جديد'}</h2><button type="button" onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"><CloseIcon className="h-6 w-6"/></button></div>
+                    <div className="p-5 border-b border-slate-600/30 flex justify-between items-start bg-slate-700/30"><h2 className="text-xl font-bold text-slate-100">{customer ? 'تعديل عميل' : 'إضافة عميل جديد'}</h2><button type="button" onClick={onClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-600/50 hover:text-white transition-colors"><CloseIcon className="h-6 w-6"/></button></div>
                     <div className="p-6 space-y-4">
                         <input type="text" name="name" placeholder="الاسم الكامل" value={formData.name} onChange={handleChange} className={inputStyle} required />
                         <div className="grid grid-cols-2 gap-4">
@@ -420,27 +445,27 @@ const CustomerPanel: React.FC<PanelProps> = ({ customer, units, activeProjectId,
                            <input type="email" name="email" placeholder="البريد الإلكتروني" value={formData.email} onChange={handleChange} className={inputStyle} />
                         </div>
                         <div>
-                            <label htmlFor="unit_id" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">ربط بوحدة سكنية (اختياري)</label>
-                            <select id="unit_id" name="unit_id" value={formData.unit_id} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}>
+                            <label htmlFor="unit_id" className="block text-sm font-medium text-slate-300 mb-2">ربط بوحدة سكنية (اختياري)</label>
+                            <select id="unit_id" name="unit_id" value={formData.unit_id} onChange={handleChange} className={inputStyle}>
                                 <option value="">اختر وحدة</option>
-                                {units.filter(u => u.status === 'Available' || u.customerId === customer?.id).map(unit => (
+                                {units.filter(u => u.status === 'Available' || u.status === 'متاح' || u.customerId === customer?.id).map(unit => (
                                     <option key={unit.id} value={unit.id}>{unit.name}</option>
                                 ))}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">المستندات الثبوتية</label>
-                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-slate-900/25 dark:border-slate-50/25 px-6 py-10">
+                            <label className="block text-sm font-medium text-slate-300 mb-2">المستندات الثبوتية</label>
+                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-slate-500/30 bg-slate-700/30 px-6 py-10">
                                 <div className="text-center">
-                                    <PaperClipIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-                                    <div className="mt-4 flex text-sm leading-6 text-gray-600">
-                                        <label htmlFor="file-upload" className="relative cursor-pointer rounded-md bg-white dark:bg-slate-800 font-semibold text-primary-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-600 focus-within:ring-offset-2 hover:text-primary-500">
+                                    <PaperClipIcon className="mx-auto h-12 w-12 text-slate-500" aria-hidden="true" />
+                                    <div className="mt-4 flex text-sm leading-6 text-slate-400">
+                                        <label htmlFor="file-upload" className="relative cursor-pointer rounded-md font-semibold text-primary-400 hover:text-primary-300 transition-colors">
                                             <span>ارفع ملفات</span>
                                             <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple onChange={handleFileChange} />
                                         </label>
                                         <p className="pr-1">أو اسحبها وأفلتها</p>
                                     </div>
-                                    <p className="text-xs leading-5 text-gray-600">PNG, JPG, PDF up to 10MB</p>
+                                    <p className="text-xs leading-5 text-slate-500">PNG, JPG, PDF up to 10MB</p>
                                 </div>
                             </div>
                             {documents.length > 0 && (
@@ -450,7 +475,7 @@ const CustomerPanel: React.FC<PanelProps> = ({ customer, units, activeProjectId,
                             )}
                         </div>
                     </div>
-                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold">إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm">حفظ</button></div>
+                    <div className="px-6 py-4 border-t border-slate-600/30 bg-slate-700/30 flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border border-slate-500/30 text-slate-300 hover:bg-slate-600/50 font-semibold transition-colors">إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg hover:bg-primary-700 font-semibold shadow-sm transition-colors">حفظ</button></div>
                 </form>
             </div>
         </div>

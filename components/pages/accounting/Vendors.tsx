@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { Vendor } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import logActivity from '../../../utils/activityLogger';
@@ -10,10 +11,34 @@ const Vendors: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
     const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
 
     useEffect(() => {
         setVendors(JSON.parse(localStorage.getItem('vendors') || '[]'));
     }, []);
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && vendors.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [vendors]);
 
     const saveData = (data: Vendor[]) => {
         localStorage.setItem('vendors', JSON.stringify(data));
@@ -40,7 +65,7 @@ const Vendors: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700">
                 <table className="w-full text-right">
                     <thead><tr className="border-b-2 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm">اسم الشركة</th><th className="p-4 font-bold text-sm">مسؤول التواصل</th><th className="p-4 font-bold text-sm">الهاتف</th><th className="p-4 font-bold text-sm">إجراءات</th></tr></thead>
-                    <tbody>
+                    <tbody ref={tableBodyRef}>
                         {vendors.map(vendor => (
                             <tr key={vendor.id} className="border-b border-slate-200 dark:border-slate-700">
                                 <td className="p-4 font-medium">{vendor.name}</td>

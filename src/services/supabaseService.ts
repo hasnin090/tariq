@@ -503,7 +503,8 @@ export const bookingsService = {
       unit_id: (booking as any).unit_id || booking.unitId,
       customer_id: (booking as any).customer_id || booking.customerId,
       booking_date: (booking as any).booking_date || booking.bookingDate,
-      amount_paid: (booking as any).amount_paid || booking.amountPaid,
+      total_price: (booking as any).total_price || (booking as any).totalPrice || 0, // حقل مطلوب في قاعدة البيانات
+      amount_paid: (booking as any).amount_paid || booking.amountPaid || 0,
       status: booking.status || 'Active',
     };
     

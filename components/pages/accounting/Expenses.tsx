@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { Expense, ExpenseCategory, Project, Account, Transaction, SaleDocument } from '../../../types.ts';
 import { useAuth } from '../../../contexts/AuthContext.tsx';
 import { useToast } from '../../../contexts/ToastContext.tsx';
@@ -138,6 +139,10 @@ export const Expenses: React.FC = () => {
     });
 
     const [currentPage, setCurrentPage] = useState(1);
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
     const ITEMS_PER_PAGE = 100;
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
@@ -278,6 +283,26 @@ export const Expenses: React.FC = () => {
     const totalExpensesAmount = useMemo(() => {
         return filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
     }, [filteredExpenses]);
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && paginatedExpenses.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [paginatedExpenses]);
 
 
 
@@ -563,7 +588,7 @@ export const Expenses: React.FC = () => {
                                 {visibleColumns.attachments && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المرفقات</th>}
                                 {visibleColumns.actions && (canEdit || canDelete) && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>}
                             </tr></thead>
-                            <tbody>
+                            <tbody ref={tableBodyRef}>
                                 {paginatedExpenses.map(exp => (
                                     <tr key={exp.id} className={`border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all duration-300 ${
                                         deletingId === exp.id ? 'opacity-0 scale-95 bg-rose-50 dark:bg-rose-900/20' : 'opacity-100 scale-100'

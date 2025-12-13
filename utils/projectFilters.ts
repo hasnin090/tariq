@@ -88,9 +88,9 @@ export function calculateProjectStats(
     const filteredPayments = filterPaymentsByProject(payments, bookings, units, projectId);
     
     const totalUnits = filteredUnits.length;
-    const availableUnits = filteredUnits.filter(u => u.status === 'Available').length;
-    const soldUnits = filteredUnits.filter(u => u.status === 'Sold').length;
-    const bookedUnits = filteredUnits.filter(u => u.status === 'Booked').length;
+    const availableUnits = filteredUnits.filter(u => u.status === 'Available' || u.status === 'متاح').length;
+    const soldUnits = filteredUnits.filter(u => u.status === 'Sold' || u.status === 'مباع').length;
+    const bookedUnits = filteredUnits.filter(u => u.status === 'Booked' || u.status === 'محجوز').length;
     
     const totalRevenue = filteredPayments.reduce((sum, p) => sum + p.amount, 0) +
                         filteredBookings.reduce((sum, b) => sum + (b.amountPaid || 0), 0);

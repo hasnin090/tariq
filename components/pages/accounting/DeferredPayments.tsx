@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 import { DeferredPayment, Project, Account, Expense, Transaction, ExpenseCategory, DeferredPaymentInstallment } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -198,6 +199,30 @@ const DeferredPayments: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && deferredPayments.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [deferredPayments]);
     const [editingPayment, setEditingPayment] = useState<DeferredPayment | null>(null);
     const [paymentToDelete, setPaymentToDelete] = useState<DeferredPayment | null>(null);
     const [paymentForInstallment, setPaymentForInstallment] = useState<DeferredPayment | null>(null);
@@ -436,7 +461,7 @@ const DeferredPayments: React.FC = () => {
                                 {currentUser?.role === 'Admin' && <th className="p-4 font-bold text-slate-700 dark:text-slate-200">إجراءات</th>}
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody ref={tableBodyRef}>
                             {deferredPayments.map(p => {
                                 const amountPaid = p.amountPaid || 0;
                                 const totalAmount = p.totalAmount || 0;

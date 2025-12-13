@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { Unit, UnitType, UnitStatus, Customer } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -11,6 +11,7 @@ import { CloseIcon, BuildingIcon, EditIcon, TrashIcon, UnitsEmptyIcon } from '..
 import EmptyState from '../../shared/EmptyState';
 import ProjectSelector from '../../shared/ProjectSelector';
 import { useButtonPermissions } from '../../../hooks/useButtonPermission';
+import gsap from 'gsap';
 
 const Units: React.FC = () => {
     const { currentUser } = useAuth();
@@ -25,6 +26,10 @@ const Units: React.FC = () => {
     const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
     const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
     const [loading, setLoading] = useState(true);
+    
+    // GSAP Table Animation Ref
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const hasAnimated = useRef(false);
 
     const canEdit = currentUser?.role === 'Admin' || canShow('units', 'edit');
     const canDelete = currentUser?.role === 'Admin' || canShow('units', 'delete');
@@ -35,6 +40,26 @@ const Units: React.FC = () => {
         if (!activeProject) return units;
         return units.filter(unit => unit.projectId === activeProject.id);
     }, [units, activeProject]);
+
+    // 🎬 GSAP Table Animation - runs only once
+    useLayoutEffect(() => {
+        if (tableBodyRef.current && !loading && filteredUnits.length > 0 && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const rows = tableBodyRef.current.querySelectorAll('tr');
+            gsap.fromTo(rows,
+                { opacity: 0, y: 15, x: -10 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    x: 0,
+                    duration: 0.35,
+                    stagger: 0.04,
+                    ease: "power2.out",
+                    delay: 0.1
+                }
+            );
+        }
+    }, [filteredUnits, loading]);
 
     useEffect(() => {
         loadData();
@@ -199,7 +224,7 @@ const Units: React.FC = () => {
                              <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">رقم الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المساحة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">السعر</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th>
                          {(canEdit || canDelete) && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>}
                          </tr></thead>
-                        <tbody>
+                        <tbody ref={tableBodyRef}>
                             {filteredUnits.map(unit => (
                                 <tr key={unit.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{unit.name}</td>

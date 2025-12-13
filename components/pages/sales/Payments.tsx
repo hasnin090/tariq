@@ -8,8 +8,22 @@ import { filterPaymentsByProject } from '../../../utils/projectFilters';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import logActivity from '../../../utils/activityLogger';
 import { paymentsService, customersService, bookingsService, unitsService } from '../../../src/services/supabaseService';
-import { CreditCardIcon, PrinterIcon, PlusIcon, TrashIcon } from '../../shared/Icons';
+import { CreditCardIcon, PrinterIcon, PlusIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon } from '../../shared/Icons';
 import ConfirmModal from '../../shared/ConfirmModal';
+
+// نوع لتجميع الدفعات حسب الحجز
+interface BookingPaymentGroup {
+    bookingId: string;
+    customerName: string;
+    customerId: string;
+    unitName: string;
+    unitId: string;
+    unitPrice: number;
+    totalPaid: number;
+    remaining: number;
+    payments: Payment[];
+    lastPaymentDate: string;
+}
 
 const Payments: React.FC = () => {
     const { addToast } = useToast();
@@ -26,12 +40,90 @@ const Payments: React.FC = () => {
     const [showCustomerPayments, setShowCustomerPayments] = useState(false);
     const [showAddPayment, setShowAddPayment] = useState(false);
     const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
+    const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
     const [newPayment, setNewPayment] = useState({
         bookingId: '',
         amount: '' as number | '',
         paymentDate: new Date().toISOString().split('T')[0],
     });
     const [searchTerm, setSearchTerm] = useState('');
+
+    // تجميع الدفعات حسب الحجز
+    const groupedPayments = useMemo(() => {
+        const groups = new Map<string, BookingPaymentGroup>();
+        
+        allPaymentsWithBooking.forEach(payment => {
+            if (!groups.has(payment.bookingId)) {
+                groups.set(payment.bookingId, {
+                    bookingId: payment.bookingId,
+                    customerName: payment.customerName || '',
+                    customerId: payment.customerId,
+                    unitName: payment.unitName || '',
+                    unitId: payment.unitId,
+                    unitPrice: payment.unitPrice || 0,
+                    totalPaid: 0,
+                    remaining: 0,
+                    payments: [],
+                    lastPaymentDate: payment.paymentDate,
+                });
+            }
+            
+            const group = groups.get(payment.bookingId)!;
+            group.payments.push(payment);
+            group.totalPaid += payment.amount;
+            
+            // تحديث آخر تاريخ دفعة
+            if (new Date(payment.paymentDate) > new Date(group.lastPaymentDate)) {
+                group.lastPaymentDate = payment.paymentDate;
+            }
+        });
+        
+        // حساب المتبقي وترتيب الدفعات داخل كل مجموعة
+        groups.forEach(group => {
+            group.remaining = group.unitPrice - group.totalPaid;
+            group.payments.sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
+        });
+        
+        return Array.from(groups.values());
+    }, [allPaymentsWithBooking]);
+
+    // تصفية المجموعات حسب المشروع والبحث
+    const filteredGroups = useMemo(() => {
+        let filtered = groupedPayments;
+        
+        // Filter by project
+        if (activeProject) {
+            filtered = filtered.filter(group => {
+                const unit = units.find(u => u.id === group.unitId);
+                return unit?.projectId === activeProject.id;
+            });
+        }
+        
+        // Filter by search term
+        if (searchTerm.trim()) {
+            const search = searchTerm.toLowerCase().trim();
+            filtered = filtered.filter(group =>
+                group.customerName?.toLowerCase().includes(search) ||
+                group.unitName?.toLowerCase().includes(search)
+            );
+        }
+        
+        // ترتيب حسب آخر تاريخ دفعة
+        return filtered.sort((a, b) => new Date(b.lastPaymentDate).getTime() - new Date(a.lastPaymentDate).getTime());
+    }, [groupedPayments, units, activeProject, searchTerm]);
+
+    // Toggle expand/collapse
+    const toggleBookingExpand = (bookingId: string) => {
+        setExpandedBookings(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(bookingId)) {
+                newSet.delete(bookingId);
+            } else {
+                newSet.add(bookingId);
+            }
+            return newSet;
+        });
+    };
 
     // Filter all combined payments (regular + booking payments) by active project and search term
     const filteredAllPayments = useMemo(() => {
@@ -210,11 +302,10 @@ const Payments: React.FC = () => {
                 return;
             }
 
-            // ✅ CRITICAL: Calculate total paid and check if new payment exceeds unit price
-            const bookingAmountPaid = booking.amountPaid || 0;
-            const existingAdditionalPayments = payments.filter(p => p.bookingId === booking.id);
-            const additionalTotal = existingAdditionalPayments.reduce((sum, p) => sum + p.amount, 0);
-            const currentTotalPaid = bookingAmountPaid + additionalTotal;
+            // ✅ CRITICAL: Calculate total paid from payments table only
+            // Note: booking.amountPaid is auto-updated by database trigger from payments table
+            // So we only need to sum payments, NOT add booking.amountPaid (that would double count)
+            const currentTotalPaid = payments.filter(p => p.bookingId === booking.id).reduce((sum, p) => sum + p.amount, 0);
             const newTotalPaid = currentTotalPaid + newPayment.amount;
             const remaining = unit.price - currentTotalPaid;
 
@@ -244,13 +335,23 @@ const Payments: React.FC = () => {
                 unitName: booking.unitName,
                 amount: newPayment.amount,
                 paymentDate: newPayment.paymentDate,
-                paymentType: 'installment', // ✅ دفعة إضافية (قسط)
+                paymentType: newTotalPaid >= unit.price ? 'final' : 'installment', // ✅ دفعة نهائية إذا اكتمل السداد
                 unitPrice: unit.price,
                 accountId: 'account_default_cash',
             };
 
             await paymentsService.create(payment);
-            addToast('تم إضافة الدفعة بنجاح', 'success');
+            
+            // ✅ تحديث حالة الحجز والوحدة إذا اكتملت الدفعات
+            if (newTotalPaid >= unit.price) {
+                // تحديث حالة الحجز إلى مكتمل - هذا سيفعّل الـ trigger لتحديث حالة الوحدة إلى Sold
+                await bookingsService.update(booking.id, { status: 'Completed' } as any);
+                addToast('تم إضافة الدفعة واكتمال سداد الوحدة بنجاح 🎉', 'success');
+                logActivity('Payment Complete', `Booking ${booking.id} completed - Unit ${unit.name} marked as Sold`);
+            } else {
+                addToast('تم إضافة الدفعة بنجاح', 'success');
+            }
+            
             setShowAddPayment(false);
             setNewPayment({
                 bookingId: '',
@@ -491,9 +592,8 @@ const Payments: React.FC = () => {
                                         {bookings.map(b => {
                                             const unit = units.find(u => u.id === b.unitId);
                                             const unitPrice = unit?.price || 0;
-                                            const bookingPaid = b.amountPaid || 0;
-                                            const additionalPaid = payments.filter(p => p.bookingId === b.id).reduce((sum, p) => sum + p.amount, 0);
-                                            const totalPaid = bookingPaid + additionalPaid;
+                                            // استخدام فقط مجموع payments من قاعدة البيانات (booking.amountPaid يتم تحديثه تلقائياً من trigger)
+                                            const totalPaid = payments.filter(p => p.bookingId === b.id).reduce((sum, p) => sum + p.amount, 0);
                                             const remaining = unitPrice - totalPaid;
                                             
                                             return (
@@ -512,9 +612,8 @@ const Payments: React.FC = () => {
                                     
                                     const unit = units.find(u => u.id === booking.unitId);
                                     const unitPrice = unit?.price || 0;
-                                    const bookingPaid = booking.amountPaid || 0;
-                                    const additionalPaid = payments.filter(p => p.bookingId === booking.id).reduce((sum, p) => sum + p.amount, 0);
-                                    const totalPaid = bookingPaid + additionalPaid;
+                                    // استخدام فقط مجموع payments من قاعدة البيانات (تجنب الحساب المزدوج)
+                                    const totalPaid = payments.filter(p => p.bookingId === booking.id).reduce((sum, p) => sum + p.amount, 0);
                                     const remaining = unitPrice - totalPaid;
                                     
                                     return (
@@ -623,65 +722,184 @@ const Payments: React.FC = () => {
                 </div>
             ) : (
                 <>
-                    {allPaymentsWithBooking.length > 0 ? (
-                        <div className="glass-card overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-right min-w-[800px]">
-                                <thead>
-                                    <tr className="border-b-2 border-white/20 bg-white/5">
-                                        <th className="p-4 font-bold text-sm text-slate-200">تاريخ الدفعة</th>
-                                        <th className="p-4 font-bold text-sm text-slate-200">النوع</th>
-                                        <th className="p-4 font-bold text-sm text-slate-200">العميل</th>
-                                        <th className="p-4 font-bold text-sm text-slate-200">الوحدة</th>
-                                        <th className="p-4 font-bold text-sm text-slate-200">المبلغ المدفوع</th>
-                                        <th className="p-4 font-bold text-sm text-slate-200">المبلغ المتبقي</th>
-                                        <th className="p-4 font-bold text-sm text-slate-200">إجراءات</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredAllPayments.map(payment => {
-                                        const isBookingPayment = payment.paymentType === 'booking';
-                                        const paymentTypeLabel = payment.paymentType === 'booking' ? 'دفعة حجز' 
-                                                               : payment.paymentType === 'final' ? 'دفعة نهائية'
-                                                               : 'دفعة إضافية';
-                                        return (
-                                            <tr key={payment.id} className="border-b border-white/10 hover:bg-white/5 transition-colors duration-200">
-                                                <td className="p-4 text-slate-300">{payment.paymentDate}</td>
-                                                <td className="p-4">
-                                                    <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                                                        isBookingPayment 
-                                                            ? 'bg-blue-500/20 text-blue-200' 
-                                                            : payment.paymentType === 'final'
-                                                            ? 'bg-purple-500/20 text-purple-200'
-                                                            : 'bg-emerald-500/20 text-emerald-200'
-                                                    }`}>
-                                                        {paymentTypeLabel}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4 font-medium text-slate-100">{payment.customerName}</td>
-                                                <td className="p-4 text-slate-300">{payment.unitName}</td>
-                                                <td className="p-4 font-semibold text-emerald-400">{formatCurrency(payment.amount)}</td>
-                                                <td className="p-4 font-semibold text-amber-400">{formatCurrency(payment.remainingAmount)}</td>
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <button onClick={() => handleViewCustomerPayments(payment.customerId)} className="text-blue-300 hover:text-blue-200 hover:underline font-semibold">عرض الكل</button>
-                                                        {currentUser?.role === 'Admin' && !isBookingPayment && (
-                                                            <button
-                                                                onClick={() => handleDeletePayment(payment)}
-                                                                className="text-rose-400 hover:text-rose-300"
-                                                                title="حذف الدفعة"
-                                                            >
-                                                                <TrashIcon className="h-5 w-5" />
-                                                            </button>
+                    {filteredGroups.length > 0 ? (
+                        <div className="space-y-4">
+                            {/* ملخص إحصائي */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                <div className="glass-card p-4">
+                                    <div className="text-slate-400 text-sm mb-1">عدد الحجوزات النشطة</div>
+                                    <div className="text-2xl font-bold text-white">{filteredGroups.length}</div>
+                                </div>
+                                <div className="glass-card p-4">
+                                    <div className="text-slate-400 text-sm mb-1">إجمالي المدفوعات</div>
+                                    <div className="text-2xl font-bold text-emerald-400">
+                                        {formatCurrency(filteredGroups.reduce((sum, g) => sum + g.totalPaid, 0))}
+                                    </div>
+                                </div>
+                                <div className="glass-card p-4">
+                                    <div className="text-slate-400 text-sm mb-1">إجمالي المتبقي</div>
+                                    <div className="text-2xl font-bold text-amber-400">
+                                        {formatCurrency(filteredGroups.reduce((sum, g) => sum + g.remaining, 0))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* جدول الحجوزات القابل للتوسيع */}
+                            {filteredGroups.map(group => {
+                                const isExpanded = expandedBookings.has(group.bookingId);
+                                const progressPercent = group.unitPrice > 0 ? (group.totalPaid / group.unitPrice) * 100 : 0;
+                                
+                                return (
+                                    <div key={group.bookingId} className="glass-card overflow-hidden">
+                                        {/* الصف الرئيسي - ملخص الحجز */}
+                                        <div 
+                                            className="p-4 cursor-pointer hover:bg-white/5 transition-colors"
+                                            onClick={() => toggleBookingExpand(group.bookingId)}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4 flex-1">
+                                                    {/* أيقونة التوسيع */}
+                                                    <div className="text-slate-400">
+                                                        {isExpanded ? (
+                                                            <ChevronUpIcon className="h-6 w-6" />
+                                                        ) : (
+                                                            <ChevronDownIcon className="h-6 w-6" />
                                                         )}
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                            </div>
+                                                    
+                                                    {/* معلومات العميل والوحدة */}
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <h3 className="text-lg font-bold text-white">{group.customerName}</h3>
+                                                            <span className="text-slate-400">-</span>
+                                                            <span className="text-slate-300">{group.unitName}</span>
+                                                            <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded text-xs">
+                                                                {group.payments.length} دفعة
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        {/* شريط التقدم */}
+                                                        <div className="w-full bg-slate-700 rounded-full h-2 mb-2">
+                                                            <div 
+                                                                className={`h-2 rounded-full transition-all ${
+                                                                    progressPercent >= 100 ? 'bg-emerald-500' : 
+                                                                    progressPercent >= 50 ? 'bg-blue-500' : 'bg-amber-500'
+                                                                }`}
+                                                                style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                                                            />
+                                                        </div>
+                                                        
+                                                        <div className="flex items-center gap-6 text-sm">
+                                                            <span className="text-slate-400">
+                                                                سعر الوحدة: <span className="text-slate-200 font-semibold">{formatCurrency(group.unitPrice)}</span>
+                                                            </span>
+                                                            <span className="text-slate-400">
+                                                                تم الدفع: <span className="text-emerald-400 font-semibold">{formatCurrency(group.totalPaid)}</span>
+                                                            </span>
+                                                            <span className="text-slate-400">
+                                                                المتبقي: <span className="text-amber-400 font-semibold">{formatCurrency(group.remaining)}</span>
+                                                            </span>
+                                                            <span className="text-slate-400">
+                                                                النسبة: <span className={`font-semibold ${progressPercent >= 100 ? 'text-emerald-400' : 'text-blue-400'}`}>
+                                                                    {progressPercent.toFixed(1)}%
+                                                                </span>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* زر إضافة دفعة - يظهر فقط إذا كان هناك مبلغ متبقي */}
+                                                {group.remaining > 0 ? (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setNewPayment({ ...newPayment, bookingId: group.bookingId });
+                                                            setShowAddPayment(true);
+                                                        }}
+                                                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                                                    >
+                                                        <PlusIcon className="h-4 w-4" />
+                                                        إضافة دفعة
+                                                    </button>
+                                                ) : (
+                                                    <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-1">
+                                                        ✓ مكتمل
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* تفاصيل الدفعات - تظهر عند التوسيع */}
+                                        {isExpanded && (
+                                            <div className="border-t border-white/10 bg-white/5">
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-right">
+                                                        <thead>
+                                                            <tr className="border-b border-white/10 bg-white/5">
+                                                                <th className="p-3 font-semibold text-sm text-slate-300">#</th>
+                                                                <th className="p-3 font-semibold text-sm text-slate-300">تاريخ الدفعة</th>
+                                                                <th className="p-3 font-semibold text-sm text-slate-300">نوع الدفعة</th>
+                                                                <th className="p-3 font-semibold text-sm text-slate-300">المبلغ</th>
+                                                                <th className="p-3 font-semibold text-sm text-slate-300">إجمالي المدفوع</th>
+                                                                <th className="p-3 font-semibold text-sm text-slate-300">المتبقي بعد الدفعة</th>
+                                                                <th className="p-3 font-semibold text-sm text-slate-300">إجراءات</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {(() => {
+                                                                let runningTotal = 0;
+                                                                return group.payments.map((payment, index) => {
+                                                                    runningTotal += payment.amount;
+                                                                    const remainingAfter = group.unitPrice - runningTotal;
+                                                                    const isBookingPayment = payment.paymentType === 'booking';
+                                                                    const paymentTypeLabel = payment.paymentType === 'booking' ? 'دفعة الحجز الأولى' 
+                                                                                           : payment.paymentType === 'final' ? 'دفعة نهائية'
+                                                                                           : `قسط ${index}`;
+                                                                    
+                                                                    return (
+                                                                        <tr key={payment.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                                                            <td className="p-3 text-slate-400">{index + 1}</td>
+                                                                            <td className="p-3 text-slate-300">{payment.paymentDate}</td>
+                                                                            <td className="p-3">
+                                                                                <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                                                                                    isBookingPayment 
+                                                                                        ? 'bg-blue-500/20 text-blue-300' 
+                                                                                        : payment.paymentType === 'final'
+                                                                                        ? 'bg-purple-500/20 text-purple-300'
+                                                                                        : 'bg-emerald-500/20 text-emerald-300'
+                                                                                }`}>
+                                                                                    {paymentTypeLabel}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td className="p-3 font-semibold text-emerald-400">{formatCurrency(payment.amount)}</td>
+                                                                            <td className="p-3 font-semibold text-blue-400">{formatCurrency(runningTotal)}</td>
+                                                                            <td className="p-3 font-semibold text-amber-400">{formatCurrency(remainingAfter)}</td>
+                                                                            <td className="p-3">
+                                                                                {currentUser?.role === 'Admin' && !isBookingPayment && (
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            handleDeletePayment(payment);
+                                                                                        }}
+                                                                                        className="text-rose-400 hover:text-rose-300 transition-colors"
+                                                                                        title="حذف الدفعة"
+                                                                                    >
+                                                                                        <TrashIcon className="h-5 w-5" />
+                                                                                    </button>
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                });
+                                                            })()}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="text-center py-16 glass-card">

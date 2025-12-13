@@ -31,9 +31,9 @@ const StatCard: React.FC<{
 );
 
 const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string; data: number[]; color: string }[] } }> = ({ data }) => {
-    const chartHeight = 300;
-    const chartWidth = 800;
-    const padding = { top: 20, right: 20, bottom: 40, left: 70 };
+    const chartHeight = 220;
+    const chartWidth = 600;
+    const padding = { top: 15, right: 15, bottom: 35, left: 55 };
 
     const maxValue = useMemo(() => {
         const allData = data.datasets.flatMap(ds => ds.data);
@@ -349,13 +349,9 @@ const FinancialDashboard: React.FC = () => {
                 />
             </div>
 
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
-                 <h3 className="font-bold text-xl text-slate-800 dark:text-slate-200 mb-4">الإيرادات مقابل المصروفات (آخر 6 أشهر)</h3>
-                 <div className="overflow-x-auto">
-                     <div className="min-w-[600px]">
-                         <LineChart data={monthlyChartData} />
-                     </div>
-                 </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
+                 <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-3">الإيرادات مقابل المصروفات (آخر 6 أشهر)</h3>
+                 <LineChart data={monthlyChartData} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
