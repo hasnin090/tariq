@@ -42,7 +42,7 @@ const CustomizationSection: React.FC<{
                 const updatedItems = [...items, newItem];
                 onUpdate(updatedItems);
                 setNewItemName('');
-                logActivity(`Add ${storageKey}`, `Added new item: ${newItemName}`);
+                logActivity(`Add ${storageKey}`, `Added new item: ${newItemName}`, 'projects');
                 addToast('تمت الإضافة بنجاح', 'success');
             }
         } catch (error) {
@@ -56,7 +56,7 @@ const CustomizationSection: React.FC<{
             await service.delete(itemId);
             const updatedItems = items.filter(item => item.id !== itemId);
             onUpdate(updatedItems);
-            logActivity(`Delete ${storageKey}`, `Deleted item: ${itemName}`);
+            logActivity(`Delete ${storageKey}`, `Deleted item: ${itemName}`, 'projects');
             addToast('تم الحذف بنجاح', 'success');
         } catch (error) {
             console.error(`Error deleting item from ${storageKey}:`, error);
@@ -271,7 +271,7 @@ const Customization: React.FC = () => {
             await settingsService.set('systemCurrency', newCurrency);
             localStorage.setItem('systemCurrency', newCurrency);
             await refreshCurrencyCache();
-            logActivity('Update Currency', `Set system currency to ${newCurrency}`);
+            logActivity('Update Currency', `Set system currency to ${newCurrency}`, 'projects');
             addToast('تم تحديث العملة بنجاح!', 'success');
             
             // Auto refresh after 1 second
@@ -294,7 +294,7 @@ const Customization: React.FC = () => {
             await settingsService.set('systemDecimalPlaces', newDecimalPlaces.toString());
             localStorage.setItem('systemDecimalPlaces', newDecimalPlaces.toString());
             await refreshCurrencyCache();
-            logActivity('Update Decimal Places', `Set system decimal places to ${newDecimalPlaces}`);
+            logActivity('Update Decimal Places', `Set system decimal places to ${newDecimalPlaces}`, 'projects');
             addToast('تم تحديث عدد الخانات العشرية بنجاح!', 'success');
             
             // Auto refresh after 1 second
@@ -319,7 +319,7 @@ const Customization: React.FC = () => {
             // Apply to DOM immediately
             document.documentElement.setAttribute('data-accent-color', newColor);
             
-            logActivity('Update Accent Color', `Set system accent color to ${newColor}`);
+            logActivity('Update Accent Color', `Set system accent color to ${newColor}`, 'projects');
             addToast(`تم تحديث نظام الألوان إلى ${newColor} بنجاح!`, 'success');
             
             // Force reload page to apply color changes everywhere

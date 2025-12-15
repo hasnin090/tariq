@@ -91,13 +91,13 @@ const Treasury: React.FC = () => {
                 const updated = accounts.map(a => a.id === editingAccount.id ? { ...editingAccount, ...accountData } : a);
                 setAccounts(updated);
                 addToast('تم تحديث الحساب بنجاح.', 'success');
-                logActivity('Update Account', `Updated account: ${accountData.name}`);
+                logActivity('Update Account', `Updated account: ${accountData.name}`, 'expenses');
             } else {
                 const newAccount = await accountsService.create(accountData);
                 const updated = [...accounts, newAccount];
                 setAccounts(updated);
                 addToast('تم إضافة الحساب بنجاح.', 'success');
-                logActivity('Add Account', `Added account: ${newAccount.name}`);
+                logActivity('Add Account', `Added account: ${newAccount.name}`, 'expenses');
                 if (!selectedAccount) {
                     setSelectedAccount(newAccount);
                 }
@@ -133,7 +133,7 @@ const Treasury: React.FC = () => {
         setTransactions(currentTransactions);
 
         addToast('تمت إضافة الإيراد بنجاح.', 'success');
-        logActivity('Add Revenue', `Added revenue: ${revenueData.description} - ${formatCurrency(revenueData.amount)}`);
+        logActivity('Add Revenue', `Added revenue: ${revenueData.description} - ${formatCurrency(revenueData.amount)}`, 'expenses');
         setIsRevenueModalOpen(false);
     };
 

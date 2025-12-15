@@ -10,7 +10,7 @@ interface ActivityLog {
     interface_mode?: string;
 }
 
-const ActivityLog: React.FC = () => {
+const SalesActivityLog: React.FC = () => {
     const [logs, setLogs] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -18,8 +18,8 @@ const ActivityLog: React.FC = () => {
         const loadLogs = async () => {
             try {
                 setLoading(true);
-                // جلب سجلات المحاسبة فقط
-                const data = await activityLogService.getAll('expenses');
+                // جلب سجلات المبيعات فقط
+                const data = await activityLogService.getAll('projects');
                 setLogs(data);
             } catch (error) {
                 console.error('Error loading activity logs:', error);
@@ -32,7 +32,7 @@ const ActivityLog: React.FC = () => {
 
     return (
         <div className="container mx-auto">
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">سجل نشاطات المحاسبة</h2>
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">سجل نشاطات المبيعات</h2>
             <div className="glass-card overflow-hidden">
                 {loading ? (
                     <div className="p-8 text-center">
@@ -61,7 +61,7 @@ const ActivityLog: React.FC = () => {
                                 ))}
                             </tbody>
                         </table>
-                        {logs.length === 0 && <p className="p-8 text-center text-slate-500">لا توجد نشاطات مسجلة للمحاسبة.</p>}
+                        {logs.length === 0 && <p className="p-8 text-center text-slate-500">لا توجد نشاطات مسجلة للمبيعات.</p>}
                     </>
                 )}
             </div>
@@ -69,4 +69,4 @@ const ActivityLog: React.FC = () => {
     );
 };
 
-export default ActivityLog;
+export default SalesActivityLog;

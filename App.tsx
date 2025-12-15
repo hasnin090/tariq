@@ -25,6 +25,7 @@ import ProjectsManagement from './components/pages/sales/ProjectsManagement';
 import BookingsArchive from './components/pages/sales/BookingsArchive';
 import GeneralArchive from './components/pages/sales/GeneralArchive';
 import DataImport from './components/pages/sales/DataImport';
+import SalesActivityLog from './components/pages/sales/ActivityLog';
 
 // Accounting Interface Pages
 import FinancialDashboard from './components/pages/accounting/FinancialDashboard';
@@ -229,6 +230,9 @@ const App: React.FC = () => {
       // Archive
       case 'bookings-archive': return <BookingsArchive />;
       case 'general-archive': return <GeneralArchive />;
+      
+      // Activity Logs
+      case 'sales-activity-log': return <SalesActivityLog />;
       
       // Admin Tools
       case 'data-import': 

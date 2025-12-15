@@ -409,7 +409,7 @@ const DocumentsAccounting: React.FC = () => {
             const localDocs = JSON.parse(localStorage.getItem('accountingDocuments') || '[]');
             localStorage.setItem('accountingDocuments', JSON.stringify([...localDocs, ...newDocs]));
             setAllDocuments(updatedDocs);
-            logActivity('Upload Documents', `Uploaded ${newDocs.length} new document(s).`);
+            logActivity('Upload Documents', `Uploaded ${newDocs.length} new document(s).`, 'expenses');
             addToast(`تم رفع ${newDocs.length} مستند(ات) بنجاح!`, 'success');
             setIsUploadModalOpen(false);
         } catch (e: any) {
@@ -451,7 +451,7 @@ const DocumentsAccounting: React.FC = () => {
             
             await loadData();
             addToast('تم ربط المستند بنجاح!', 'success');
-            logActivity('Link Document', `Linked doc ${documentId} to expense ${expenseId}`);
+            logActivity('Link Document', `Linked doc ${documentId} to expense ${expenseId}`, 'expenses');
             setIsLinkModalOpen(false);
             setDocumentToLink(null);
         } catch (error) {
@@ -471,7 +471,7 @@ const DocumentsAccounting: React.FC = () => {
             
             await loadData();
             addToast('تم إلغاء ربط المستند بنجاح.', 'info');
-            logActivity('Unlink Document', `Unlinked doc ${docToUnlink.id} from expense ${docToUnlink.expenseId}`);
+            logActivity('Unlink Document', `Unlinked doc ${docToUnlink.id} from expense ${docToUnlink.expenseId}`, 'expenses');
         } catch (error) {
             console.error('Error unlinking document:', error);
             addToast('خطأ في إلغاء ربط المستند', 'error');

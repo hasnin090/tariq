@@ -195,20 +195,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <ArchiveIcon />, label: 'مستندات البيع', page: 'sales-documents', adminOnly: true },
         { icon: <ArchiveIcon />, label: 'أرشيف الحجوزات', page: 'bookings-archive', adminOnly: false },
         { icon: <ArchiveIcon />, label: 'الأرشيف العام', page: 'general-archive', adminOnly: false },
+        { icon: <ClockIcon />, label: 'سجل النشاطات', page: 'sales-activity-log', adminOnly: true },
     ];
 
     const defaultExpensesLinks = [
         { icon: <HomeIcon />, label: 'لوحة التحكم', page: 'expense_dashboard', adminOnly: false },
         { icon: <ReceiptIcon />, label: 'الحركات المالية', page: 'expenses', adminOnly: false },
-        { icon: <BanknotesIcon />, label: 'الصندوق وحساب البنك', page: 'treasury', adminOnly: true },
         { icon: <CalendarIcon />, label: 'الدفعات الآجلة', page: 'deferred-payments', adminOnly: true },
         { icon: <UsersIcon />, label: 'الموظفين', page: 'employees', adminOnly: true },
-        { icon: <CalculatorIcon />, label: 'الميزانيات', page: 'budgets', adminOnly: true },
-        { icon: <ChartBarIcon />, label: 'محاسبة المشاريع', page: 'projects-accounting', adminOnly: true },
         { icon: <TagIcon />, label: 'دفتر الأستاذ', page: 'category-accounting', adminOnly: true },
         { icon: <ArchiveIcon />, label: 'المستندات', page: 'documents-accounting', adminOnly: true },
+        { icon: <BanknotesIcon />, label: 'الصندوق وحساب البنك', page: 'treasury', adminOnly: true },
         { icon: <ClockIcon />, label: 'سجل النشاطات', page: 'activity-log', adminOnly: true },
-        { icon: <ArchiveIcon />, label: 'الأرشيف العام', page: 'general-archive', adminOnly: false },
     ];
     
     const defaultSystemLinks = [

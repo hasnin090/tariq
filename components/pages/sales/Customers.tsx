@@ -162,11 +162,11 @@ const Customers: React.FC = () => {
             let savedCustomer;
             if (editingCustomer) {
                 savedCustomer = await customersService.update(editingCustomer.id, customerWithoutUnit);
-                logActivity('Update Customer', `Updated customer: ${customerWithoutUnit.name}`);
+                logActivity('Update Customer', `Updated customer: ${customerWithoutUnit.name}`, 'projects');
                 addToast('تم تحديث العميل بنجاح', 'success');
             } else {
                 savedCustomer = await customersService.create(customerWithoutUnit);
-                logActivity('Add Customer', `Added customer: ${customerWithoutUnit.name}`);
+                logActivity('Add Customer', `Added customer: ${customerWithoutUnit.name}`, 'projects');
                 addToast('تم إضافة العميل بنجاح', 'success');
             }
 
@@ -182,7 +182,7 @@ const Customers: React.FC = () => {
                     status: 'Sold',
                     customerId: savedCustomer.id
                 });
-                logActivity('Update Unit Status', `Unit ${unitIdValue} marked as Sold`);
+                logActivity('Update Unit Status', `Unit ${unitIdValue} marked as Sold`, 'projects');
             }
 
             handleCloseModal();
@@ -201,7 +201,7 @@ const Customers: React.FC = () => {
         if (customerToDelete) {
             try {
                 await customersService.delete(customerToDelete.id);
-                logActivity('Delete Customer', `Deleted customer: ${customerToDelete.name}`);
+                logActivity('Delete Customer', `Deleted customer: ${customerToDelete.name}`, 'projects');
                 addToast('تم حذف العميل بنجاح', 'success');
                 setCustomerToDelete(null);
                 await loadData();

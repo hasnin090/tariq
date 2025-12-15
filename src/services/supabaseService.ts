@@ -1982,24 +1982,34 @@ export const accountsService = {
  * ACTIVITY LOG SERVICE
  */
 export const activityLogService = {
-  async getAll() {
-    const { data, error } = await supabase
+  async getAll(interfaceMode?: 'projects' | 'expenses') {
+    let query = supabase
       .from('activity_logs')
       .select('*')
       .order('created_at', { ascending: false });
+    
+    if (interfaceMode) {
+      query = query.eq('interface_mode', interfaceMode);
+    }
+    
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
   },
 
-  async log(action: string, details?: string, userId?: string) {
+  async log(action: string, details?: string, userId?: string, interfaceMode?: 'projects' | 'expenses') {
     // Send only required fields; let DB defaults handle timestamp/created_at
-    const payload: { action: string; details: string | null; user_id?: string } = {
+    const payload: { action: string; details: string | null; user_id?: string; interface_mode?: string } = {
       action,
       details: details || null,
     };
 
     if (userId) {
       payload.user_id = userId;
+    }
+    
+    if (interfaceMode) {
+      payload.interface_mode = interfaceMode;
     }
 
     const { data, error } = await supabase

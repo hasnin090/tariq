@@ -86,7 +86,7 @@ const BookingsArchive: React.FC = () => {
 
         try {
             await bookingsService.delete(bookingToDelete.id);
-            logActivity('Delete Archived Booking', `Permanently deleted cancelled booking for ${bookingToDelete.customerName}`);
+            logActivity('Delete Archived Booking', `Permanently deleted cancelled booking for ${bookingToDelete.customerName}`, 'projects');
             addToast('تم حذف الحجز نهائياً من الأرشيف', 'success');
             setShowDeleteConfirm(false);
             setBookingToDelete(null);

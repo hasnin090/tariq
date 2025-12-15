@@ -65,7 +65,7 @@ const Notifications: React.FC = () => {
       await notificationsService.resolve(selectedNotification.id, userId);
 
       addToast('تم تغيير كلمة المرور بنجاح', 'success');
-      logActivity('Reset Password', `Reset password for user: ${selectedNotification.username}`);
+      logActivity('Reset Password', `Reset password for user: ${selectedNotification.username}`, 'projects');
       
       setSelectedNotification(null);
       setNewPassword('');

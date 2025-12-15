@@ -180,13 +180,13 @@ const Employees: React.FC = () => {
             );
             saveData('employees', updated);
             addToast('تم تحديث بيانات الموظف بنجاح', 'success');
-            logActivity('Update Employee', `Updated employee: ${employeeData.name}`);
+            logActivity('Update Employee', `Updated employee: ${employeeData.name}`, 'expenses');
         } else {
             const newEmployee = { id: `emp_${Date.now()}`, ...employeeData };
             const updated = [...employees, newEmployee];
             saveData('employees', updated);
             addToast('تمت إضافة موظف جديد بنجاح', 'success');
-            logActivity('Add Employee', `Added employee: ${newEmployee.name}`);
+            logActivity('Add Employee', `Added employee: ${newEmployee.name}`, 'expenses');
         }
         loadData();
         handleCloseModal();
@@ -201,7 +201,7 @@ const Employees: React.FC = () => {
         const updated = employees.filter(e => e.id !== employeeToDelete.id);
         saveData('employees', updated);
         addToast(`تم حذف الموظف "${employeeToDelete.name}" بنجاح`, 'success');
-        logActivity('Delete Employee', `Deleted employee: ${employeeToDelete.name}`);
+        logActivity('Delete Employee', `Deleted employee: ${employeeToDelete.name}`, 'expenses');
         setEmployeeToDelete(null);
         loadData();
     };
@@ -256,7 +256,7 @@ const Employees: React.FC = () => {
         saveData('expenses', [...expenses, newExpense]);
         saveData('transactions', [...JSON.parse(localStorage.getItem('transactions') || '[]'), newTransaction]);
 
-        logActivity('Pay Salary', `Paid ${formatCurrency(amount)} to ${employee.name}`);
+        logActivity('Pay Salary', `Paid ${formatCurrency(amount)} to ${employee.name}`, 'expenses');
         addToast('تم تسجيل دفعة الراتب بنجاح!', 'success');
         setPayingEmployee(null);
         loadData();

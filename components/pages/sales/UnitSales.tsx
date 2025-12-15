@@ -191,7 +191,7 @@ const UnitSales: React.FC = () => {
             });
 
             addToast('تم تسجيل عملية البيع بنجاح!', 'success');
-            logActivity('New Sale', `Sold unit ${unit.name} to ${customer.name}`);
+            logActivity('New Sale', `Sold unit ${unit.name} to ${customer.name}`, 'projects');
             setIsModalOpen(false);
             loadData();
         } catch (error) {

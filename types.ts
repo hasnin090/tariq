@@ -286,6 +286,7 @@ export interface ActivityLogEntry {
   user: string;
   action: string;
   details: string;
+  interface_mode?: 'projects' | 'expenses'; // لتحديد الواجهة (مبيعات أو محاسبة)
 }
 
 export interface SearchResult {

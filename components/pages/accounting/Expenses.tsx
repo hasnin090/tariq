@@ -357,7 +357,7 @@ export const Expenses: React.FC = () => {
                     });
                 }
                 addToast(`تم تحديث الحركة المالية "${expenseData.description}" بمبلغ ${formatCurrency(expenseData.amount)} بنجاح`, 'success');
-                logActivity('Update Expense', `Updated expense: ${expenseData.description} (Amount: ${expenseData.amount})`);
+                logActivity('Update Expense', `Updated expense: ${expenseData.description} (Amount: ${expenseData.amount})`, 'expenses');
             } else {
                 if (!currentUser?.assignedProjectId && !expenseData.accountId) {
                     addToast('الحساب المحدد غير صالح.', 'error');
@@ -426,7 +426,7 @@ export const Expenses: React.FC = () => {
                 ));
 
                 addToast(`تمت إضافة الحركة المالية "${newExpense.description}" بمبلغ ${formatCurrency(newExpense.amount)} بنجاح إلى قاعدة البيانات`, 'success');
-                logActivity('Add Expense', `Added expense: ${newExpense.description} (Amount: ${newExpense.amount}, ID: ${newExpense.id})`);
+                logActivity('Add Expense', `Added expense: ${newExpense.description} (Amount: ${newExpense.amount}, ID: ${newExpense.id})`, 'expenses');
             }
             handleCloseModal();
         } catch (error) {
@@ -472,7 +472,7 @@ export const Expenses: React.FC = () => {
                 
                 // Precise success message
                 addToast(`تم حذف الحركة المالية "${expenseDescription}" بمبلغ ${formatCurrency(expenseAmount)} بنجاح من قاعدة البيانات`, 'success');
-                logActivity('Delete Expense', `Deleted expense: ${expenseDescription} (Amount: ${expenseAmount}, ID: ${expenseId})`);
+                logActivity('Delete Expense', `Deleted expense: ${expenseDescription} (Amount: ${expenseAmount}, ID: ${expenseId})`, 'expenses');
                 
             } catch (error) {
                 console.error('Error deleting expense:', error);

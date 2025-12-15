@@ -114,11 +114,11 @@ const Units: React.FC = () => {
             console.log('🔵 Saving unit with data:', unitData);
             if (editingUnit) {
                 await unitsService.update(editingUnit.id, unitData);
-                logActivity('Update Unit', `Updated unit: ${unitData.name}`);
+                logActivity('Update Unit', `Updated unit: ${unitData.name}`, 'projects');
                 addToast('تم تحديث الوحدة بنجاح', 'success');
             } else {
                 await unitsService.create(unitData);
-                logActivity('Add Unit', `Added unit: ${unitData.name}`);
+                logActivity('Add Unit', `Added unit: ${unitData.name}`, 'projects');
                 addToast('تم إضافة الوحدة بنجاح', 'success');
             }
             handleCloseModal();
@@ -170,7 +170,7 @@ const Units: React.FC = () => {
                 
                 // Finally delete the unit
                 await unitsService.delete(unitToDelete.id);
-                logActivity('Delete Unit', `Deleted unit: ${unitToDelete.name}`);
+                logActivity('Delete Unit', `Deleted unit: ${unitToDelete.name}`, 'projects');
                 addToast('تم حذف الوحدة والحجوزات والمستندات المرتبطة بنجاح', 'success');
                 setUnitToDelete(null);
                 await loadData();

@@ -275,7 +275,7 @@ const Payments: React.FC = () => {
 
         try {
             await paymentsService.delete(paymentToDelete.id);
-            logActivity('Delete Payment', `Deleted additional payment of ${formatCurrency(paymentToDelete.amount)} for ${paymentToDelete.customerName}`);
+            logActivity('Delete Payment', `Deleted additional payment of ${formatCurrency(paymentToDelete.amount)} for ${paymentToDelete.customerName}`, 'projects');
             addToast(`تم حذف الدفعة الإضافية بمبلغ ${formatCurrency(paymentToDelete.amount)} بنجاح`, 'success');
             setPaymentToDelete(null);
             await loadAllData();
@@ -363,7 +363,7 @@ const Payments: React.FC = () => {
                 // تحديث حالة الحجز إلى مكتمل - هذا سيفعّل الـ trigger لتحديث حالة الوحدة إلى Sold
                 await bookingsService.update(booking.id, { status: 'Completed' } as any);
                 addToast('تم إضافة الدفعة واكتمال سداد الوحدة بنجاح 🎉', 'success');
-                logActivity('Payment Complete', `Booking ${booking.id} completed - Unit ${unit.name} marked as Sold`);
+                logActivity('Payment Complete', `Booking ${booking.id} completed - Unit ${unit.name} marked as Sold`, 'projects');
             } else {
                 addToast('تم إضافة الدفعة بنجاح', 'success');
             }

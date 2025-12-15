@@ -289,7 +289,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
                 await userProjectAssignmentsService.assign(user.id, assignment.projectId, assignment.interfaceMode);
             }
 
-            logActivity('Update User Permissions', `Updated permissions for: ${user.name}`);
+            logActivity('Update User Permissions', `Updated permissions for: ${user.name}`, 'projects');
             addToast('تم حفظ الصلاحيات بنجاح. يجب على المستخدم إعادة تسجيل الدخول لتطبيق التغييرات.', 'success');
             onSave();
             onClose();
@@ -822,7 +822,7 @@ const Users: React.FC = () => {
             setUsers(updatedUsers);
 
             addToast(isEditing ? 'تم تحديث المستخدم بنجاح.' : 'تمت إضافة المستخدم بنجاح.', 'success');
-            logActivity(isEditing ? 'Update User' : 'Add User', `User: ${userToSave.name}`);
+            logActivity(isEditing ? 'Update User' : 'Add User', `User: ${userToSave.name}`, 'projects');
             setIsModalOpen(false);
             setEditingUser(null);
         } catch (error: any) {
@@ -862,7 +862,7 @@ const Users: React.FC = () => {
                 }
 
                 addToast('تم حذف المستخدم بنجاح من قاعدة البيانات.', 'success');
-                logActivity('Delete User', `Deleted user: ${userToDelete.name}`);
+                logActivity('Delete User', `Deleted user: ${userToDelete.name}`, 'projects');
                 setUserToDelete(null);
             } catch (error) {
                 console.error('Error deleting user:', error);

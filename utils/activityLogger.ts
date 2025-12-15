@@ -16,14 +16,16 @@ try {
 
 /**
  * تسجيل نشاط في قاعدة البيانات
- * تم إزالة localStorage fallback لأسباب أمنية
+ * @param action الإجراء
+ * @param details التفاصيل
+ * @param interfaceMode واجهة النشاط (projects للمبيعات، expenses للمحاسبة)
  */
-const logActivity = async (action: string, details: string) => {
+const logActivity = async (action: string, details: string, interfaceMode?: 'projects' | 'expenses') => {
     try {
-        await activityLogService.log(action, details, currentUser?.id);
+        await activityLogService.log(action, details, currentUser?.id, interfaceMode);
     } catch (error) {
         devError(error, 'activityLogger: Failed to log activity');
-        devWarn('Activity log failed:', { action, details, userId: currentUser?.id });
+        devWarn('Activity log failed:', { action, details, userId: currentUser?.id, interfaceMode });
     }
 };
 

@@ -64,11 +64,11 @@ const Projects: React.FC = () => {
             if (editingProject) {
                 await projectsService.update(editingProject.id, projectData);
                 addToast('تم تحديث المشروع بنجاح', 'success');
-                logActivity('Update Project', `Updated project: ${projectData.name}`);
+                logActivity('Update Project', `Updated project: ${projectData.name}`, 'expenses');
             } else {
                 await projectsService.create(projectData);
                 addToast('تم إضافة المشروع بنجاح', 'success');
-                logActivity('Create Project', `Created new project: ${projectData.name}`);
+                logActivity('Create Project', `Created new project: ${projectData.name}`, 'expenses');
             }
             setIsModalOpen(false);
             loadData();

@@ -51,11 +51,11 @@ const ProjectsManagement: React.FC = () => {
         try {
             if (editingProject) {
                 await projectsService.update(editingProject.id, projectData);
-                logActivity('Update Project', `Updated project: ${projectData.name}`);
+                logActivity('Update Project', `Updated project: ${projectData.name}`, 'projects');
                 addToast('تم تحديث المشروع بنجاح', 'success');
             } else {
                 await projectsService.create(projectData);
-                logActivity('Add Project', `Added project: ${projectData.name}`);
+                logActivity('Add Project', `Added project: ${projectData.name}`, 'projects');
                 addToast('تم إضافة المشروع بنجاح', 'success');
             }
 
@@ -75,7 +75,7 @@ const ProjectsManagement: React.FC = () => {
         if (projectToDelete) {
             try {
                 await projectsService.delete(projectToDelete.id);
-                logActivity('Delete Project', `Deleted project: ${projectToDelete.name}`);
+                logActivity('Delete Project', `Deleted project: ${projectToDelete.name}`, 'projects');
                 addToast('تم حذف المشروع بنجاح', 'success');
                 setProjectToDelete(null);
                 await loadData();

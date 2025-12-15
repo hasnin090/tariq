@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Booking, Unit, Customer, Payment, Account, Transaction } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -14,27 +14,14 @@ import DocumentManager from '../../shared/DocumentManager';
 import CompactDocumentUploader from '../../shared/CompactDocumentUploader';
 import PaymentTimeline from '../../shared/PaymentTimeline';
 import { CloseIcon, DocumentTextIcon, EditIcon } from '../../shared/Icons';
-import { useButtonPermissions } from '../../../hooks/useButtonPermission';
-import gsap from 'gsap';
 
 export const Bookings: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
-    const { canShow } = useButtonPermissions();
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
-    
-    // GSAP Table Animation Ref
-    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
-    const hasAnimated = useRef(false);
-
-    // صلاحيات الأزرار
-    const canCancelBooking = currentUser?.role === 'Admin' || canShow('bookings', 'cancel-booking');
-    const canCompleteBooking = currentUser?.role === 'Admin' || canShow('bookings', 'complete-booking');
-    const canAddPayment = currentUser?.role === 'Admin' || canShow('bookings', 'add-payment');
-    const canEditPayment = currentUser?.role === 'Admin' || canShow('bookings', 'edit');
 
     // Filter bookings by active project
     const filteredBookings = useMemo(() => {
@@ -57,25 +44,7 @@ export const Bookings: React.FC = () => {
     const [selectedBookingPayments, setSelectedBookingPayments] = useState<Payment[]>([]);
     const [selectedUnitPrice, setSelectedUnitPrice] = useState(0);
 
-    // 🎬 GSAP Table Animation - runs only once
-    useLayoutEffect(() => {
-        if (tableBodyRef.current && !loading && filteredBookings.length > 0 && !hasAnimated.current) {
-            hasAnimated.current = true;
-            const rows = tableBodyRef.current.querySelectorAll('tr');
-            gsap.fromTo(rows,
-                { opacity: 0, y: 15, x: -10 },
-                {
-                    opacity: 1,
-                    y: 0,
-                    x: 0,
-                    duration: 0.35,
-                    stagger: 0.04,
-                    ease: "power2.out",
-                    delay: 0.1
-                }
-            );
-        }
-    }, [filteredBookings, loading]);    const handleOpenDocManager = (booking: Booking) => {
+    const handleOpenDocManager = (booking: Booking) => {
         setSelectedBookingForDocs(booking);
         setIsDocManagerOpen(true);
     };
@@ -234,13 +203,13 @@ export const Bookings: React.FC = () => {
                 await bookingsService.update(selectedBookingForPayments.id, {
                     amountPaid: editingPayment.amount
                 } as any);
-                logActivity('Update Booking Payment', `Updated booking payment to ${formatCurrency(editingPayment.amount)}`);
+                logActivity('Update Booking Payment', `Updated booking payment to ${formatCurrency(editingPayment.amount)}`, 'projects');
             } else {
                 // Update payment amount
                 await paymentsService.update(editingPayment.id, {
                     amount: editingPayment.amount
                 } as any);
-                logActivity('Update Payment', `Updated payment amount to ${formatCurrency(editingPayment.amount)}`);
+                logActivity('Update Payment', `Updated payment amount to ${formatCurrency(editingPayment.amount)}`, 'projects');
             }
             
             addToast('تم تحديث المبلغ بنجاح', 'success');
@@ -288,7 +257,7 @@ export const Bookings: React.FC = () => {
 
             if (editingBooking) {
                 await bookingsService.update(editingBooking.id, dbData as any);
-                logActivity('Update Booking', `Updated booking for ${customer.name}`);
+                logActivity('Update Booking', `Updated booking for ${customer.name}`, 'projects');
                 addToast('تم تحديث الحجز بنجاح', 'success');
                 handleCloseModal();
                 await loadData();
@@ -322,7 +291,7 @@ export const Bookings: React.FC = () => {
                     });
                 }
                 
-                logActivity('Add Booking', `Added booking for ${customer.name} with initial payment of ${formatCurrency(bookingData.amountPaid)}`);
+                logActivity('Add Booking', `Added booking for ${customer.name} with initial payment of ${formatCurrency(bookingData.amountPaid)}`, 'projects');
                 
                 addToast('تم إضافة الحجز بنجاح', 'success');
                 handleCloseModal();
@@ -357,7 +326,7 @@ export const Bookings: React.FC = () => {
                 await unitsService.update(bookingToCancel.unitId, { status: 'Available' } as any);
             }
             
-            logActivity('Cancel Booking', `Cancelled booking for unit ${bookingToCancel.unitName}`);
+            logActivity('Cancel Booking', `Cancelled booking for unit ${bookingToCancel.unitName}`, 'projects');
             addToast('تم إلغاء الحجز بنجاح وإعادة الوحدة إلى متاح', 'success');
             setBookingToCancel(null);
             await loadData();
@@ -395,7 +364,7 @@ export const Bookings: React.FC = () => {
                 <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
                     <table className="w-full text-right min-w-[900px]">
                     <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700"><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الحجز</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">سعر الوحدة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجمالي المدفوع</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">عدد الدفعات</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ المتبقي</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الحالة</th><th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th></tr></thead>
-                    <tbody ref={tableBodyRef}>
+                    <tbody>
                         {filteredBookings.filter(booking => booking.status !== 'Cancelled').map(booking => {
                             const unit = units.find(u => u.id === booking.unitId);
                             const unitPrice = unit?.price || 0;

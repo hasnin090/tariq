@@ -335,7 +335,7 @@ const DeferredPayments: React.FC = () => {
         saveData('deferredPayments', updatedDeferred);
 
         addToast('تم تسجيل الدفعة بنجاح!', 'success');
-        logActivity('Add Deferred Installment', `Paid ${formatCurrency(amount)} for: ${targetPayment.description}`);
+        logActivity('Add Deferred Installment', `Paid ${formatCurrency(amount)} for: ${targetPayment.description}`, 'expenses');
     };
 
     const handleSave = (
@@ -355,7 +355,7 @@ const DeferredPayments: React.FC = () => {
             setDeferredPayments(updatedPayments);
             saveData('deferredPayments', updatedPayments);
             addToast('تم تحديث الحساب الآجل بنجاح', 'success');
-            logActivity('Update Deferred Payment', `Updated payment: ${paymentData.description}`);
+            logActivity('Update Deferred Payment', `Updated payment: ${paymentData.description}`, 'expenses');
         } else {
             const newPayment: DeferredPayment = {
                 id: `dp_${Date.now()}`,
@@ -368,7 +368,7 @@ const DeferredPayments: React.FC = () => {
             setDeferredPayments(updatedPayments);
             saveData('deferredPayments', updatedPayments);
             addToast('تمت إضافة حساب آجل بنجاح', 'success');
-            logActivity('Add Deferred Payment', `Added payment: ${newPayment.description}`);
+            logActivity('Add Deferred Payment', `Added payment: ${newPayment.description}`, 'expenses');
             
             if (initialPayment && initialPayment.amount > 0) {
                  const paymentDate = new Date().toISOString().split('T')[0];
@@ -402,7 +402,7 @@ const DeferredPayments: React.FC = () => {
             saveData('transactions', updatedTransactions);
 
             addToast('تم حذف الحساب الآجل وجميع دفعاته بنجاح', 'success');
-            logActivity('Delete Deferred Payment', `Deleted payment: ${paymentToDelete.description}`);
+            logActivity('Delete Deferred Payment', `Deleted payment: ${paymentToDelete.description}`, 'expenses');
             setPaymentToDelete(null);
         }
     };

@@ -94,7 +94,7 @@ const GeneralArchive: React.FC = () => {
             const updatedItems = archivedItems.filter(item => item.id !== itemToDelete.id);
             localStorage.setItem('archivedItems', JSON.stringify(updatedItems));
             
-            logActivity('Delete Archived Item', `Permanently deleted ${getTypeLabel(itemToDelete.type)}: ${itemToDelete.description}`);
+            logActivity('Delete Archived Item', `Permanently deleted ${getTypeLabel(itemToDelete.type)}: ${itemToDelete.description}`, 'projects');
             addToast('تم حذف العنصر نهائياً من الأرشيف', 'success');
             
             setShowDeleteConfirm(false);
@@ -122,7 +122,7 @@ const GeneralArchive: React.FC = () => {
                 localStorage.setItem(storageKey, JSON.stringify(originalData));
             }
 
-            logActivity('Restore Archived Item', `Restored ${getTypeLabel(itemToRestore.type)}: ${itemToRestore.description}`);
+            logActivity('Restore Archived Item', `Restored ${getTypeLabel(itemToRestore.type)}: ${itemToRestore.description}`, 'projects');
             addToast('تم استرجاع العنصر بنجاح', 'success');
             
             setShowRestoreConfirm(false);
