@@ -565,19 +565,50 @@ const Payments: React.FC = () => {
             const customer = customers.find(c => c.id === selectedCustomer);
             const selectedIds = selectedCustomerPaymentIds;
 
-            const bookingsForCustomer = bookings.filter(b => b.customerId === selectedCustomer);
-            const bookingById = new Map(bookingsForCustomer.map(b => [b.id, b]));
+            const companyName = 'شركة طريق العامرة';
+            const projectLabel = 'مشروع مجمع الحميدية السكني';
+
             const unitById = new Map(units.map(u => [u.id, u]));
+
+            // Paid payments selection
 
             const paidPaymentsBase = customerPrintOnlySelected && selectedIds.size
                 ? customerPayments.filter(p => selectedIds.has(p.id))
                 : customerPayments;
+
+            // Prefer bookings list (has bookingDate + amountPaid); fallback to deriving booking-like rows from payments
+            type BookingLike = Pick<Booking, 'id' | 'unitId' | 'unitName' | 'customerId' | 'customerName' | 'bookingDate' | 'amountPaid' | 'status'>;
+            const bookingsFromState = bookings.filter(b => b.customerId === selectedCustomer);
+            const bookingsForCustomer: BookingLike[] = bookingsFromState.length
+                ? bookingsFromState
+                : (() => {
+                    const byBooking = new Map<string, Payment[]>();
+                    for (const p of paidPaymentsBase) {
+                        if (!byBooking.has(p.bookingId)) byBooking.set(p.bookingId, []);
+                        byBooking.get(p.bookingId)!.push(p);
+                    }
+                    return Array.from(byBooking.entries()).map(([bookingId, list]) => {
+                        const sorted = list.slice().sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
+                        const first = sorted[0];
+                        return {
+                            id: bookingId,
+                            unitId: first?.unitId || '',
+                            unitName: first?.unitName || '—',
+                            customerId: first?.customerId || selectedCustomer,
+                            customerName: first?.customerName || customer?.name || '',
+                            bookingDate: first?.paymentDate || new Date().toISOString().split('T')[0],
+                            amountPaid: 0,
+                            status: 'Active',
+                        };
+                    });
+                })();
 
             // Ensure booking initial payment is represented (it exists on bookings.amountPaid and might not exist in payments table)
             const paidPaymentsWithInitial: Array<Payment & { _virtual?: boolean; _label?: string }> = paidPaymentsBase.slice();
             for (const booking of bookingsForCustomer) {
                 const hasBookingPaymentRow = paidPaymentsWithInitial.some(p => p.bookingId === booking.id && p.paymentType === 'booking');
                 if (!hasBookingPaymentRow && (booking.amountPaid || 0) > 0) {
+                    const unitPriceFromUnit = booking.unitId ? (unitById.get(booking.unitId)?.price || 0) : 0;
                     paidPaymentsWithInitial.push({
                         id: `virtual_booking_payment_${booking.id}`,
                         bookingId: booking.id,
@@ -588,7 +619,7 @@ const Payments: React.FC = () => {
                         customerName: booking.customerName,
                         unitId: booking.unitId,
                         unitName: booking.unitName,
-                        unitPrice: unitById.get(booking.unitId)?.price || 0,
+                        unitPrice: unitPriceFromUnit,
                         remainingAmount: undefined,
                         _virtual: true,
                         _label: 'دفعة الحجز',
@@ -619,8 +650,8 @@ const Payments: React.FC = () => {
                 .sort((a, b) => a.unitName.localeCompare(b.unitName))
                 .map(booking => {
                     const unit = unitById.get(booking.unitId);
-                    const unitPrice = unit?.price || 0;
                     const paidForThisBooking = (paymentsByBooking.get(booking.id) || []);
+                    const unitPrice = unit?.price || paidForThisBooking.find(p => typeof p.unitPrice === 'number')?.unitPrice || 0;
                     const paidSum = paidForThisBooking.reduce((sum, p) => sum + (p.amount || 0), 0);
                     const remaining = Math.max(0, unitPrice - paidSum);
 
@@ -698,7 +729,9 @@ const Payments: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${scheduledRows || '<tr><td colspan="6">لا توجد دفعات متبقية مجدولة</td></tr>'}
+                                        ${scheduledRows || (scheduledAll.length === 0
+                                            ? '<tr><td colspan="6">لا توجد دفعات متبقية مجدولة (أو لم يتم تحميل جدول الدفعات المجدولة)</td></tr>'
+                                            : '<tr><td colspan="6">لا توجد دفعات متبقية مجدولة</td></tr>')}
                                     </tbody>
                                 </table>
                             ` : ''}
@@ -707,7 +740,11 @@ const Payments: React.FC = () => {
                 })
                 .join('');
 
-            const totalUnitsPrice = bookingsForCustomer.reduce((sum, b) => sum + (unitById.get(b.unitId)?.price || 0), 0);
+            const totalUnitsPrice = bookingsForCustomer.reduce((sum, b) => {
+                const list = paymentsByBooking.get(b.id) || [];
+                const unitPrice = (b.unitId ? (unitById.get(b.unitId)?.price || 0) : 0) || list.find(p => typeof p.unitPrice === 'number')?.unitPrice || 0;
+                return sum + unitPrice;
+            }, 0);
             const totalPaidAll = bookingsForCustomer.reduce((sum, b) => {
                 const list = paymentsByBooking.get(b.id) || [];
                 return sum + list.reduce((s, p) => s + (p.amount || 0), 0);
@@ -731,8 +768,9 @@ const Payments: React.FC = () => {
                         <div class="brandbar"></div>
                         <div class="header">
                             <div class="title">كشف حساب العميل</div>
-                            <div class="subtitle">يشمل الدفعات المدفوعة والدفعات المتبقية (المجدولة) حسب الحاجة</div>
                             <div class="meta">
+                                <div><b>الشركة:</b> ${escapeHtml(companyName)}</div>
+                                <div><b>المشروع:</b> ${escapeHtml(projectLabel)}</div>
                                 <div><b>العميل:</b> ${escapeHtml(customer?.name || 'غير محدد')}</div>
                                 <div><b>الهاتف:</b> <span dir="ltr">${escapeHtml(customer?.phone || 'غير محدد')}</span></div>
                                 <div><b>البريد:</b> ${escapeHtml(customer?.email || 'غير محدد')}</div>
@@ -749,7 +787,10 @@ const Payments: React.FC = () => {
 
                         ${bookingSections || '<div class="section"><div class="section-title">لا توجد بيانات للحجوزات</div></div>'}
 
-                        <div class="footer">تم إنشاء هذا التقرير من النظام</div>
+                        <div class="footer">
+                            <div>التوقيع/الختم: ____________________</div>
+                            <div>تم إنشاء هذا التقرير من النظام</div>
+                        </div>
                     </div>
                 </body>
                 </html>
