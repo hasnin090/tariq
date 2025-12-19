@@ -12,6 +12,7 @@ import EmptyState from '../../shared/EmptyState';
 import ProjectSelector from '../../shared/ProjectSelector';
 import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import gsap from 'gsap';
+import AmountInput from '../../shared/AmountInput';
 
 const Units: React.FC = () => {
     const { currentUser } = useAuth();
@@ -315,7 +316,12 @@ const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, custom
                             </div>
                             <div>
                                 <label className="input-label">السعر <span className="text-rose-400">*</span></label>
-                                <input type="number" name="price" placeholder="سعر الوحدة" value={formData.price || ''} onChange={handleChange} className="input-field" required min="1" step="0.01" />
+                                <AmountInput
+                                    value={formData.price || ''}
+                                    onValueChange={(price) => setFormData(prev => ({ ...prev, price: price === '' ? 0 : price }))}
+                                    className="input-field"
+                                    placeholder="سعر الوحدة"
+                                />
                             </div>
                         </div>
                         <div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Payment, Customer, Booking, Unit } from '../../../types';
+import { Payment, Customer, Booking, Unit, ScheduledPayment } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useProject } from '../../../contexts/ProjectContext';
@@ -7,9 +7,10 @@ import ProjectSelector from '../../shared/ProjectSelector';
 import { filterPaymentsByProject } from '../../../utils/projectFilters';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import logActivity from '../../../utils/activityLogger';
-import { paymentsService, customersService, bookingsService, unitsService, documentsService } from '../../../src/services/supabaseService';
-import { CreditCardIcon, PrinterIcon, PlusIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, UploadIcon, FileIcon } from '../../shared/Icons';
+import { paymentsService, customersService, bookingsService, unitsService, documentsService, scheduledPaymentsService } from '../../../src/services/supabaseService';
+import { CreditCardIcon, PrinterIcon, PlusIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, UploadIcon, FileIcon, CalendarIcon, ClockIcon, CheckCircleIcon, ExclamationCircleIcon } from '../../shared/Icons';
 import ConfirmModal from '../../shared/ConfirmModal';
+import AmountInput from '../../shared/AmountInput';
 
 // نوع لتجميع الدفعات حسب الحجز
 interface BookingPaymentGroup {
@@ -23,6 +24,7 @@ interface BookingPaymentGroup {
     remaining: number;
     payments: Payment[];
     lastPaymentDate: string;
+    bookingStatus: string; // حالة الحجز (Active, Completed)
 }
 
 const Payments: React.FC = () => {
@@ -38,6 +40,11 @@ const Payments: React.FC = () => {
     const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
     const [customerPayments, setCustomerPayments] = useState<Payment[]>([]);
     const [showCustomerPayments, setShowCustomerPayments] = useState(false);
+    const [selectedCustomerPaymentIds, setSelectedCustomerPaymentIds] = useState<Set<string>>(new Set());
+    const [customerPrintOnlySelected, setCustomerPrintOnlySelected] = useState(false);
+    const [customerPrintIncludePaid, setCustomerPrintIncludePaid] = useState(true);
+    const [customerPrintIncludeRemainingSchedule, setCustomerPrintIncludeRemainingSchedule] = useState(true);
+    const [selectedBookingIdsForPrint, setSelectedBookingIdsForPrint] = useState<Set<string>>(new Set());
     const [showAddPayment, setShowAddPayment] = useState(false);
     const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
     const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
@@ -50,6 +57,8 @@ const Payments: React.FC = () => {
     const [isUploading, setIsUploading] = useState(false);
     const receiptInputRef = useRef<HTMLInputElement>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    // الدفعات المجدولة لكل حجز
+    const [scheduledPaymentsByBooking, setScheduledPaymentsByBooking] = useState<Map<string, ScheduledPayment[]>>(new Map());
 
     // تجميع الدفعات حسب الحجز
     const groupedPayments = useMemo(() => {
@@ -57,6 +66,8 @@ const Payments: React.FC = () => {
         
         allPaymentsWithBooking.forEach(payment => {
             if (!groups.has(payment.bookingId)) {
+                // البحث عن حالة الحجز
+                const booking = bookings.find(b => b.id === payment.bookingId);
                 groups.set(payment.bookingId, {
                     bookingId: payment.bookingId,
                     customerName: payment.customerName || '',
@@ -68,6 +79,7 @@ const Payments: React.FC = () => {
                     remaining: 0,
                     payments: [],
                     lastPaymentDate: payment.paymentDate,
+                    bookingStatus: booking?.status || 'Active',
                 });
             }
             
@@ -88,7 +100,7 @@ const Payments: React.FC = () => {
         });
         
         return Array.from(groups.values());
-    }, [allPaymentsWithBooking]);
+    }, [allPaymentsWithBooking, bookings]);
 
     // تصفية المجموعات حسب المشروع والبحث
     const filteredGroups = useMemo(() => {
@@ -162,8 +174,10 @@ const Payments: React.FC = () => {
         });
 
         const bookingsSubscription = bookingsService.subscribe((data) => {
-            setBookings(data.filter(b => b.status === 'Active'));
-            mergePaymentsWithBookings(payments, data.filter(b => b.status === 'Active'), units);
+            // عرض الحجوزات النشطة والمكتملة (لا نستبعد المكتملة من قائمة الدفعات)
+            const relevantBookings = data.filter(b => b.status === 'Active' || b.status === 'Completed');
+            setBookings(relevantBookings);
+            mergePaymentsWithBookings(payments, relevantBookings, units);
         });
 
         return () => {
@@ -183,20 +197,50 @@ const Payments: React.FC = () => {
             ]);
             
             const sortedPayments = paymentsData.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
-            const activeBookings = bookingsData.filter(b => b.status === 'Active');
+            // عرض الحجوزات النشطة والمكتملة
+            const relevantBookings = bookingsData.filter(b => b.status === 'Active' || b.status === 'Completed');
             
             setPayments(sortedPayments);
             setCustomers(customersData);
-            setBookings(activeBookings);
+            setBookings(relevantBookings);
             setUnits(unitsData);
             
             // Now merge after all data is loaded
-            mergePaymentsWithBookings(sortedPayments, activeBookings, unitsData);
+            mergePaymentsWithBookings(sortedPayments, relevantBookings, unitsData);
+            
+            // تحميل الدفعات المجدولة لجميع الحجوزات
+            await loadScheduledPayments(relevantBookings);
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات', 'error');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // تحميل الدفعات المجدولة لجميع الحجوزات
+    const loadScheduledPayments = async (bookingsData: Booking[]) => {
+        try {
+            const scheduledMap = new Map<string, ScheduledPayment[]>();
+
+            const bookingIds = bookingsData.map(b => b.id);
+            const allScheduled = await scheduledPaymentsService.getByBookingIds(bookingIds);
+
+            // Group by booking
+            for (const sp of allScheduled) {
+                if (!scheduledMap.has(sp.bookingId)) scheduledMap.set(sp.bookingId, []);
+                scheduledMap.get(sp.bookingId)!.push(sp);
+            }
+
+            // Ensure stable ordering
+            for (const [bookingId, list] of scheduledMap.entries()) {
+                list.sort((a, b) => a.installmentNumber - b.installmentNumber);
+            }
+
+            setScheduledPaymentsByBooking(scheduledMap);
+        } catch (error) {
+            // تجاهل الأخطاء (مثل عدم وجود الجدول) حتى لا تعطل صفحة الدفعات
+            setScheduledPaymentsByBooking(new Map());
         }
     };
 
@@ -248,7 +292,7 @@ const Payments: React.FC = () => {
 
 
 
-    const handleDeletePayment = (payment: Payment) => {
+    const handleDeletePayment = async (payment: Payment) => {
         if (currentUser?.role !== 'Admin') {
             addToast('هذه العملية متاحة للمدير فقط', 'error');
             return;
@@ -256,6 +300,20 @@ const Payments: React.FC = () => {
         
         // Check if this is a booking payment (cannot be deleted)
         if (payment.paymentType === 'booking') {
+            // ✅ تحقق إضافي: هل هناك خطة دفع نشطة؟
+            const booking = bookings.find(b => b.id === payment.bookingId);
+            if (booking) {
+                try {
+                    const scheduledPayments = await scheduledPaymentsService.getByBookingId(booking.id);
+                    const hasActiveSchedule = scheduledPayments && scheduledPayments.length > 0;
+                    if (hasActiveSchedule) {
+                        addToast('لا يمكن حذف دفعة الحجز لأن هناك خطة دفع مجدولة نشطة. يجب حذف الحجز بالكامل.', 'error');
+                        return;
+                    }
+                } catch (err) {
+                    // Silently ignore check errors
+                }
+            }
             addToast('لا يمكن حذف دفعة الحجز. يجب حذف الحجز بالكامل.', 'error');
             return;
         }
@@ -274,9 +332,32 @@ const Payments: React.FC = () => {
         }
 
         try {
+            // احفظ معلومات الحجز قبل الحذف
+            const bookingId = paymentToDelete.bookingId;
+            const booking = bookings.find(b => b.id === bookingId);
+            const unit = units.find(u => u.id === paymentToDelete.unitId);
+            
+            // حساب المبلغ المدفوع الحالي قبل الحذف
+            const currentTotalPaid = payments
+                .filter(p => p.bookingId === bookingId)
+                .reduce((sum, p) => sum + p.amount, 0);
+            
+            // المبلغ بعد الحذف
+            const newTotalPaid = currentTotalPaid - paymentToDelete.amount;
+            
             await paymentsService.delete(paymentToDelete.id);
             logActivity('Delete Payment', `Deleted additional payment of ${formatCurrency(paymentToDelete.amount)} for ${paymentToDelete.customerName}`, 'projects');
-            addToast(`تم حذف الدفعة الإضافية بمبلغ ${formatCurrency(paymentToDelete.amount)} بنجاح`, 'success');
+            
+            // ✅ تحديث حالة الحجز إذا كان مكتملاً وأصبح المبلغ غير مكتمل
+            if (booking && unit && booking.status === 'Completed' && newTotalPaid < unit.price) {
+                // إرجاع حالة الحجز إلى نشط
+                await bookingsService.update(bookingId, { status: 'Active' } as any);
+                addToast(`تم حذف الدفعة وتحديث حالة الحجز إلى "نشط" - المتبقي: ${formatCurrency(unit.price - newTotalPaid)}`, 'warning');
+                logActivity('Booking Status Changed', `Booking ${bookingId} status changed from Completed to Active after payment deletion`, 'projects');
+            } else {
+                addToast(`تم حذف الدفعة الإضافية بمبلغ ${formatCurrency(paymentToDelete.amount)} بنجاح`, 'success');
+            }
+            
             setPaymentToDelete(null);
             await loadAllData();
         } catch (error) {
@@ -392,6 +473,10 @@ const Payments: React.FC = () => {
             setCustomerPayments(data);
             setSelectedCustomer(customerId);
             setShowCustomerPayments(true);
+            setSelectedCustomerPaymentIds(new Set());
+            setCustomerPrintOnlySelected(false);
+            setCustomerPrintIncludePaid(true);
+            setCustomerPrintIncludeRemainingSchedule(true);
         } catch (error) {
             console.error('Error loading customer payments:', error);
             addToast('خطأ في تحميل الدفعات', 'error');
@@ -399,168 +484,367 @@ const Payments: React.FC = () => {
     };
 
     const handlePrint = () => {
+        const currencyCode = (localStorage.getItem('systemCurrency') || 'IQD').toUpperCase();
+        const decimalPlaces = Number.parseInt(localStorage.getItem('systemDecimalPlaces') || '2', 10);
+        const safeDecimalPlaces = Number.isFinite(decimalPlaces) ? Math.max(0, Math.min(6, decimalPlaces)) : 2;
+
+        const formatForPrint = (value: number): string => {
+            try {
+                return new Intl.NumberFormat('ar-SA', {
+                    style: 'currency',
+                    currency: /^[A-Z]{3}$/.test(currencyCode) ? currencyCode : 'IQD',
+                    minimumFractionDigits: safeDecimalPlaces,
+                    maximumFractionDigits: safeDecimalPlaces,
+                }).format(value);
+            } catch {
+                return `${value}`;
+            }
+        };
+
+        const escapeHtml = (value: unknown): string => {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        };
+
+        const accentName = (localStorage.getItem('accentColor') || 'emerald').toLowerCase();
+        const accentPaletteByName: Record<string, { accent600: string; accent700: string; accent50: string; accent100: string }> = {
+            emerald: { accent600: '#059669', accent700: '#047857', accent50: '#ecfdf5', accent100: '#d1fae5' },
+            teal: { accent600: '#0d9488', accent700: '#0f766e', accent50: '#f0fdfa', accent100: '#ccfbf1' },
+            cyan: { accent600: '#0891b2', accent700: '#0e7490', accent50: '#ecfeff', accent100: '#cffafe' },
+            blue: { accent600: '#2563eb', accent700: '#1d4ed8', accent50: '#eff6ff', accent100: '#dbeafe' },
+            indigo: { accent600: '#4f46e5', accent700: '#4338ca', accent50: '#eef2ff', accent100: '#e0e7ff' },
+            purple: { accent600: '#7c3aed', accent700: '#6d28d9', accent50: '#faf5ff', accent100: '#f3e8ff' },
+            rose: { accent600: '#e11d48', accent700: '#be123c', accent50: '#fff1f2', accent100: '#ffe4e6' },
+            amber: { accent600: '#d97706', accent700: '#b45309', accent50: '#fffbeb', accent100: '#fef3c7' },
+        };
+        const accent = accentPaletteByName[accentName] || accentPaletteByName.emerald;
+
+        const baseStyles = `
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            :root { --accent-600: ${accent.accent600}; --accent-700: ${accent.accent700}; --accent-50: ${accent.accent50}; --accent-100: ${accent.accent100}; }
+            @page { size: A4; margin: 12mm; }
+            body { font-family: Arial, sans-serif; direction: rtl; color: #0f172a; background: #ffffff; }
+            .sheet { border: 2px solid var(--accent-700); border-radius: 10px; padding: 14px; }
+            .header { padding-bottom: 10px; border-bottom: 2px solid var(--accent-700); margin-bottom: 14px; }
+            .brandbar { height: 8px; background: var(--accent-700); border-radius: 999px; margin-bottom: 10px; }
+            .title { font-size: 18px; font-weight: 800; color: var(--accent-700); margin-bottom: 6px; }
+            .subtitle { font-size: 12px; color: #475569; margin-top: 2px; }
+            .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 12px; color: #334155; margin-top: 8px; }
+            .meta b { color: #0f172a; }
+            .section { margin-top: 12px; break-inside: avoid; }
+            .section-title { font-size: 13px; font-weight: 800; color: #0f172a; background: var(--accent-50); border: 1px solid var(--accent-100); padding: 8px 10px; border-radius: 8px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #cbd5e1; }
+            thead { display: table-header-group; }
+            th { background: var(--accent-700); color: #fff; padding: 9px 8px; text-align: right; font-size: 12px; border: 1px solid var(--accent-700); }
+            td { padding: 9px 8px; text-align: right; font-size: 12px; border: 1px solid #cbd5e1; color: #0f172a; }
+            tbody tr:nth-child(even) { background: #f8fafc; }
+            .summary { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; }
+            .summary .card { border: 1px solid var(--accent-100); background: var(--accent-50); border-radius: 10px; padding: 10px; }
+            .summary .card b { color: var(--accent-700); }
+            .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid #cbd5e1; background: #f8fafc; }
+            .badge.paid { border-color: #bbf7d0; background: #ecfdf5; color: #065f46; }
+            .badge.pending { border-color: #cbd5e1; background: #f8fafc; color: #334155; }
+            .badge.overdue { border-color: #fecaca; background: #fff1f2; color: #9f1239; }
+            .badge.partial { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+            .footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #475569; text-align: center; }
+            .nowrap { white-space: nowrap; }
+            @media print {
+                a { color: inherit; text-decoration: none; }
+            }
+        `;
+
+        const printWindow = window.open('', '', 'height=800,width=1100');
+        if (!printWindow) return;
+
+        // 1) Customer statement
         if (showCustomerPayments && selectedCustomer) {
             const customer = customers.find(c => c.id === selectedCustomer);
-            const printWindow = window.open('', '', 'height=600,width=800');
-            if (printWindow) {
-                const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
-                
-                // Format currency for print
-                const formatForPrint = (value: number): string => {
-                    return new Intl.NumberFormat('ar-SA', {
-                        style: 'currency',
-                        currency: 'SAR',
-                        minimumFractionDigits: 2,
-                    }).format(value);
-                };
-                
-                const paymentRows = customerPayments.map(p => `
-                    <tr>
-                        <td>${p.paymentDate}</td>
-                        <td>${p.unitName}</td>
-                        <td>${formatForPrint(p.amount)}</td>
-                        <td>${formatForPrint(p.unitPrice)}</td>
-                        <td>${formatForPrint(p.remainingAmount)}</td>
-                    </tr>
-                `).join('');
-                
-                printWindow.document.write(`
-                    <!DOCTYPE html>
-                    <html dir="rtl">
-                    <head>
-                        <meta charset="UTF-8">
-                        <title>كشف حساب العميل</title>
-                        <style>
-                            * { margin: 0; padding: 0; box-sizing: border-box; }
-                            body { 
-                                font-family: 'Arial', sans-serif; 
-                                direction: rtl; 
-                                padding: 20px;
-                                background-color: #f9f9f9;
-                            }
-                            .container { 
-                                max-width: 900px; 
-                                margin: 0 auto;
-                                background-color: white;
-                                padding: 30px;
-                                border-radius: 8px;
-                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                            }
-                            .header { 
-                                text-align: center; 
-                                margin-bottom: 30px;
-                                border-bottom: 2px solid #333;
-                                padding-bottom: 20px;
-                            }
-                            .header h2 { 
-                                font-size: 24px;
-                                font-weight: bold;
-                                margin-bottom: 15px;
-                                color: #333;
-                            }
-                            .header p { 
-                                font-size: 14px;
-                                margin: 5px 0;
-                                color: #666;
-                            }
-                            .header strong { 
-                                color: #333;
-                                display: inline-block;
-                                margin-left: 10px;
-                            }
-                            table { 
-                                width: 100%; 
-                                border-collapse: collapse;
-                                margin: 20px 0;
-                            }
-                            th { 
-                                background-color: #2c3e50;
-                                color: white;
-                                padding: 15px;
-                                text-align: right;
-                                font-weight: bold;
-                                font-size: 14px;
-                                border: 1px solid #34495e;
-                            }
-                            td { 
-                                padding: 12px 15px;
-                                text-align: right;
-                                border: 1px solid #ddd;
-                                font-size: 13px;
-                                color: #333;
-                            }
-                            tbody tr:nth-child(even) {
-                                background-color: #f5f5f5;
-                            }
-                            tbody tr:hover {
-                                background-color: #eff3f5;
-                            }
-                            .total-section { 
-                                margin-top: 30px;
-                                padding-top: 20px;
-                                border-top: 2px solid #2c3e50;
-                                text-align: left;
-                            }
-                            .total-section p {
-                                font-size: 16px;
-                                font-weight: bold;
-                                color: #27ae60;
-                            }
-                            .footer {
-                                margin-top: 30px;
-                                text-align: center;
-                                font-size: 12px;
-                                color: #999;
-                                border-top: 1px solid #ddd;
-                                padding-top: 15px;
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="container">
-                            <div class="header">
-                                <h2>كشف حساب العميل</h2>
-                                <p><strong>اسم العميل:</strong> ${customer?.name || 'غير محدد'}</p>
-                                <p><strong>البريد الإلكتروني:</strong> ${customer?.email || 'غير محدد'}</p>
-                                <p><strong>الهاتف:</strong> ${customer?.phone || 'غير محدد'}</p>
+            const selectedIds = selectedCustomerPaymentIds;
+
+            const bookingsForCustomer = bookings.filter(b => b.customerId === selectedCustomer);
+            const bookingById = new Map(bookingsForCustomer.map(b => [b.id, b]));
+            const unitById = new Map(units.map(u => [u.id, u]));
+
+            const paidPaymentsBase = customerPrintOnlySelected && selectedIds.size
+                ? customerPayments.filter(p => selectedIds.has(p.id))
+                : customerPayments;
+
+            // Ensure booking initial payment is represented (it exists on bookings.amountPaid and might not exist in payments table)
+            const paidPaymentsWithInitial: Array<Payment & { _virtual?: boolean; _label?: string }> = paidPaymentsBase.slice();
+            for (const booking of bookingsForCustomer) {
+                const hasBookingPaymentRow = paidPaymentsWithInitial.some(p => p.bookingId === booking.id && p.paymentType === 'booking');
+                if (!hasBookingPaymentRow && (booking.amountPaid || 0) > 0) {
+                    paidPaymentsWithInitial.push({
+                        id: `virtual_booking_payment_${booking.id}`,
+                        bookingId: booking.id,
+                        amount: booking.amountPaid,
+                        paymentDate: booking.bookingDate,
+                        paymentType: 'booking',
+                        customerId: booking.customerId,
+                        customerName: booking.customerName,
+                        unitId: booking.unitId,
+                        unitName: booking.unitName,
+                        unitPrice: unitById.get(booking.unitId)?.price || 0,
+                        remainingAmount: undefined,
+                        _virtual: true,
+                        _label: 'دفعة الحجز',
+                    });
+                }
+            }
+
+            const paidPaymentsToPrint = paidPaymentsWithInitial
+                .slice()
+                .sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
+
+            // Group by booking for a complete statement per unit
+            const paymentsByBooking = new Map<string, Array<Payment & { _virtual?: boolean; _label?: string }>>();
+            for (const p of paidPaymentsToPrint) {
+                if (!paymentsByBooking.has(p.bookingId)) paymentsByBooking.set(p.bookingId, []);
+                paymentsByBooking.get(p.bookingId)!.push(p);
+            }
+
+            const scheduleStatusLabel = (s: ScheduledPayment['status']) => {
+                if (s === 'paid') return { text: 'مدفوعة', cls: 'paid' };
+                if (s === 'overdue') return { text: 'متأخرة', cls: 'overdue' };
+                if (s === 'partially_paid') return { text: 'مدفوعة جزئياً', cls: 'partial' };
+                return { text: 'مجدولة', cls: 'pending' };
+            };
+
+            const bookingSections = bookingsForCustomer
+                .slice()
+                .sort((a, b) => a.unitName.localeCompare(b.unitName))
+                .map(booking => {
+                    const unit = unitById.get(booking.unitId);
+                    const unitPrice = unit?.price || 0;
+                    const paidForThisBooking = (paymentsByBooking.get(booking.id) || []);
+                    const paidSum = paidForThisBooking.reduce((sum, p) => sum + (p.amount || 0), 0);
+                    const remaining = Math.max(0, unitPrice - paidSum);
+
+                    const paidRows = paidForThisBooking
+                        .map(p => `
+                            <tr>
+                                <td class="nowrap">${escapeHtml(p.paymentDate)}</td>
+                                <td>${escapeHtml((p as any)._label || (p.paymentType === 'booking' ? 'دفعة الحجز' : 'دفعة'))}</td>
+                                <td class="nowrap">${formatForPrint(p.amount)}</td>
+                                <td>${escapeHtml(p.notes || '—')}</td>
+                            </tr>
+                        `)
+                        .join('');
+
+                    const scheduledAll = scheduledPaymentsByBooking.get(booking.id) || [];
+                    const scheduledRemaining = scheduledAll
+                        .filter(sp => sp.status !== 'paid')
+                        .slice()
+                        .sort((a, b) => a.installmentNumber - b.installmentNumber);
+                    const scheduledRemainingSum = scheduledRemaining.reduce((sum, sp) => sum + (sp.amount || 0) - (sp.paidAmount || 0), 0);
+
+                    const scheduledRows = scheduledRemaining
+                        .map(sp => {
+                            const lbl = scheduleStatusLabel(sp.status);
+                            const remainingOnInstallment = Math.max(0, (sp.amount || 0) - (sp.paidAmount || 0));
+                            return `
+                                <tr>
+                                    <td class="nowrap">${escapeHtml(sp.installmentNumber)}</td>
+                                    <td class="nowrap">${escapeHtml(new Date(sp.dueDate).toLocaleDateString('ar-SA'))}</td>
+                                    <td class="nowrap">${formatForPrint(sp.amount || 0)}</td>
+                                    <td class="nowrap">${formatForPrint(sp.paidAmount || 0)}</td>
+                                    <td class="nowrap">${formatForPrint(remainingOnInstallment)}</td>
+                                    <td><span class="badge ${lbl.cls}">${escapeHtml(lbl.text)}</span></td>
+                                </tr>
+                            `;
+                        })
+                        .join('');
+
+                    return `
+                        <div class="section">
+                            <div class="section-title">الوحدة: ${escapeHtml(booking.unitName)} <span class="subtitle">(الحجز: ${escapeHtml(booking.id)})</span></div>
+                            <div class="summary">
+                                <div class="card"><b>سعر الوحدة:</b> ${formatForPrint(unitPrice)}</div>
+                                <div class="card"><b>إجمالي المدفوع:</b> ${formatForPrint(paidSum)}</div>
+                                <div class="card"><b>المتبقي:</b> ${formatForPrint(remaining)}</div>
+                                <div class="card"><b>المتبقي (دفعات مجدولة):</b> ${formatForPrint(Math.max(0, scheduledRemainingSum))}</div>
                             </div>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>التاريخ</th>
-                                        <th>الوحدة</th>
-                                        <th>المبلغ المدفوع</th>
-                                        <th>سعر الوحدة</th>
-                                        <th>المبلغ المتبقي</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${paymentRows}
-                                </tbody>
-                            </table>
-                            <div class="total-section">
-                                <p>إجمالي المدفوع: ${formatForPrint(totalPaid)}</p>
-                            </div>
-                            <div class="footer">
-                                <p>تم الطباعة في: ${new Date().toLocaleDateString('ar-SA')}</p>
+
+                            ${customerPrintIncludePaid ? `
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>التاريخ</th>
+                                            <th>النوع</th>
+                                            <th>المبلغ</th>
+                                            <th>ملاحظات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${paidRows || '<tr><td colspan="4">لا توجد دفعات مدفوعة للطباعة</td></tr>'}
+                                    </tbody>
+                                </table>
+                            ` : ''}
+
+                            ${customerPrintIncludeRemainingSchedule ? `
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>رقم الدفعة</th>
+                                            <th>تاريخ الاستحقاق</th>
+                                            <th>قيمة الدفعة</th>
+                                            <th>المدفوع</th>
+                                            <th>المتبقي</th>
+                                            <th>الحالة</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${scheduledRows || '<tr><td colspan="6">لا توجد دفعات متبقية مجدولة</td></tr>'}
+                                    </tbody>
+                                </table>
+                            ` : ''}
+                        </div>
+                    `;
+                })
+                .join('');
+
+            const totalUnitsPrice = bookingsForCustomer.reduce((sum, b) => sum + (unitById.get(b.unitId)?.price || 0), 0);
+            const totalPaidAll = bookingsForCustomer.reduce((sum, b) => {
+                const list = paymentsByBooking.get(b.id) || [];
+                return sum + list.reduce((s, p) => s + (p.amount || 0), 0);
+            }, 0);
+            const totalRemainingAll = Math.max(0, totalUnitsPrice - totalPaidAll);
+            const allRemainingScheduled = bookingsForCustomer.reduce((sum, b) => {
+                const list = scheduledPaymentsByBooking.get(b.id) || [];
+                return sum + list.filter(sp => sp.status !== 'paid').reduce((s, sp) => s + (sp.amount || 0) - (sp.paidAmount || 0), 0);
+            }, 0);
+
+            const html = `
+                <!DOCTYPE html>
+                <html dir="rtl">
+                <head>
+                    <meta charset="UTF-8" />
+                    <title>كشف حساب العميل</title>
+                    <style>${baseStyles}</style>
+                </head>
+                <body>
+                    <div class="sheet">
+                        <div class="brandbar"></div>
+                        <div class="header">
+                            <div class="title">كشف حساب العميل</div>
+                            <div class="subtitle">يشمل الدفعات المدفوعة والدفعات المتبقية (المجدولة) حسب الحاجة</div>
+                            <div class="meta">
+                                <div><b>العميل:</b> ${escapeHtml(customer?.name || 'غير محدد')}</div>
+                                <div><b>الهاتف:</b> <span dir="ltr">${escapeHtml(customer?.phone || 'غير محدد')}</span></div>
+                                <div><b>البريد:</b> ${escapeHtml(customer?.email || 'غير محدد')}</div>
+                                <div><b>تاريخ الطباعة:</b> ${escapeHtml(new Date().toLocaleString('ar-SA'))}</div>
                             </div>
                         </div>
-                    </body>
-                    </html>
-                `);
-                printWindow.document.close();
-                printWindow.print();
-            }
-        } else {
-            window.print();
+
+                        <div class="summary">
+                            <div class="card"><b>إجمالي سعر الوحدات:</b> ${formatForPrint(totalUnitsPrice)}</div>
+                            <div class="card"><b>إجمالي المدفوع:</b> ${formatForPrint(totalPaidAll)}</div>
+                            <div class="card"><b>إجمالي المتبقي:</b> ${formatForPrint(totalRemainingAll)}</div>
+                            <div class="card"><b>إجمالي المتبقي (دفعات مجدولة):</b> ${formatForPrint(Math.max(0, allRemainingScheduled))}</div>
+                        </div>
+
+                        ${bookingSections || '<div class="section"><div class="section-title">لا توجد بيانات للحجوزات</div></div>'}
+
+                        <div class="footer">تم إنشاء هذا التقرير من النظام</div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            printWindow.document.open();
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            return;
         }
+
+        // 2) Overall payments report (current filtered result)
+        const groupsToPrint = selectedBookingIdsForPrint.size
+            ? filteredGroups.filter(g => selectedBookingIdsForPrint.has(g.bookingId))
+            : filteredGroups;
+
+        const reportRows = groupsToPrint
+            .map(g => `
+                <tr>
+                    <td>${escapeHtml(g.customerName)}</td>
+                    <td>${escapeHtml(g.unitName)}</td>
+                    <td class="nowrap">${escapeHtml(new Date(g.lastPaymentDate).toLocaleDateString('ar-SA'))}</td>
+                    <td class="nowrap">${formatForPrint(g.totalPaid)}</td>
+                    <td class="nowrap">${formatForPrint(g.remaining)}</td>
+                    <td>${escapeHtml(g.bookingStatus)}</td>
+                </tr>
+            `)
+            .join('');
+
+        const totalPaidAll = groupsToPrint.reduce((sum, g) => sum + (g.totalPaid || 0), 0);
+        const totalRemainingAll = groupsToPrint.reduce((sum, g) => sum + (g.remaining || 0), 0);
+        const projectName = activeProject?.name ? String(activeProject.name) : 'كل المشاريع';
+        const searchInfo = searchTerm?.trim() ? searchTerm.trim() : '—';
+
+        const html = `
+            <!DOCTYPE html>
+            <html dir="rtl">
+            <head>
+                <meta charset="UTF-8" />
+                <title>تقرير الدفعات</title>
+                <style>${baseStyles}</style>
+            </head>
+            <body>
+                <div class="page">
+                    <div class="header">
+                        <div class="title">تقرير الدفعات</div>
+                        <div class="meta">
+                            <div><b>المشروع:</b> ${escapeHtml(projectName)}</div>
+                            <div><b>البحث:</b> ${escapeHtml(searchInfo)}</div>
+                            <div><b>عدد السجلات:</b> ${groupsToPrint.length}</div>
+                            <div><b>تاريخ الطباعة:</b> ${escapeHtml(new Date().toLocaleString('ar-SA'))}</div>
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>العميل</th>
+                                <th>الوحدة</th>
+                                <th>آخر دفعة</th>
+                                <th>إجمالي المدفوع</th>
+                                <th>المتبقي</th>
+                                <th>حالة الحجز</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${reportRows || '<tr><td colspan="6">لا توجد بيانات للطباعة</td></tr>'}
+                        </tbody>
+                    </table>
+
+                    <div class="summary">
+                        <div class="box"><b>إجمالي المدفوع:</b> ${formatForPrint(totalPaidAll)}</div>
+                        <div class="box"><b>إجمالي المتبقي:</b> ${formatForPrint(totalRemainingAll)}</div>
+                    </div>
+
+                    <div class="footer">تم إنشاء هذا التقرير من النظام</div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
     };
 
     return (
         <div className="container mx-auto">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">سجل الدفعات</h2>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                     <button onClick={() => setShowAddPayment(true)} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2">
                         <PlusIcon className="h-5 w-5" />
                         إضافة دفعة
@@ -661,14 +945,11 @@ const Payments: React.FC = () => {
                                     <label className="block text-slate-200 font-medium mb-2">
                                         المبلغ المدفوع
                                     </label>
-                                    <input
-                                        type="number"
+                                    <AmountInput
                                         value={newPayment.amount || ''}
-                                        onChange={(e) => setNewPayment({ ...newPayment, amount: parseFloat(e.target.value) || 0 })}
+                                        onValueChange={(amount) => setNewPayment({ ...newPayment, amount })}
                                         className="input-field"
                                         placeholder="أدخل المبلغ"
-                                        step="0.01"
-                                        min="0"
                                     />
                                 </div>
 
@@ -759,15 +1040,80 @@ const Payments: React.FC = () => {
 
             {showCustomerPayments && selectedCustomer ? (
                 <div>
-                    <button onClick={() => setShowCustomerPayments(false)} className="mb-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-slate-200 rounded-lg border border-white/20 transition-colors">العودة</button>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                        <button
+                            onClick={() => {
+                                setShowCustomerPayments(false);
+                                setSelectedCustomerPaymentIds(new Set());
+                                setCustomerPrintOnlySelected(false);
+                            }}
+                            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-slate-200 rounded-lg border border-white/20 transition-colors"
+                        >
+                            العودة
+                        </button>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <button
+                                onClick={handlePrint}
+                                className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors flex items-center gap-2"
+                            >
+                                <PrinterIcon className="h-5 w-5" />
+                                طباعة
+                            </button>
+                        </div>
+                    </div>
                     <div className="glass-card overflow-hidden mb-6">
                         <div className="p-6">
-                            <h3 className="text-xl font-bold mb-4 text-white">دفعات العميل</h3>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                                <h3 className="text-xl font-bold text-white">دفعات العميل</h3>
+                                {customerPayments.length > 0 && (
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                        <label className="flex items-center gap-2 text-sm text-slate-200 select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={customerPrintIncludePaid}
+                                                onChange={(e) => setCustomerPrintIncludePaid(e.target.checked)}
+                                            />
+                                            طباعة الدفعات المدفوعة
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm text-slate-200 select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={customerPrintIncludeRemainingSchedule}
+                                                onChange={(e) => setCustomerPrintIncludeRemainingSchedule(e.target.checked)}
+                                            />
+                                            طباعة الدفعات المتبقية (المجدولة)
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm text-slate-200 select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedCustomerPaymentIds.size > 0 && selectedCustomerPaymentIds.size === customerPayments.length}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setSelectedCustomerPaymentIds(
+                                                        checked ? new Set(customerPayments.map(p => p.id)) : new Set()
+                                                    );
+                                                }}
+                                            />
+                                            تحديد الكل
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm text-slate-200 select-none">
+                                            <input
+                                                type="checkbox"
+                                                disabled={selectedCustomerPaymentIds.size === 0}
+                                                checked={customerPrintOnlySelected}
+                                                onChange={(e) => setCustomerPrintOnlySelected(e.target.checked)}
+                                            />
+                                            طباعة المحدد فقط
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
                             {customerPayments.length > 0 ? (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-right min-w-[700px]">
                                     <thead>
                                         <tr className="border-b-2 border-white/20 bg-white/5">
+                                            <th className="p-4 font-bold text-sm text-slate-200">طباعة</th>
                                             <th className="p-4 font-bold text-sm text-slate-200">تاريخ الدفعة</th>
                                             <th className="p-4 font-bold text-sm text-slate-200">الوحدة</th>
                                             <th className="p-4 font-bold text-sm text-slate-200">سعر الوحدة</th>
@@ -778,6 +1124,21 @@ const Payments: React.FC = () => {
                                     <tbody>
                                         {customerPayments.map(payment => (
                                             <tr key={payment.id} className="border-b border-white/10 hover:bg-white/5">
+                                                <td className="p-4 text-slate-300">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedCustomerPaymentIds.has(payment.id)}
+                                                        onChange={(e) => {
+                                                            const checked = e.target.checked;
+                                                            setSelectedCustomerPaymentIds(prev => {
+                                                                const next = new Set(prev);
+                                                                if (checked) next.add(payment.id);
+                                                                else next.delete(payment.id);
+                                                                return next;
+                                                            });
+                                                        }}
+                                                    />
+                                                </td>
                                                 <td className="p-4 text-slate-300">{payment.paymentDate}</td>
                                                 <td className="p-4 font-medium text-slate-100">{payment.unitName}</td>
                                                 <td className="p-4 font-semibold text-slate-100">{formatCurrency(payment.unitPrice)}</td>
@@ -819,6 +1180,26 @@ const Payments: React.FC = () => {
                             </div>
 
                             {/* جدول الحجوزات القابل للتوسيع */}
+                            <div className="glass-card p-4">
+                                <label className="flex items-center gap-2 text-sm text-slate-200 select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedBookingIdsForPrint.size > 0 && selectedBookingIdsForPrint.size === filteredGroups.length}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setSelectedBookingIdsForPrint(
+                                                checked ? new Set(filteredGroups.map(g => g.bookingId)) : new Set()
+                                            );
+                                        }}
+                                    />
+                                    تحديد الكل للطباعة (حسب الوحدة/الحجز)
+                                </label>
+                                {selectedBookingIdsForPrint.size > 0 && (
+                                    <div className="text-xs text-slate-400 mt-2">
+                                        سيتم طباعة {selectedBookingIdsForPrint.size} من أصل {filteredGroups.length}.
+                                    </div>
+                                )}
+                            </div>
                             {filteredGroups.map(group => {
                                 const isExpanded = expandedBookings.has(group.bookingId);
                                 const progressPercent = group.unitPrice > 0 ? (group.totalPaid / group.unitPrice) * 100 : 0;
@@ -832,6 +1213,23 @@ const Payments: React.FC = () => {
                                         >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-4 flex-1">
+                                                    {/* تحديد للطباعة */}
+                                                    <div onClick={(e) => e.stopPropagation()} className="flex items-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedBookingIdsForPrint.has(group.bookingId)}
+                                                            onChange={(e) => {
+                                                                const checked = e.target.checked;
+                                                                setSelectedBookingIdsForPrint(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (checked) next.add(group.bookingId);
+                                                                    else next.delete(group.bookingId);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+
                                                     {/* أيقونة التوسيع */}
                                                     <div className="text-slate-400">
                                                         {isExpanded ? (
@@ -850,6 +1248,12 @@ const Payments: React.FC = () => {
                                                             <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded text-xs">
                                                                 {group.payments.length} دفعة
                                                             </span>
+                                                            {group.bookingStatus === 'Completed' && (
+                                                                <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-xs flex items-center gap-1">
+                                                                    <CheckCircleIcon className="h-3 w-3" />
+                                                                    مكتمل
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         
                                                         {/* شريط التقدم */}
@@ -969,6 +1373,136 @@ const Payments: React.FC = () => {
                                                         </tbody>
                                                     </table>
                                                 </div>
+                                                
+                                                {/* قسم الدفعات المجدولة القادمة */}
+                                                {scheduledPaymentsByBooking.has(group.bookingId) ? (
+                                                    <div className="border-t border-white/10 p-4">
+                                                        <div className="flex items-center gap-2 mb-4">
+                                                            <CalendarIcon className="h-5 w-5 text-blue-400" />
+                                                            <h4 className="text-lg font-semibold text-white">جدول الدفعات المستقبلية</h4>
+                                                            <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded text-xs">
+                                                                {scheduledPaymentsByBooking.get(group.bookingId)?.filter(sp => sp.status === 'pending').length || 0} دفعة قادمة
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                            {scheduledPaymentsByBooking.get(group.bookingId)?.map((scheduledPayment, idx) => {
+                                                                const dueDate = new Date(scheduledPayment.dueDate);
+                                                                const today = new Date();
+                                                                today.setHours(0, 0, 0, 0);
+                                                                const isOverdue = scheduledPayment.status === 'pending' && dueDate < today;
+                                                                const isDueSoon = scheduledPayment.status === 'pending' && !isOverdue && 
+                                                                    (dueDate.getTime() - today.getTime()) <= 7 * 24 * 60 * 60 * 1000; // خلال 7 أيام
+                                                                
+                                                                return (
+                                                                    <div 
+                                                                        key={scheduledPayment.id} 
+                                                                        className={`rounded-lg p-3 border ${
+                                                                            scheduledPayment.status === 'paid' 
+                                                                                ? 'bg-emerald-500/10 border-emerald-500/30' 
+                                                                                : isOverdue 
+                                                                                ? 'bg-rose-500/10 border-rose-500/30' 
+                                                                                : isDueSoon
+                                                                                ? 'bg-amber-500/10 border-amber-500/30'
+                                                                                : 'bg-slate-800/50 border-slate-600/30'
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-center justify-between mb-2">
+                                                                            <span className="text-slate-300 text-sm font-medium">
+                                                                                القسط #{scheduledPayment.installmentNumber}
+                                                                            </span>
+                                                                            {scheduledPayment.status === 'paid' ? (
+                                                                                <span className="flex items-center gap-1 text-emerald-400 text-xs">
+                                                                                    <CheckCircleIcon className="h-4 w-4" />
+                                                                                    مدفوع
+                                                                                </span>
+                                                                            ) : isOverdue ? (
+                                                                                <span className="flex items-center gap-1 text-rose-400 text-xs">
+                                                                                    <ExclamationCircleIcon className="h-4 w-4" />
+                                                                                    متأخر
+                                                                                </span>
+                                                                            ) : isDueSoon ? (
+                                                                                <span className="flex items-center gap-1 text-amber-400 text-xs">
+                                                                                    <ClockIcon className="h-4 w-4" />
+                                                                                    قريباً
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="flex items-center gap-1 text-slate-400 text-xs">
+                                                                                    <ClockIcon className="h-4 w-4" />
+                                                                                    قادم
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        
+                                                                        <div className="text-lg font-bold text-white mb-1">
+                                                                            {formatCurrency(scheduledPayment.amount)}
+                                                                        </div>
+                                                                        
+                                                                        <div className="flex items-center gap-1 text-sm text-slate-400">
+                                                                            <CalendarIcon className="h-4 w-4" />
+                                                                            <span>تاريخ الاستحقاق: {scheduledPayment.dueDate}</span>
+                                                                        </div>
+                                                                        
+                                                                        {scheduledPayment.paidDate && (
+                                                                            <div className="flex items-center gap-1 text-sm text-emerald-400 mt-1">
+                                                                                <CheckCircleIcon className="h-4 w-4" />
+                                                                                <span>تاريخ السداد: {scheduledPayment.paidDate}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        
+                                                        {/* ملخص الدفعات المجدولة */}
+                                                        {(() => {
+                                                            const scheduled = scheduledPaymentsByBooking.get(group.bookingId) || [];
+                                                            const totalScheduled = scheduled.reduce((sum, sp) => sum + sp.amount, 0);
+                                                            const totalPaidScheduled = scheduled.filter(sp => sp.status === 'paid').reduce((sum, sp) => sum + sp.amount, 0);
+                                                            const totalPendingScheduled = scheduled.filter(sp => sp.status === 'pending').reduce((sum, sp) => sum + sp.amount, 0);
+                                                            const overdueCount = scheduled.filter(sp => {
+                                                                if (sp.status !== 'pending') return false;
+                                                                const dueDate = new Date(sp.dueDate);
+                                                                const today = new Date();
+                                                                today.setHours(0, 0, 0, 0);
+                                                                return dueDate < today;
+                                                            }).length;
+                                                            
+                                                            return (
+                                                                <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                                                    <div>
+                                                                        <span className="text-slate-400">إجمالي المجدول</span>
+                                                                        <div className="text-white font-semibold">{formatCurrency(totalScheduled)}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-slate-400">تم سداده</span>
+                                                                        <div className="text-emerald-400 font-semibold">{formatCurrency(totalPaidScheduled)}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-slate-400">متبقي للسداد</span>
+                                                                        <div className="text-amber-400 font-semibold">{formatCurrency(totalPendingScheduled)}</div>
+                                                                    </div>
+                                                                    {overdueCount > 0 && (
+                                                                        <div>
+                                                                            <span className="text-slate-400">دفعات متأخرة</span>
+                                                                            <div className="text-rose-400 font-semibold">{overdueCount} دفعة</div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                ) : (
+                                                    <div className="border-t border-white/10 p-4">
+                                                        <div className="flex items-center gap-3 p-4 bg-slate-800/30 rounded-lg border border-slate-600/30">
+                                                            <CalendarIcon className="h-6 w-6 text-slate-400" />
+                                                            <div>
+                                                                <p className="text-slate-300 font-medium">لا توجد خطة دفع مجدولة</p>
+                                                                <p className="text-slate-500 text-sm">يمكنك تفعيل خطة الدفع من صفحة الحجوزات عند تعديل هذا الحجز</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>

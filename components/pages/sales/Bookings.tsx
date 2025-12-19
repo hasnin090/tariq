@@ -7,18 +7,20 @@ import ProjectSelector from '../../shared/ProjectSelector';
 import { filterBookingsByProject } from '../../../utils/projectFilters';
 import logActivity from '../../../utils/activityLogger';
 import { formatCurrency } from '../../../utils/currencyFormatter';
-import { bookingsService, unitsService, customersService, paymentsService, accountsService, documentsService } from '../../../src/services/supabaseService';
+import { bookingsService, unitsService, customersService, paymentsService, accountsService, documentsService, scheduledPaymentsService } from '../../../src/services/supabaseService';
 import ConfirmModal from '../../shared/ConfirmModal';
 import Modal from '../../shared/Modal';
 import DocumentManager from '../../shared/DocumentManager';
 import CompactDocumentUploader from '../../shared/CompactDocumentUploader';
 import PaymentTimeline from '../../shared/PaymentTimeline';
+import AmountInput from '../../shared/AmountInput';
 import { CloseIcon, DocumentTextIcon, EditIcon } from '../../shared/Icons';
 
 export const Bookings: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
+    const canEditPayment = currentUser?.role === 'Admin';
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -43,6 +45,8 @@ export const Bookings: React.FC = () => {
     const [showPaymentTimeline, setShowPaymentTimeline] = useState(false);
     const [selectedBookingPayments, setSelectedBookingPayments] = useState<Payment[]>([]);
     const [selectedUnitPrice, setSelectedUnitPrice] = useState(0);
+    const [selectedBookingForPayments, setSelectedBookingForPayments] = useState<Booking | null>(null);
+    const [editingPayment, setEditingPayment] = useState<{ id: string; amount: number; isBooking: boolean } | null>(null);
 
     const handleOpenDocManager = (booking: Booking) => {
         setSelectedBookingForDocs(booking);
@@ -143,6 +147,7 @@ export const Bookings: React.FC = () => {
             
             setSelectedBookingPayments(payments);
             setSelectedUnitPrice(unit?.price || 0);
+            setSelectedBookingForPayments(booking);
             setShowPaymentTimeline(true);
         } catch (error) {
             console.error('Error loading payments:', error);
@@ -153,6 +158,8 @@ export const Bookings: React.FC = () => {
     const handleClosePaymentTimeline = () => {
         setShowPaymentTimeline(false);
         setSelectedBookingPayments([]);
+        setSelectedBookingForPayments(null);
+        setEditingPayment(null);
     };
 
     const handleEditPayment = (paymentId: string, currentAmount: number, isBooking: boolean) => {
@@ -246,22 +253,38 @@ export const Bookings: React.FC = () => {
             }
 
             // Convert camelCase to snake_case for database
-            const dbData = {
+            const dbData: any = {
                 unit_id: bookingData.unitId,
                 customer_id: bookingData.customerId,
                 booking_date: bookingData.bookingDate,
                 total_price: unit.price, // إضافة السعر الإجمالي (مطلوب في قاعدة البيانات)
-                amount_paid: bookingData.amountPaid,
                 // unit_name و customer_name غير موجودين في جدول bookings - يتم جلبهم عبر join
             };
 
+            // ملاحظة: amount_paid يتم حسابه من جدول payments بواسطة trigger.
+            // لذلك لا نكتب amount_paid مباشرة لتجنب تضارب مصدر الحقيقة.
+            if (!editingBooking) {
+                dbData.amount_paid = 0;
+            }
+            
+            // إضافة حقول خطة الدفع إذا كانت موجودة
+            if ((bookingData as any).paymentPlanYears) {
+                const paymentPlanYears = (bookingData as any).paymentPlanYears;
+                const paymentFrequencyMonths = (bookingData as any).paymentFrequencyMonths || 1;
+                const paymentStartDate = (bookingData as any).paymentStartDate;
+                
+                dbData.payment_plan_years = paymentPlanYears;
+                dbData.payment_frequency_months = paymentFrequencyMonths;
+                dbData.payment_start_date = paymentStartDate;
+            }
+
             if (editingBooking) {
-                await bookingsService.update(editingBooking.id, dbData as any);
+                const updatedBooking = await bookingsService.update(editingBooking.id, dbData as any);
                 logActivity('Update Booking', `Updated booking for ${customer.name}`, 'projects');
                 addToast('تم تحديث الحجز بنجاح', 'success');
                 handleCloseModal();
                 await loadData();
-                return undefined;
+                return updatedBooking;
             } else {
                 const newBooking = { 
                     ...dbData, 
@@ -276,19 +299,24 @@ export const Bookings: React.FC = () => {
                 
                 // ✅ إنشاء سجل دفعة الحجز في جدول payments
                 if (bookingData.amountPaid > 0) {
-                    await paymentsService.create({
-                        bookingId: createdBooking.id,
-                        customerId: customer.id,
-                        customerName: customer.name,
-                        unitId: unit.id,
-                        unitName: unit.name,
-                        amount: bookingData.amountPaid,
-                        paymentDate: bookingData.bookingDate,
-                        paymentType: 'booking', // دفعة حجز
-                        unitPrice: unit.price,
-                        accountId: 'account_default_cash',
-                        notes: 'دفعة الحجز الأولى'
-                    });
+                    try {
+                        await paymentsService.create({
+                            bookingId: createdBooking.id,
+                            customerId: customer.id,
+                            customerName: customer.name,
+                            unitId: unit.id,
+                            unitName: unit.name,
+                            amount: bookingData.amountPaid,
+                            paymentDate: bookingData.bookingDate,
+                            paymentType: 'booking', // دفعة حجز
+                            unitPrice: unit.price,
+                            accountId: (bookingData as any).accountId || 'account_default_cash',
+                            notes: 'دفعة الحجز الأولى'
+                        });
+                    } catch (paymentError) {
+                        console.error('Error creating initial booking payment:', paymentError);
+                        addToast('تم إنشاء الحجز لكن فشل تسجيل دفعة الحجز', 'warning');
+                    }
                 }
                 
                 logActivity('Add Booking', `Added booking for ${customer.name} with initial payment of ${formatCurrency(bookingData.amountPaid)}`, 'projects');
@@ -313,6 +341,25 @@ export const Bookings: React.FC = () => {
     const confirmCancel = async () => {
         if (!bookingToCancel) return;
         try {
+            // ✅ تحقق من وجود دفعات مجدولة
+            const { scheduledPaymentsService } = await import('../../../src/services/supabaseService');
+            try {
+                const scheduledPayments = await scheduledPaymentsService.getByBookingId(bookingToCancel.id);
+                const pendingScheduled = scheduledPayments.filter(sp => sp.status === 'pending' || sp.status === 'overdue');
+                
+                if (pendingScheduled.length > 0) {
+                    const confirmed = window.confirm(
+                        `⚠️ تحذير: هذا الحجز له ${scheduledPayments.length} دفعة مجدولة (${pendingScheduled.length} معلقة).\n\nسيتم حذف جميع الدفعات المجدولة عند إلغاء الحجز.\n\nهل تريد المتابعة؟`
+                    );
+                    if (!confirmed) {
+                        setBookingToCancel(null);
+                        return;
+                    }
+                }
+            } catch (schedErr) {
+                console.warn('Could not check scheduled payments:', schedErr);
+            }
+            
             // تحديث حالة الحجز إلى ملغي
             await bookingsService.update(bookingToCancel.id, { status: 'Cancelled' } as any);
             
@@ -373,6 +420,7 @@ export const Bookings: React.FC = () => {
                             const totalPaid = bookingPaymentInfo?.totalPaid || booking.amountPaid || 0;
                             const paymentCount = bookingPaymentInfo?.paymentCount || (booking.amountPaid > 0 ? 1 : 0);
                             const remainingAmount = unitPrice - totalPaid;
+                            const paymentProgress = unitPrice > 0 ? (totalPaid / unitPrice) * 100 : 0;
                             return (
                             <tr key={booking.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
                                 <td className="p-4 font-medium text-slate-800 dark:text-slate-200">{booking.unitName}</td>
@@ -383,12 +431,30 @@ export const Bookings: React.FC = () => {
                                     onClick={() => handleShowPaymentTimeline(booking)}
                                     className="p-4 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                 >
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 mb-2">
                                         <span className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
                                             {formatCurrency(totalPaid)}
                                         </span>
                                         <span className="text-xs text-slate-400">/ {formatCurrency(unitPrice)}</span>
                                     </div>
+                                    {/* 📊 Progress Bar */}
+                                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                        <div 
+                                            className={`h-1.5 rounded-full transition-all duration-300 ${
+                                                paymentProgress >= 100 
+                                                    ? 'bg-emerald-500' 
+                                                    : paymentProgress >= 75 
+                                                    ? 'bg-blue-500' 
+                                                    : paymentProgress >= 50 
+                                                    ? 'bg-amber-500' 
+                                                    : 'bg-rose-500'
+                                            }`}
+                                            style={{ width: `${Math.min(paymentProgress, 100)}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 block text-center">
+                                        {Math.round(paymentProgress)}%
+                                    </span>
                                 </td>
                                 <td 
                                     onClick={() => handleShowPaymentTimeline(booking)}
@@ -438,176 +504,12 @@ export const Bookings: React.FC = () => {
                     onClose={handleClosePaymentTimeline}
                 />
             )}
-            
-            {/* Old Payments Modal - Keeping for backward compatibility, can be removed later */}
-            {false && showPaymentsModal && selectedBookingForPayments && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 pt-20">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-6">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                                    تفاصيل الدفعات - {selectedBookingForPayments.unitName}
-                                </h3>
-                                <button onClick={handleClosePaymentsModal} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                                    <CloseIcon className="h-6 w-6" />
-                                </button>
-                            </div>
 
-                            {(() => {
-                                const unit = units.find(u => u.id === selectedBookingForPayments.unitId);
-                                const unitPrice = unit?.price || 0;
-                                const bookingPaymentsList = allPayments.filter(p => p.bookingId === selectedBookingForPayments.id);
-                                const totalFromPayments = bookingPaymentsList.reduce((sum, p) => sum + p.amount, 0);
-                                // استخدام مجموع المدفوعات من جدول payments فقط (لأن دفعة الحجز موجودة هناك)
-                                const totalPaid = totalFromPayments;
-                                const remainingAmount = unitPrice - totalPaid;
-
-                                return (
-                                    <>
-                                        {/* Summary Cards */}
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                                            <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4">
-                                                <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">سعر الوحدة</p>
-                                                <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(unitPrice)}</p>
-                                            </div>
-                                            <div className="bg-emerald-100 dark:bg-emerald-900 rounded-lg p-4">
-                                                <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-1">إجمالي المدفوع</p>
-                                                <p className="text-xl font-bold text-emerald-800 dark:text-emerald-200">{formatCurrency(totalPaid)}</p>
-                                            </div>
-                                            <div className="bg-amber-100 dark:bg-amber-900 rounded-lg p-4">
-                                                <p className="text-sm text-amber-700 dark:text-amber-300 mb-1">المبلغ المتبقي</p>
-                                                <p className="text-xl font-bold text-amber-800 dark:text-amber-200">{formatCurrency(remainingAmount)}</p>
-                                            </div>
-                                            <div className="bg-blue-100 dark:bg-blue-900 rounded-lg p-4">
-                                                <p className="text-sm text-blue-700 dark:text-blue-300 mb-1">عدد الدفعات</p>
-                                                <p className="text-xl font-bold text-blue-800 dark:text-blue-200">{bookingPaymentsList.length}</p>
-                                            </div>
-                                        </div>
-
-                                        {/* Payments Table */}
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-right">
-                                                <thead>
-                                                    <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">#</th>
-                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>
-                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">النوع</th>
-                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>
-                                                        <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">المتبقي بعد الدفع</th>
-                                                        {canEditPayment && (
-                                                            <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200">تعديل</th>
-                                                        )}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {/* All Payments from payments table */}
-                                                    {bookingPaymentsList.map((payment, index) => {
-                                                        const paidSoFar = bookingPaymentsList.slice(0, index + 1).reduce((sum, p) => sum + p.amount, 0);
-                                                        const remainingAfterThis = unitPrice - paidSoFar;
-                                                        const isBookingPayment = payment.paymentType === 'booking';
-                                                        
-                                                        return (
-                                                            <tr key={payment.id} className={`border-b border-slate-200 dark:border-slate-700 ${isBookingPayment ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-                                                                <td className="p-3 font-semibold">{index + 1}</td>
-                                                                <td className="p-3">{payment.paymentDate}</td>
-                                                                <td className="p-3">
-                                                                    <span className={`inline-block px-2 py-1 ${isBookingPayment ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100' : 'bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100'} rounded text-xs font-semibold`}>
-                                                                        {isBookingPayment ? 'دفعة الحجز' : payment.paymentType === 'installment' ? 'قسط' : 'دفعة إضافية'}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">
-                                                                    {editingPayment?.id === payment.id ? (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <input
-                                                                                type="number"
-                                                                                value={editingPayment.amount}
-                                                                                onChange={(e) => setEditingPayment({ ...editingPayment, amount: parseFloat(e.target.value) || 0 })}
-                                                                                step="0.01"
-                                                                                className="w-32 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                                                                            />
-                                                                            <button
-                                                                                onClick={handleSavePaymentEdit}
-                                                                                className="px-3 py-1 bg-emerald-500 text-white rounded hover:bg-emerald-600 text-sm"
-                                                                            >
-                                                                                حفظ
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => setEditingPayment(null)}
-                                                                                className="px-3 py-1 bg-slate-400 text-white rounded hover:bg-slate-500 text-sm"
-                                                                            >
-                                                                                إلغاء
-                                                                            </button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        formatCurrency(payment.amount)
-                                                                    )}
-                                                                </td>
-                                                                <td className="p-3 font-semibold">
-                                                                    {remainingAfterThis === 0 ? (
-                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">✅ مكتمل</span>
-                                                                    ) : remainingAfterThis < 0 ? (
-                                                                        <span className="text-rose-600 dark:text-rose-400">تجاوز بـ {formatCurrency(Math.abs(remainingAfterThis))}</span>
-                                                                    ) : (
-                                                                        <span className="text-amber-600 dark:text-amber-400">{formatCurrency(remainingAfterThis)}</span>
-                                                                    )}
-                                                                </td>
-                                                                {canEditPayment && (
-                                                                    <td className="p-3">
-                                                                        {editingPayment?.id !== payment.id && (
-                                                                            <button
-                                                                                onClick={() => handleEditPayment(payment.id, payment.amount, false)}
-                                                                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                                                                                title="تعديل المبلغ"
-                                                                            >
-                                                                                <EditIcon />
-                                                                            </button>
-                                                                        )}
-                                                                    </td>
-                                                                )}
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                    
-                                                    {/* Empty state if no payments */}
-                                                    {bookingPaymentsList.length === 0 && (
-                                                        <tr>
-                                                            <td colSpan={canEditPayment ? 6 : 5} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                                                                لا توجد دفعات مسجلة لهذا الحجز
-                                                            </td>
-                                                        </tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        {remainingAmount === 0 && (
-                                            <div className="mt-6 p-4 bg-emerald-100 dark:bg-emerald-900 rounded-lg text-center">
-                                                <p className="text-emerald-800 dark:text-emerald-200 font-bold text-lg">
-                                                    ✓ تم سداد المبلغ بالكامل
-                                                </p>
-                                            </div>
-                                        )}
-                                    </>
-                                );
-                            })()}
-
-                            <div className="mt-6 flex justify-end">
-                                <button
-                                    onClick={handleClosePaymentsModal}
-                                    className="px-6 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                                >
-                                    إغلاق
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
 
-interface PanelProps { booking: Booking | null; units: Unit[]; customers: Customer[]; accounts: Account[]; onClose: () => void; onSave: (data: Omit<Booking, 'id' | 'unitName' | 'customerName' | 'status'>) => void; }
+interface PanelProps { booking: Booking | null; units: Unit[]; customers: Customer[]; accounts: Account[]; onClose: () => void; onSave: (data: Omit<Booking, 'id' | 'unitName' | 'customerName' | 'status'>) => Promise<Booking | undefined>; }
 
 const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, accounts, onClose, onSave }) => {
     const { addToast } = useToast();
@@ -618,7 +520,39 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
         bookingDate: booking?.bookingDate || new Date().toISOString().split('T')[0],
         amountPaid: booking?.amountPaid || 0,
         accountId: accounts.length > 0 ? accounts[0].id : '',
+        // حقول خطة الدفع الجديدة
+        enablePaymentPlan: !!booking?.paymentPlanYears,
+        paymentPlanYears: booking?.paymentPlanYears || 5 as 4 | 5,
+        paymentFrequencyMonths: booking?.paymentFrequencyMonths || 1 as 1 | 2 | 3 | 4 | 5,
+        paymentStartDate: booking?.paymentStartDate || new Date().toISOString().split('T')[0],
     });
+    
+    // حساب تفاصيل خطة الدفع (مع خصم دفعة الحجز)
+    const paymentPlanDetails = useMemo(() => {
+        if (!formData.enablePaymentPlan || !formData.unitId) return null;
+        
+        const selectedUnit = units.find(u => u.id === formData.unitId);
+        if (!selectedUnit) return null;
+        
+        const unitPrice = selectedUnit.price;
+        const bookingPayment = formData.amountPaid || 0; // دفعة الحجز
+        const remainingAmount = unitPrice - bookingPayment; // المبلغ المتبقي بعد خصم دفعة الحجز
+        
+        const totalMonths = formData.paymentPlanYears * 12;
+        const monthlyAmount = remainingAmount / totalMonths; // حساب على أساس المبلغ المتبقي
+        const installmentAmount = monthlyAmount * formData.paymentFrequencyMonths;
+        const totalInstallments = Math.ceil(totalMonths / formData.paymentFrequencyMonths);
+        
+        return {
+            unitPrice,
+            bookingPayment,
+            remainingAmount: Math.round(remainingAmount * 100) / 100,
+            totalMonths,
+            monthlyAmount: Math.round(monthlyAmount * 100) / 100,
+            installmentAmount: Math.round(installmentAmount * 100) / 100,
+            totalInstallments,
+        };
+    }, [formData.enablePaymentPlan, formData.unitId, formData.paymentPlanYears, formData.paymentFrequencyMonths, formData.amountPaid, units]);
     
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -627,8 +561,82 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
             return;
         }
         
+        // ✅ Validation: تحقق من صحة خطة الدفع
+        if (formData.enablePaymentPlan) {
+            const selectedUnit = units.find(u => u.id === formData.unitId);
+            if (!selectedUnit) {
+                addToast('الوحدة المحددة غير موجودة', 'error');
+                return;
+            }
+            
+            const remainingAfterBooking = selectedUnit.price - (formData.amountPaid || 0);
+            
+            if (remainingAfterBooking <= 0) {
+                addToast('دفعة الحجز تغطي كامل السعر - لا حاجة لخطة دفع!', 'warning');
+                setFormData(prev => ({ ...prev, enablePaymentPlan: false }));
+                return;
+            }
+            
+            if (paymentPlanDetails) {
+                const minRequired = paymentPlanDetails.installmentAmount * 2;
+                if (remainingAfterBooking < minRequired) {
+                    addToast(`المبلغ المتبقي ${formatCurrency(remainingAfterBooking)} قليل جداً للتقسيط على ${formData.paymentPlanYears} سنوات. الحد الأدنى المطلوب: ${formatCurrency(minRequired)}`, 'error');
+                    return;
+                }
+            }
+        }
+        
+        // Prepare booking data
+        const bookingData: any = {
+            unitId: formData.unitId,
+            customerId: formData.customerId,
+            bookingDate: formData.bookingDate,
+            amountPaid: formData.amountPaid,
+            accountId: formData.accountId,
+        };
+        
+        // Add payment plan data if enabled
+        if (formData.enablePaymentPlan) {
+            bookingData.paymentPlanYears = formData.paymentPlanYears;
+            bookingData.paymentFrequencyMonths = formData.paymentFrequencyMonths;
+            bookingData.paymentStartDate = formData.paymentStartDate;
+        }
+        
         // Save booking first
-        const savedBooking = await onSave(formData);
+        const savedBooking = await onSave(bookingData);
+        
+        // Generate scheduled payments if payment plan is enabled
+        if (savedBooking && formData.enablePaymentPlan && paymentPlanDetails) {
+            try {
+                if (paymentPlanDetails.remainingAmount <= 0) {
+                    addToast('لا يمكن إنشاء خطة دفع لأن المبلغ المتبقي يساوي صفر', 'warning');
+                    return;
+                }
+
+                const result = await scheduledPaymentsService.generateForBooking(
+                    savedBooking.id,
+                    paymentPlanDetails.remainingAmount, // المبلغ المتبقي وليس سعر الوحدة الكامل
+                    formData.paymentPlanYears,
+                    formData.paymentFrequencyMonths,
+                    formData.paymentStartDate
+                );
+                
+                // التحقق من أن الدفعات تم إنشاؤها
+                const createdPayments = await scheduledPaymentsService.getByBookingId(savedBooking.id);
+                
+                if (createdPayments.length > 0) {
+                    addToast(`تم إنشاء ${createdPayments.length} دفعة مجدولة بنجاح 🎉`, 'success');
+                } else {
+                    addToast('تم حفظ خطة الدفع لكن لم يتم إنشاء الدفعات المجدولة', 'warning');
+                }
+            } catch (error: any) {
+                if (error?.message?.includes('row-level security')) {
+                    addToast('خطأ في الصلاحيات: يرجى تطبيق سكريبت FIX-RLS-scheduled-payments.sql', 'error');
+                } else {
+                    addToast(`فشل إنشاء جدول الدفعات: ${error?.message || 'خطأ غير معروف'}`, 'error');
+                }
+            }
+        }
         
         // Upload documents if any and if booking is new
         if (!booking && uploadFiles.length > 0 && savedBooking) {
@@ -638,15 +646,20 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
                 }
                 addToast('تم رفع المستندات بنجاح', 'success');
             } catch (error) {
-                console.error('Error uploading documents:', error);
                 addToast('تم حفظ الحجز لكن فشل رفع بعض المستندات', 'warning');
             }
         }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'amountPaid' ? Number(value) : value }));
+        const { name, value, type } = e.target;
+        if (type === 'checkbox') {
+            setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+        } else if (name === 'amountPaid' || name === 'paymentPlanYears' || name === 'paymentFrequencyMonths') {
+            setFormData(prev => ({ ...prev, [name]: Number(value) }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     return (
@@ -654,7 +667,7 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
             isOpen={true}
             onClose={onClose}
             title={booking ? 'تعديل حجز' : 'حجز جديد'}
-            size="md"
+            size="lg"
             footer={
                 <div className="flex justify-end gap-4 w-full">
                     <button type="button" onClick={onClose} className="btn-secondary">إلغاء</button>
@@ -714,8 +727,21 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
 
                     <div>
                         <label className="input-label">المبلغ المدفوع مقدماً</label>
-                        <input type="number" name="amountPaid" placeholder="0" value={formData.amountPaid || ''} onChange={handleChange} className="input-field" min="0" step="0.01" />
-                        <p className="text-xs text-slate-400 mt-1">يجب أن لا يتجاوز المبلغ سعر الوحدة</p>
+                        <AmountInput
+                            value={formData.amountPaid || ''}
+                            onValueChange={(amountPaid) =>
+                                setFormData(prev => ({
+                                    ...prev,
+                                    amountPaid: amountPaid === '' ? 0 : amountPaid,
+                                }))
+                            }
+                            className="input-field"
+                            placeholder="0"
+                            disabled={!!booking}
+                        />
+                        <p className="text-xs text-slate-400 mt-1">
+                            {booking ? 'لتعديل الدفعات استخدم شاشة الدفعات.' : 'يجب أن لا يتجاوز المبلغ سعر الوحدة'}
+                        </p>
                     </div>
 
                     {accounts.length > 0 && (
@@ -725,6 +751,130 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
                                 <option value="">اختر حساب الدفع</option>
                                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
+                        </div>
+                    )}
+                    
+                    {/* ================================================== */}
+                    {/* قسم خطة الدفع - Payment Plan Section */}
+                    {/* ================================================== */}
+                    {formData.unitId && (
+                        <div className="border-t border-white/20 pt-4 mt-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <input
+                                    type="checkbox"
+                                    id="enablePaymentPlan"
+                                    name="enablePaymentPlan"
+                                    checked={formData.enablePaymentPlan}
+                                    onChange={handleChange}
+                                    className="w-5 h-5 rounded border-slate-600 bg-slate-700 text-amber-500 focus:ring-amber-500"
+                                />
+                                <label htmlFor="enablePaymentPlan" className="text-white font-semibold cursor-pointer">
+                                    تفعيل خطة الدفع المجدولة
+                                </label>
+                            </div>
+                            
+                            {formData.enablePaymentPlan && (
+                                <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-4 space-y-4">
+                                    <h4 className="text-amber-400 font-bold flex items-center gap-2">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        إعداد خطة السداد
+                                    </h4>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* مدة الخطة */}
+                                        <div>
+                                            <label className="input-label">مدة خطة الدفع <span className="text-rose-400">*</span></label>
+                                            <select
+                                                name="paymentPlanYears"
+                                                value={formData.paymentPlanYears}
+                                                onChange={handleChange}
+                                                className="input-field"
+                                            >
+                                                <option value={4}>4 سنوات (48 شهر)</option>
+                                                <option value={5}>5 سنوات (60 شهر)</option>
+                                            </select>
+                                        </div>
+                                        
+                                        {/* تكرار الدفع */}
+                                        <div>
+                                            <label className="input-label">تكرار الدفعات <span className="text-rose-400">*</span></label>
+                                            <select
+                                                name="paymentFrequencyMonths"
+                                                value={formData.paymentFrequencyMonths}
+                                                onChange={handleChange}
+                                                className="input-field"
+                                            >
+                                                <option value={1}>شهرياً (كل شهر)</option>
+                                                <option value={2}>كل شهرين</option>
+                                                <option value={3}>كل 3 أشهر (ربع سنوي)</option>
+                                                <option value={4}>كل 4 أشهر</option>
+                                                <option value={5}>كل 5 أشهر</option>
+                                            </select>
+                                        </div>
+                                        
+                                        {/* تاريخ بدء الدفعات */}
+                                        <div className="md:col-span-2">
+                                            <label className="input-label">تاريخ بدء أول دفعة <span className="text-rose-400">*</span></label>
+                                            <input
+                                                type="date"
+                                                name="paymentStartDate"
+                                                value={formData.paymentStartDate}
+                                                onChange={handleChange}
+                                                className="input-field"
+                                                required={formData.enablePaymentPlan}
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    {/* ملخص خطة الدفع */}
+                                    {paymentPlanDetails && (
+                                        <div className="bg-slate-800/50 rounded-lg p-4 mt-4">
+                                            <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
+                                                ملخص خطة الدفع
+                                            </h5>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+                                                <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+                                                    <p className="text-slate-400 text-xs">سعر الوحدة</p>
+                                                    <p className="text-white font-bold">{formatCurrency(paymentPlanDetails.unitPrice)}</p>
+                                                </div>
+                                                <div className="bg-blue-500/20 rounded-lg p-3 text-center">
+                                                    <p className="text-blue-300 text-xs">دفعة الحجز</p>
+                                                    <p className="text-blue-400 font-bold">{formatCurrency(paymentPlanDetails.bookingPayment)}</p>
+                                                </div>
+                                                <div className="bg-purple-500/20 rounded-lg p-3 text-center">
+                                                    <p className="text-purple-300 text-xs">المتبقي للتقسيط</p>
+                                                    <p className="text-purple-400 font-bold">{formatCurrency(paymentPlanDetails.remainingAmount)}</p>
+                                                </div>
+                                                <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+                                                    <p className="text-slate-400 text-xs">عدد الأقساط</p>
+                                                    <p className="text-white font-bold">{paymentPlanDetails.totalInstallments} قسط</p>
+                                                </div>
+                                                <div className="bg-emerald-500/20 rounded-lg p-3 text-center">
+                                                    <p className="text-emerald-300 text-xs">المبلغ الشهري</p>
+                                                    <p className="text-emerald-400 font-bold">{formatCurrency(paymentPlanDetails.monthlyAmount)}</p>
+                                                </div>
+                                                <div className="bg-amber-500/20 rounded-lg p-3 text-center">
+                                                    <p className="text-amber-300 text-xs">مبلغ كل قسط</p>
+                                                    <p className="text-amber-400 font-bold">{formatCurrency(paymentPlanDetails.installmentAmount)}</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 rounded-lg p-3 mt-3 border border-emerald-500/20">
+                                                <p className="text-sm text-slate-300 text-center">
+                                                    💰 سيتم تقسيط مبلغ <span className="text-purple-400 font-bold">{formatCurrency(paymentPlanDetails.remainingAmount)}</span> على 
+                                                    <span className="text-white font-bold"> {paymentPlanDetails.totalInstallments} </span> قسط 
+                                                    بقيمة <span className="text-amber-400 font-bold">{formatCurrency(paymentPlanDetails.installmentAmount)}</span> لكل قسط،
+                                                    تبدأ من <span className="text-emerald-400 font-bold">{formData.paymentStartDate}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
                     

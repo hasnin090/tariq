@@ -6,6 +6,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import logActivity from '../../../utils/activityLogger';
 import { CloseIcon, BankIcon, CashIcon, ArrowUpIcon, ArrowDownIcon, PlusIcon } from '../../shared/Icons';
 import { accountsService } from '../../../src/services/supabaseService';
+import AmountInput from '../../shared/AmountInput';
 
 const Treasury: React.FC = () => {
     const { addToast } = useToast();
@@ -270,7 +271,12 @@ const RevenuePanel: React.FC<RevenuePanelProps> = ({ accounts, onClose, onSave }
                     <div className="p-6 space-y-4">
                         <input type="text" name="description" placeholder="وصف الإيراد" value={formData.description} onChange={handleChange} className={inputStyle} required />
                         <div className="grid grid-cols-2 gap-4">
-                            <input type="number" name="amount" placeholder="المبلغ" value={formData.amount || ''} onChange={handleChange} className={inputStyle} required min="0.01" step="0.01" />
+                            <AmountInput
+                                value={formData.amount || ''}
+                                onValueChange={(amount) => setFormData(prev => ({ ...prev, amount }))}
+                                className={inputStyle}
+                                placeholder="المبلغ"
+                            />
                             <input type="date" name="date" value={formData.date} onChange={handleChange} className={inputStyle} required />
                         </div>
                         <select name="accountId" value={formData.accountId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
@@ -303,7 +309,7 @@ const AccountPanel: React.FC<PanelProps> = ({ account, onClose, onSave }) => {
     };
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData({ ...formData, [name]: name === 'initialBalance' ? Number(e.target.value) : value });
+        setFormData({ ...formData, [name]: value as any });
     };
     
     const inputStyle = "w-full p-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200";
@@ -319,7 +325,12 @@ const AccountPanel: React.FC<PanelProps> = ({ account, onClose, onSave }) => {
                             <option value="Bank">Bank</option>
                             <option value="Cash">Cash</option>
                         </select>
-                        <input type="number" name="initialBalance" placeholder="الرصيد الافتتاحي" value={formData.initialBalance} onChange={handleChange} className={inputStyle} required />
+                        <AmountInput
+                            value={formData.initialBalance}
+                            onValueChange={(initialBalance) => setFormData(prev => ({ ...prev, initialBalance: initialBalance === '' ? 0 : initialBalance }))}
+                            className={inputStyle}
+                            placeholder="الرصيد الافتتاحي"
+                        />
                     </div>
                     <div className="px-6 py-4 border-t flex justify-end gap-4"><button type="button" onClick={onClose} className="px-6 py-2 rounded-lg border font-semibold border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700">إلغاء</button><button type="submit" className="bg-primary-600 text-white px-8 py-2 rounded-lg font-semibold hover:bg-primary-700">حفظ</button></div>
                 </form>

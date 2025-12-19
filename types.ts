@@ -144,6 +144,51 @@ export interface Booking {
   status: 'Active' | 'Cancelled' | 'Completed';
   documents?: Document[];
   projectId?: string;
+  // حقول خطة الدفع الجديدة
+  paymentPlanYears?: 4 | 5;  // 4 سنوات أو 5 سنوات
+  paymentFrequencyMonths?: 1 | 2 | 3 | 4 | 5;  // شهري أو كل 2/3/4/5 أشهر
+  paymentStartDate?: string;  // تاريخ بدء الدفعات
+  monthlyAmount?: number;  // المبلغ الشهري المحسوب
+  installmentAmount?: number;  // مبلغ الدفعة الواحدة
+  totalInstallments?: number;  // إجمالي عدد الدفعات
+}
+
+// الدفعات المجدولة
+export interface ScheduledPayment {
+  id: string;
+  bookingId: string;
+  installmentNumber: number;
+  dueDate: string;
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue' | 'partially_paid';
+  paidAmount?: number;
+  paidDate?: string;
+  paymentId?: string;
+  notificationSent?: boolean;
+  notificationSentAt?: string;
+  notes?: string;
+  // بيانات مضافة من JOIN
+  unitName?: string;
+  customerName?: string;
+  customerPhone?: string;
+  daysUntilDue?: number;
+  urgency?: 'متأخرة' | 'اليوم' | 'قريباً' | 'مجدولة';
+}
+
+// إشعارات الدفعات
+export interface PaymentNotification {
+  id: string;
+  scheduledPaymentId: string;
+  bookingId: string;
+  customerName: string;
+  customerPhone: string;
+  unitName: string;
+  amountDue: number;
+  dueDate: string;
+  notificationType: 'reminder' | 'due_today' | 'overdue';
+  isRead: boolean;
+  userId?: string;
+  createdAt: string;
 }
 
 export interface Payment {

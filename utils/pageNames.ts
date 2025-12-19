@@ -4,6 +4,7 @@ export const pageNames: { [key: string]: string } = {
     'units': 'الوحدات',
     'customers': 'العملاء',
     'bookings': 'الحجوزات',
+    'scheduled-payments': 'جدول الدفعات المجدولة',
     'payments': 'الدفعات',
     'sales': 'المبيعات',
     'financial-summary': 'الملخص الشامل',

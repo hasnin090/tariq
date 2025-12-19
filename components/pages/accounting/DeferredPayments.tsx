@@ -9,6 +9,7 @@ import ConfirmModal from '../../shared/ConfirmModal';
 import { CloseIcon, CalendarIcon, ChevronDownIcon, PlusCircleIcon } from '../../shared/Icons';
 import EmptyState from '../../shared/EmptyState';
 import { projectsService, accountsService } from '../../../src/services/supabaseService';
+import AmountInput, { type AmountInputValue } from '../../shared/AmountInput';
 
 const AddInstallmentModal: React.FC<{
     payment: DeferredPayment;
@@ -19,7 +20,7 @@ const AddInstallmentModal: React.FC<{
     const { addToast } = useToast();
     const remainingAmount = payment.totalAmount - payment.amountPaid;
     const [accountId, setAccountId] = useState<string>(accounts.length > 0 ? accounts[0].id : '');
-    const [amount, setAmount] = useState<number>(remainingAmount);
+    const [amount, setAmount] = useState<AmountInputValue>(remainingAmount);
     const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
     const handleConfirm = () => {
@@ -27,15 +28,16 @@ const AddInstallmentModal: React.FC<{
             addToast('يرجى اختيار حساب للدفع منه.', 'error');
             return;
         }
-        if (amount <= 0) {
+        const amountNumber = amount === '' ? 0 : amount;
+        if (amountNumber <= 0) {
             addToast('يجب أن يكون مبلغ الدفعة أكبر من صفر.', 'error');
             return;
         }
-        if (amount > remainingAmount) {
+        if (amountNumber > remainingAmount) {
             addToast(`المبلغ المدفوع لا يمكن أن يتجاوز الرصيد المتبقي (${formatCurrency(remainingAmount)}).`, 'error');
             return;
         }
-        onConfirm(accountId, amount, date);
+        onConfirm(accountId, amountNumber, date);
     };
 
     return (
@@ -49,7 +51,11 @@ const AddInstallmentModal: React.FC<{
                     <p className="text-sm text-slate-600 dark:text-slate-300">الرصيد المتبقي: <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(remainingAmount)}</span></p>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">مبلغ الدفعة</label>
-                        <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} max={remainingAmount} min="0.01" step="0.01" className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary-500" />
+                        <AmountInput
+                            value={amount}
+                            onValueChange={setAmount}
+                            className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary-500"
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">تاريخ الدفع</label>
@@ -129,14 +135,24 @@ const DeferredPaymentPanel: React.FC<{
                         <input type="text" name="description" placeholder="الوصف (مثال: دفعة من أرباح المشروع)" value={formData.description} onChange={handleChange} className={inputStyle} required />
                         <div className="grid grid-cols-2 gap-4">
                             <select name="projectId" value={formData.projectId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required><option value="">اختر مشروع</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-                            <input type="number" name="totalAmount" placeholder="المبلغ الإجمالي" value={formData.totalAmount || ''} onChange={handleChange} className={inputStyle} required min="0.01" step="0.01" />
+                            <AmountInput
+                                value={formData.totalAmount || ''}
+                                onValueChange={(totalAmount) => setFormData(prev => ({ ...prev, totalAmount: totalAmount === '' ? '' : totalAmount }))}
+                                className={inputStyle}
+                                placeholder="المبلغ الإجمالي"
+                            />
                         </div>
                         
                         {!payment && (
                             <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-4">
                                 <h3 className="font-semibold text-slate-800 dark:text-slate-200">تسديد دفعة أولية (اختياري)</h3>
                                  <div className="grid grid-cols-2 gap-4">
-                                     <input type="number" name="amount" placeholder="مبلغ الدفعة الأولية" value={initialPayment.amount || ''} onChange={handleInitialPaymentChange} className={inputStyle} min="0" step="0.01" />
+                                     <AmountInput
+                                         value={initialPayment.amount || ''}
+                                         onValueChange={(amount) => setInitialPayment(prev => ({ ...prev, amount: amount === '' ? '' : amount }))}
+                                         className={inputStyle}
+                                         placeholder="مبلغ الدفعة الأولية"
+                                     />
                                      <select name="accountId" value={initialPayment.accountId} onChange={handleInitialPaymentChange} className={`${inputStyle} bg-white dark:bg-slate-700`} disabled={!initialPayment.amount || Number(initialPayment.amount) <= 0}>
                                         <option value="">اختر حساب الدفع</option>
                                         {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -437,7 +453,7 @@ const DeferredPayments: React.FC = () => {
 
     return (
         <div className="container mx-auto">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">الدفعات الآجلة</h2>
                 {currentUser?.role === 'Admin' && (
                     <button onClick={() => handleOpenPanel(null)} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm">

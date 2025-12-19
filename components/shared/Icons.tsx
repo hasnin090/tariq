@@ -173,6 +173,7 @@ export const ArrowDownIcon = (props: React.SVGProps<SVGSVGElement>) => <ArrowDow
 export const SuccessIcon = (props: React.SVGProps<SVGSVGElement>) => <CheckCircle fill="currentColor" {...props} />;
 export const ErrorIcon = (props: React.SVGProps<SVGSVGElement>) => <XCircle fill="currentColor" {...props} />;
 export const WarningIcon = (props: React.SVGProps<SVGSVGElement>) => <AlertTriangle strokeWidth={1.5} {...props} />;
+export const ExclamationCircleIcon = (props: React.SVGProps<SVGSVGElement>) => <AlertTriangle strokeWidth={1.5} {...props} />;
 export const QuestionIcon = (props: React.SVGProps<SVGSVGElement>) => <HelpCircle strokeWidth={1.5} {...props} />;
 export const UnitsEmptyIcon = (props: React.SVGProps<SVGSVGElement>) => <Building strokeWidth={1.5} {...props} />;
 export const CustomersEmptyIcon = (props: React.SVGProps<SVGSVGElement>) => <UserCircle2 strokeWidth={1.5} {...props} />;

@@ -201,6 +201,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     const defaultExpensesLinks = [
         { icon: <HomeIcon />, label: 'لوحة التحكم', page: 'expense_dashboard', adminOnly: false },
         { icon: <ReceiptIcon />, label: 'الحركات المالية', page: 'expenses', adminOnly: false },
+        { icon: <DocumentReportIcon />, label: 'التقارير المالية', page: 'financial-reports', adminOnly: false },
+        { icon: <BellIcon />, label: 'مركز الإشعارات', page: 'notification-center', adminOnly: false },
         { icon: <CalendarIcon />, label: 'الدفعات الآجلة', page: 'deferred-payments', adminOnly: true },
         { icon: <UsersIcon />, label: 'الموظفين', page: 'employees', adminOnly: true },
         { icon: <TagIcon />, label: 'دفتر الأستاذ', page: 'category-accounting', adminOnly: true },

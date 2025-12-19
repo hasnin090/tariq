@@ -50,6 +50,7 @@ export const SALES_MENUS: MenuDefinition[] = [
   { key: 'units', label: 'الوحدات', interface: 'projects' },
   { key: 'sales', label: 'المبيعات', interface: 'projects' },
   { key: 'bookings', label: 'الحجوزات', interface: 'projects' },
+  { key: 'scheduled-payments', label: 'جدول الدفعات', interface: 'projects' },
   { key: 'bookings-archive', label: 'أرشيف الحجوزات', interface: 'projects' },
   { key: 'payments', label: 'المدفوعات', interface: 'projects' },
   { key: 'sales-documents', label: 'مستندات المبيعات', interface: 'projects' },
@@ -157,6 +158,10 @@ export const ACCOUNTING_BUTTONS: ButtonDefinition[] = [
   { key: 'delete-expense', label: 'حذف مصروف', page: 'expenses', interface: 'expenses' },
   { key: 'attach-document', label: 'إرفاق مستند', page: 'expenses', interface: 'expenses' },
   
+  // أزرار خاصة بالتقارير المالية
+  { key: 'export_reports', label: 'تصدير التقارير', page: 'financial-reports', interface: 'expenses' },
+  { key: 'view_detailed_reports', label: 'عرض التقارير التفصيلية', page: 'financial-reports', interface: 'expenses' },
+  
   // أزرار خاصة بالخزينة
   { key: 'deposit', label: 'إيداع', page: 'treasury', interface: 'expenses' },
   { key: 'withdraw', label: 'سحب', page: 'treasury', interface: 'expenses' },
@@ -259,6 +264,7 @@ export const ROLE_PAGES: Record<UserRole, string[]> = {
     'units',
     'sales',
     'bookings',
+    'scheduled-payments',
     'payments',
     'deferred-payments',
     'sales-documents',

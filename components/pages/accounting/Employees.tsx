@@ -9,6 +9,7 @@ import { CloseIcon, UsersIcon } from '../../shared/Icons';
 import ConfirmModal from '../../shared/ConfirmModal';
 import EmptyState from '../../shared/EmptyState';
 import { projectsService } from '../../../src/services/supabaseService';
+import AmountInput, { type AmountInputValue } from '../../shared/AmountInput';
 
 
 const PaySingleSalaryModal: React.FC<{
@@ -22,22 +23,23 @@ const PaySingleSalaryModal: React.FC<{
     const remainingAmount = employee.salary - paidAmount;
 
     const [accountId, setAccountId] = useState<string>(accounts.length > 0 ? accounts[0].id : '');
-    const [amount, setAmount] = useState<number>(remainingAmount);
+    const [amount, setAmount] = useState<AmountInputValue>(remainingAmount);
 
     const handleConfirm = () => {
         if (!accountId) {
             addToast('يرجى اختيار حساب للدفع منه.', 'error');
             return;
         }
-        if (amount <= 0) {
+        const amountNumber = amount === '' ? 0 : amount;
+        if (amountNumber <= 0) {
             addToast('يجب أن يكون مبلغ الدفعة أكبر من صفر.', 'error');
             return;
         }
-        if (amount > remainingAmount) {
+        if (amountNumber > remainingAmount) {
             addToast(`المبلغ المدفوع لا يمكن أن يتجاوز الرصيد المتبقي (${formatCurrency(remainingAmount)}).`, 'error');
             return;
         }
-        onConfirm(employee.id, accountId, amount);
+        onConfirm(employee.id, accountId, amountNumber);
     };
     
     return (
@@ -55,7 +57,11 @@ const PaySingleSalaryModal: React.FC<{
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">مبلغ الدفعة</label>
-                        <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} max={remainingAmount} min="0.01" step="0.01" className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary-500" />
+                        <AmountInput
+                            value={amount}
+                            onValueChange={setAmount}
+                            className="w-full p-2.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary-500"
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">الدفع من حساب</label>
@@ -397,7 +403,12 @@ const EmployeePanel: React.FC<PanelProps> = ({ employee, projects, onClose, onSa
                     <div className="p-6 space-y-4">
                         <input type="text" name="name" placeholder="الاسم الكامل" value={formData.name} onChange={handleChange} className={inputStyle} required />
                         <input type="text" name="position" placeholder="المنصب الوظيفي" value={formData.position} onChange={handleChange} className={inputStyle} required />
-                        <input type="number" name="salary" placeholder="الراتب الشهري" value={formData.salary || ''} onChange={handleChange} className={inputStyle} step="0.01" min="0.01" required />
+                        <AmountInput
+                            value={formData.salary || ''}
+                            onValueChange={(salary) => setFormData(prev => ({ ...prev, salary: salary === '' ? '' : salary }))}
+                            className={inputStyle}
+                            placeholder="الراتب الشهري"
+                        />
                         <select name="projectId" value={formData.projectId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`}>
                             <option value="">اختر المشروع (اختياري)</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}

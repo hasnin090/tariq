@@ -79,8 +79,6 @@ export const usersService = {
   },
 
   async create(user: Omit<User, 'id'>) {
-    console.log('🔧 usersService.create called with:', user);
-    
     // Validation
     const nameValidation = validateName(user.name);
     if (!nameValidation.valid) throw new ValidationError(nameValidation.error!);
@@ -95,7 +93,6 @@ export const usersService = {
     
     // Generate UUID for user (users table uses UUID type)
     const id = generateUUID();
-    console.log('🆔 Generated UUID:', id);
     
     // Extract fields
     const { password, projectAssignments, permissions, ...userWithoutPassword } = user as any;
@@ -113,8 +110,6 @@ export const usersService = {
       password: hashedPassword
     };
     
-    console.log('🧹 Clean user data to insert:', cleanUserData);
-    
     const { data, error } = await supabase
       .from('users')
       .insert([{ ...cleanUserData, id }])
@@ -122,8 +117,6 @@ export const usersService = {
       .single();
     
     if (error) {
-      console.error('❌ Supabase create user error:', error);
-      
       // Handle duplicate username error
       if (error.code === '23505' && error.message.includes('users_username_key')) {
         throw new Error('اسم المستخدم مستخدم بالفعل. الرجاء اختيار اسم مختلف.');
@@ -131,8 +124,6 @@ export const usersService = {
       
       throw error;
     }
-    
-    console.log('✅ User created successfully in DB:', data);
     
     // Add permissions based on role for the returned data
     return {
@@ -1050,7 +1041,6 @@ export const expensesService = {
       .single();
     
     if (fetchError) {
-      console.error('❌ Error fetching inserted expense:', fetchError);
       throw fetchError;
     }
     
@@ -2099,17 +2089,12 @@ export const userPermissionsService = {
  */
 export const userMenuAccessService = {
   async getByUserId(userId: string) {
-    console.log('🔍 userMenuAccessService.getByUserId called for:', userId);
     const { data, error } = await supabase
       .from('user_menu_access')
       .select('*')
       .eq('user_id', userId);
     
-    console.log('📊 Raw data from user_menu_access:', data);
-    if (error) {
-      console.error('❌ Error fetching user_menu_access:', error);
-      throw error;
-    }
+    if (error) throw error;
     
     const result = (data || []).map((m: any) => ({
       id: m.id,
@@ -2117,31 +2102,22 @@ export const userMenuAccessService = {
       menuKey: m.menu_key,
       isVisible: m.is_visible,
     }));
-    console.log('✅ Mapped menu access:', result);
+    
     return result;
   },
 
   async setMenuAccess(userId: string, menuAccess: { menuKey: string; isVisible: boolean }[]) {
-    console.log('💾 setMenuAccess called for user:', userId, 'with', menuAccess.length, 'menus');
-    console.log('📋 Menu access to save:', menuAccess);
-    
     // حذف القوائم القديمة
     const { error: deleteError } = await supabase
       .from('user_menu_access')
       .delete()
       .eq('user_id', userId);
     
-    if (deleteError) {
-      console.error('❌ Error deleting old menu access:', deleteError);
-      throw deleteError;
-    }
-    console.log('🗑️ Old menu access deleted');
-
-    // إضافة القوائم الجديدة
-    if (menuAccess.length > 0) {
-      const dataToInsert = menuAccess.map(m => ({
-        user_id: userId,
-        menu_key: m.menuKey,
+    if (deleteError) throw deleteError;
+    
+    const dataToInsert = menuAccess.map(m => ({
+      user_id: userId,
+      menu_key: m.menuKey,
         is_visible: m.isVisible,
       }));
       console.log('📥 Inserting menu access:', dataToInsert);
@@ -2150,12 +2126,7 @@ export const userMenuAccessService = {
         .from('user_menu_access')
         .insert(dataToInsert);
       
-      if (error) {
-        console.error('❌ Error inserting menu access:', error);
-        throw error;
-      }
-      console.log('✅ Menu access saved successfully');
-    }
+      if (error) throw error;
   },
 
   async upsertMenuAccess(userId: string, menuKey: string, isVisible: boolean) {
@@ -2322,20 +2293,13 @@ export const userFullPermissionsService = {
   async getByUserId(userId: string) {
     console.log('📥 userFullPermissionsService.getByUserId called for:', userId);
     try {
-      const [permissions, menuAccess, buttonAccess, projectAssignments] = await Promise.all([
-        userPermissionsService.getByUserId(userId),
+      const [menuAccess, buttonAccess, projectAssignments] = await Promise.all([
         userMenuAccessService.getByUserId(userId),
         userButtonAccessService.getByUserId(userId),
         userProjectAssignmentsService.getByUserId(userId),
       ]);
 
-      console.log('📋 Menu access loaded:', menuAccess);
-      console.log('🔐 Resource permissions loaded:', permissions);
-      console.log('🔘 Button access loaded:', buttonAccess);
-      console.log('📁 Project assignments loaded:', projectAssignments);
-
       return {
-        resourcePermissions: permissions,
         menuAccess,
         buttonAccess,
         projectAssignments,
@@ -2345,7 +2309,6 @@ export const userFullPermissionsService = {
       throw error;
     }
   },
-
   async deleteByUserId(userId: string) {
     await Promise.all([
       userPermissionsService.deleteByUserId(userId),
@@ -2354,4 +2317,495 @@ export const userFullPermissionsService = {
       userProjectAssignmentsService.deleteByUserId(userId),
     ]);
   }
+};
+
+// ============================================================================
+// خدمة الدفعات المجدولة - Scheduled Payments Service
+// ============================================================================
+import { ScheduledPayment, PaymentNotification } from '../../types';
+
+export const scheduledPaymentsService = {
+  /**
+   * جلب جميع الدفعات المجدولة
+   */
+  async getAll() {
+    const { data, error } = await supabase
+      .from('scheduled_payments')
+      .select(`
+        *,
+        bookings (
+          unit_id,
+          customer_id,
+          units (unit_number),
+          customers (name, phone)
+        )
+      `)
+      .order('due_date', { ascending: true });
+    if (error) throw error;
+    
+    return (data || []).map((sp: any) => ({
+      id: sp.id,
+      bookingId: sp.booking_id,
+      installmentNumber: sp.installment_number,
+      dueDate: sp.due_date,
+      amount: sp.amount,
+      status: sp.status,
+      paidAmount: sp.paid_amount,
+      paidDate: sp.paid_date,
+      paymentId: sp.payment_id,
+      notificationSent: sp.notification_sent,
+      notificationSentAt: sp.notification_sent_at,
+      notes: sp.notes,
+      unitName: sp.bookings?.units?.unit_number || '',
+      customerName: sp.bookings?.customers?.name || '',
+      customerPhone: sp.bookings?.customers?.phone || '',
+    }));
+  },
+
+  /**
+   * جلب الدفعات المجدولة لحجز معين
+   */
+  async getByBookingId(bookingId: string) {
+    const { data, error } = await supabase
+      .from('scheduled_payments')
+      .select(`
+        *,
+        bookings (
+          unit_id,
+          customer_id,
+          units (unit_number),
+          customers (name, phone)
+        )
+      `)
+      .eq('booking_id', bookingId)
+      .order('installment_number', { ascending: true });
+    if (error) throw error;
+    
+    return (data || []).map((sp: any) => ({
+      id: sp.id,
+      bookingId: sp.booking_id,
+      installmentNumber: sp.installment_number,
+      dueDate: sp.due_date,
+      amount: sp.amount,
+      status: sp.status,
+      paidAmount: sp.paid_amount,
+      paidDate: sp.paid_date,
+      paymentId: sp.payment_id,
+      notificationSent: sp.notification_sent,
+      notificationSentAt: sp.notification_sent_at,
+      notes: sp.notes,
+      unitName: sp.bookings?.units?.unit_number || '',
+      customerName: sp.bookings?.customers?.name || '',
+      customerPhone: sp.bookings?.customers?.phone || '',
+    }));
+  },
+
+  /**
+   * جلب الدفعات المجدولة لعدة حجوزات مرة واحدة (لتجنب N+1)
+   */
+  async getByBookingIds(bookingIds: string[]) {
+    if (!bookingIds.length) return [] as ScheduledPayment[];
+
+    const { data, error } = await supabase
+      .from('scheduled_payments')
+      .select('*')
+      .in('booking_id', bookingIds)
+      .order('booking_id', { ascending: true })
+      .order('installment_number', { ascending: true });
+    if (error) throw error;
+
+    return (data || []).map((sp: any) => ({
+      id: sp.id,
+      bookingId: sp.booking_id,
+      installmentNumber: sp.installment_number,
+      dueDate: sp.due_date,
+      amount: sp.amount,
+      status: sp.status,
+      paidAmount: sp.paid_amount,
+      paidDate: sp.paid_date,
+      paymentId: sp.payment_id,
+      notificationSent: sp.notification_sent,
+      notificationSentAt: sp.notification_sent_at,
+      notes: sp.notes,
+      unitName: '',
+      customerName: '',
+      customerPhone: '',
+    }));
+  },
+
+  /**
+   * جلب الدفعات المستحقة (pending أو overdue)
+   */
+  async getUpcoming(daysAhead: number = 30) {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + daysAhead);
+    
+    const { data, error } = await supabase
+      .from('scheduled_payments')
+      .select(`
+        *,
+        bookings (
+          unit_id,
+          customer_id,
+          units (unit_number),
+          customers (name, phone, email)
+        )
+      `)
+      .in('status', ['pending', 'overdue', 'partially_paid'])
+      .lte('due_date', futureDate.toISOString().split('T')[0])
+      .order('due_date', { ascending: true });
+    if (error) throw error;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    return (data || []).map((sp: any) => {
+      const dueDate = sp.due_date;
+      const daysUntilDue = Math.ceil((new Date(dueDate).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24));
+      
+      let urgency: 'متأخرة' | 'اليوم' | 'قريباً' | 'مجدولة' = 'مجدولة';
+      if (daysUntilDue < 0) urgency = 'متأخرة';
+      else if (daysUntilDue === 0) urgency = 'اليوم';
+      else if (daysUntilDue <= 7) urgency = 'قريباً';
+      
+      return {
+        id: sp.id,
+        bookingId: sp.booking_id,
+        installmentNumber: sp.installment_number,
+        dueDate: sp.due_date,
+        amount: sp.amount,
+        status: sp.status,
+        paidAmount: sp.paid_amount,
+        paidDate: sp.paid_date,
+        paymentId: sp.payment_id,
+        notificationSent: sp.notification_sent,
+        unitName: sp.bookings?.units?.unit_number || '',
+        customerName: sp.bookings?.customers?.name || '',
+        customerPhone: sp.bookings?.customers?.phone || '',
+        daysUntilDue,
+        urgency,
+      };
+    });
+  },
+
+  /**
+   * تحديث حالة دفعة مجدولة
+   */
+  async update(id: string, data: Partial<ScheduledPayment>) {
+    const dbData: any = {};
+    if (data.status) dbData.status = data.status;
+    if (data.paidAmount !== undefined) dbData.paid_amount = data.paidAmount;
+    if (data.paidDate) dbData.paid_date = data.paidDate;
+    if (data.paymentId) dbData.payment_id = data.paymentId;
+    if (data.notificationSent !== undefined) dbData.notification_sent = data.notificationSent;
+    if (data.notes !== undefined) dbData.notes = data.notes;
+    dbData.updated_at = new Date().toISOString();
+    
+    const { error } = await supabase
+      .from('scheduled_payments')
+      .update(dbData)
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  /**
+   * ربط دفعة فعلية بدفعة مجدولة
+   */
+  async linkPayment(scheduledPaymentId: string, paymentId: string, amount: number) {
+    const { data: sp, error: fetchError } = await supabase
+      .from('scheduled_payments')
+      .select('*')
+      .eq('id', scheduledPaymentId)
+      .single();
+    if (fetchError) throw fetchError;
+    
+    const newPaidAmount = (sp.paid_amount || 0) + amount;
+    const newStatus = newPaidAmount >= sp.amount ? 'paid' : 'partially_paid';
+    
+    const { error } = await supabase
+      .from('scheduled_payments')
+      .update({
+        status: newStatus,
+        paid_amount: newPaidAmount,
+        paid_date: new Date().toISOString().split('T')[0],
+        payment_id: paymentId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', scheduledPaymentId);
+    if (error) throw error;
+  },
+
+  /**
+   * إنشاء الدفعات المجدولة لحجز جديد
+   */
+  async generateForBooking(
+    bookingId: string,
+    unitPrice: number,
+    paymentPlanYears: 4 | 5,
+    paymentFrequencyMonths: 1 | 2 | 3 | 4 | 5,
+    startDate: string
+  ) {
+    // حساب المبالغ
+    const totalMonths = paymentPlanYears * 12;
+    const monthlyAmount = Math.round((unitPrice / totalMonths) * 100) / 100;
+    const installmentAmount = Math.round((monthlyAmount * paymentFrequencyMonths) * 100) / 100;
+    const totalInstallments = Math.ceil(totalMonths / paymentFrequencyMonths);
+    
+    // حذف الدفعات السابقة إن وجدت
+    await supabase
+      .from('scheduled_payments')
+      .delete()
+      .eq('booking_id', bookingId);
+    
+    // إنشاء الدفعات الجديدة
+    const scheduledPayments = [];
+    let currentDate = new Date(startDate);
+    let totalScheduled = 0;
+    
+    for (let i = 1; i <= totalInstallments; i++) {
+      // الدفعة الأخيرة تعوض فرق التقريب
+      let amount = installmentAmount;
+      if (i === totalInstallments) {
+        amount = unitPrice - totalScheduled;
+      }
+      totalScheduled += amount;
+      
+      scheduledPayments.push({
+        id: `sched_${bookingId}_${i}_${Date.now()}`,
+        booking_id: bookingId,
+        installment_number: i,
+        due_date: currentDate.toISOString().split('T')[0],
+        amount: Math.round(amount * 100) / 100,
+        status: 'pending',
+        paid_amount: 0,
+        notification_sent: false,
+      });
+      
+      // الانتقال للشهر التالي
+      currentDate.setMonth(currentDate.getMonth() + paymentFrequencyMonths);
+    }
+    
+    const { error } = await supabase
+      .from('scheduled_payments')
+      .insert(scheduledPayments);
+    if (error) throw error;
+    
+    // تحديث بيانات الحجز
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update({
+        payment_plan_years: paymentPlanYears,
+        payment_frequency_months: paymentFrequencyMonths,
+        payment_start_date: startDate,
+        monthly_amount: monthlyAmount,
+        installment_amount: installmentAmount,
+        total_installments: totalInstallments,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', bookingId);
+    if (updateError) throw updateError;
+    
+    return {
+      totalInstallments,
+      monthlyAmount,
+      installmentAmount,
+      scheduledPayments,
+    };
+  },
+
+  /**
+   * حذف جميع الدفعات المجدولة لحجز
+   */
+  async deleteByBookingId(bookingId: string) {
+    const { error } = await supabase
+      .from('scheduled_payments')
+      .delete()
+      .eq('booking_id', bookingId);
+    if (error) throw error;
+  },
+};
+
+// ============================================================================
+// خدمة إشعارات الدفعات - Payment Notifications Service
+// ============================================================================
+
+export const paymentNotificationsService = {
+  /**
+   * جلب جميع الإشعارات
+   */
+  async getAll() {
+    const { data, error } = await supabase
+      .from('payment_notifications')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    
+    return (data || []).map((n: any) => ({
+      id: n.id,
+      scheduledPaymentId: n.scheduled_payment_id,
+      bookingId: n.booking_id,
+      customerName: n.customer_name,
+      customerPhone: n.customer_phone,
+      unitName: n.unit_name,
+      amountDue: n.amount_due,
+      dueDate: n.due_date,
+      notificationType: n.notification_type,
+      isRead: n.is_read,
+      userId: n.user_id,
+      createdAt: n.created_at,
+    }));
+  },
+
+  /**
+   * جلب الإشعارات غير المقروءة
+   */
+  async getUnread(userId?: string) {
+    let query = supabase
+      .from('payment_notifications')
+      .select('*')
+      .eq('is_read', false)
+      .order('created_at', { ascending: false });
+    
+    if (userId) {
+      query = query.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    return (data || []).map((n: any) => ({
+      id: n.id,
+      scheduledPaymentId: n.scheduled_payment_id,
+      bookingId: n.booking_id,
+      customerName: n.customer_name,
+      customerPhone: n.customer_phone,
+      unitName: n.unit_name,
+      amountDue: n.amount_due,
+      dueDate: n.due_date,
+      notificationType: n.notification_type,
+      isRead: n.is_read,
+      userId: n.user_id,
+      createdAt: n.created_at,
+    }));
+  },
+
+  /**
+   * تحديث حالة القراءة
+   */
+  async markAsRead(id: string) {
+    const { error } = await supabase
+      .from('payment_notifications')
+      .update({ is_read: true })
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  /**
+   * تحديث جميع الإشعارات كمقروءة
+   */
+  async markAllAsRead(userId?: string) {
+    let query = supabase
+      .from('payment_notifications')
+      .update({ is_read: true })
+      .eq('is_read', false);
+    
+    if (userId) {
+      query = query.or(`user_id.eq.${userId},user_id.is.null`);
+    }
+    
+    const { error } = await query;
+    if (error) throw error;
+  },
+
+  /**
+   * إنشاء إشعار جديد
+   */
+  async create(notification: Omit<PaymentNotification, 'id' | 'createdAt'>) {
+    const id = `pnotif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    
+    const { error } = await supabase
+      .from('payment_notifications')
+      .insert([{
+        id,
+        scheduled_payment_id: notification.scheduledPaymentId,
+        booking_id: notification.bookingId,
+        customer_name: notification.customerName,
+        customer_phone: notification.customerPhone,
+        unit_name: notification.unitName,
+        amount_due: notification.amountDue,
+        due_date: notification.dueDate,
+        notification_type: notification.notificationType,
+        is_read: false,
+        user_id: notification.userId || null,
+      }]);
+    if (error) throw error;
+    
+    return id;
+  },
+
+  /**
+   * فحص الدفعات المستحقة وإنشاء إشعارات
+   */
+  async checkAndCreateNotifications() {
+    // جلب الدفعات المستحقة خلال 3 أيام ولم يتم إشعارها
+    const { data: scheduledPayments, error } = await supabase
+      .from('scheduled_payments')
+      .select(`
+        *,
+        bookings (
+          unit_id,
+          customer_id,
+          units (name, unit_number),
+          customers (name, phone)
+        )
+      `)
+      .in('status', ['pending', 'overdue'])
+      .eq('notification_sent', false)
+      .lte('due_date', new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    
+    if (error) throw error;
+    
+    const today = new Date().toISOString().split('T')[0];
+    let createdCount = 0;
+    
+    for (const sp of (scheduledPayments || [])) {
+      const dueDate = sp.due_date;
+      let notificationType: 'reminder' | 'due_today' | 'overdue' = 'reminder';
+      
+      if (dueDate < today) notificationType = 'overdue';
+      else if (dueDate === today) notificationType = 'due_today';
+      
+      // إنشاء الإشعار
+      await this.create({
+        scheduledPaymentId: sp.id,
+        bookingId: sp.booking_id,
+        customerName: sp.bookings?.customers?.name || 'غير معروف',
+        customerPhone: sp.bookings?.customers?.phone || '',
+        unitName: sp.bookings?.units?.unit_number || sp.bookings?.units?.name || '',
+        amountDue: sp.amount,
+        dueDate: sp.due_date,
+        notificationType,
+        isRead: false,
+      });
+      
+      // تحديث حالة الإشعار في الدفعة المجدولة
+      await supabase
+        .from('scheduled_payments')
+        .update({
+          notification_sent: true,
+          notification_sent_at: new Date().toISOString(),
+        })
+        .eq('id', sp.id);
+      
+      createdCount++;
+    }
+    
+    // تحديث حالة الدفعات المتأخرة
+    await supabase
+      .from('scheduled_payments')
+      .update({ status: 'overdue', updated_at: new Date().toISOString() })
+      .eq('status', 'pending')
+      .lt('due_date', today);
+    
+    return createdCount;
+  },
 };

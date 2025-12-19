@@ -39,6 +39,8 @@ import CategoryAccounting from './components/pages/accounting/CategoryAccounting
 import DocumentsAccounting from './components/pages/accounting/DocumentsAccounting';
 import ActivityLog from './components/pages/accounting/ActivityLog';
 import Budgets from './components/pages/accounting/Budgets';
+import FinancialReports from './components/pages/accounting/FinancialReports';
+import NotificationCenter from './components/pages/accounting/NotificationCenter';
 
 
 const App: React.FC = () => {
@@ -198,6 +200,8 @@ const App: React.FC = () => {
       case 'employees': return <Employees />;
       case 'projects': return <ProjectsManagement />;
       case 'budgets': return <Budgets />;
+      case 'financial-reports': return <FinancialReports />;
+      case 'notification-center': return <NotificationCenter />;
       case 'projects-accounting': return <ProjectsAccounting />;
       case 'category-accounting': return <CategoryAccounting />;
       case 'documents-accounting': return <DocumentsAccounting />;

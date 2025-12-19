@@ -12,6 +12,7 @@ import ConfirmModal from '../../shared/ConfirmModal.tsx';
 import { CloseIcon, ReceiptIcon, FileIcon, EyeIcon, PaperClipIcon, FilterIcon, XCircleIcon } from '../../shared/Icons.tsx';
 import EmptyState from '../../shared/EmptyState.tsx';
 import { useButtonPermissions } from '../../../hooks/useButtonPermission';
+import AmountInput from '../../shared/AmountInput';
 
 const AttachmentViewerModal: React.FC<{ document: SaleDocument | null, onClose: () => void }> = ({ document, onClose }) => {
     if (!document) return null;
@@ -728,7 +729,12 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
                         <input type="text" name="description" placeholder="الوصف" value={formData.description} onChange={handleChange} className={inputStyle} required />
                         <div className="grid grid-cols-2 gap-4">
                             <input type="date" name="date" value={formData.date} onChange={handleChange} className={inputStyle} required />
-                            <input type="number" name="amount" placeholder="المبلغ" value={formData.amount || ''} onChange={handleChange} className={inputStyle} required min="0.01" step="0.01" />
+                            <AmountInput
+                                value={formData.amount || ''}
+                                onValueChange={(amount) => setFormData(prev => ({ ...prev, amount: amount === '' ? 0 : amount }))}
+                                className={inputStyle}
+                                placeholder="المبلغ"
+                            />
                         </div>
                         {!currentUser?.assignedProjectId && (
                             <select name="accountId" value={formData.accountId} onChange={handleChange} className={selectStyle} required>

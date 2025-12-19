@@ -12,12 +12,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script>
-      // Set theme on initial load to prevent flash of wrong theme
-      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      // تثبيت الوضع الداكن دائماً - التطبيق لا يتأثر بإعدادات المتصفح
+      document.documentElement.classList.add('dark');
     </script>
   </head>
   <body>
