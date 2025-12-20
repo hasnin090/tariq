@@ -127,6 +127,7 @@ export const Expenses: React.FC = () => {
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
     const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
     const [viewingAttachment, setViewingAttachment] = useState<SaleDocument | null>(null);
+    const [expenseHasDocumentsById, setExpenseHasDocumentsById] = useState<Record<string, boolean>>({});
     const [showFilters, setShowFilters] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -180,36 +181,11 @@ export const Expenses: React.FC = () => {
                 if (currentUser?.assignedProjectId) {
                     expensesData = expensesData.filter(e => e.projectId === currentUser.assignedProjectId);
                 }
-                
-                // Load documents for each expense
-                const expensesWithDocs = await Promise.all(expensesData.map(async (expense) => {
-                    try {
-                        const docs = await documentsService.getForExpense(expense.id);
-                        if (docs && docs.length > 0) {
-                            // Get signed URL for viewing
-                            const signedUrl = await documentsService.getSignedUrl(docs[0].storagePath);
-                            return {
-                                ...expense,
-                                documents: docs.map(d => ({
-                                    id: d.id,
-                                    name: d.fileName,
-                                    fileName: d.fileName,
-                                    mimeType: d.fileType || 'application/octet-stream',
-                                    storagePath: d.storagePath,
-                                    signedUrl,
-                                }))
-                            };
-                        }
-                    } catch (docError) {
-                        // Ignore document loading errors
-                    }
-                    return expense;
-                }));
-                
+
                 // Sort based on sortOrder
                 const sorted = sortOrder === 'newest' 
-                    ? expensesWithDocs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    : expensesWithDocs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                    ? expensesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    : expensesData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                 setAllExpenses(sorted);
             } catch (error) {
                 addToast('Failed to fetch expenses.', 'error');
@@ -280,6 +256,72 @@ export const Expenses: React.FC = () => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
         return filteredExpenses.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     }, [currentPage, filteredExpenses]);
+
+    useEffect(() => {
+        if (!visibleColumns.attachments) return;
+
+        const ids = paginatedExpenses
+            .map(e => e.id)
+            .filter(id => id && !id.startsWith('temp_'));
+
+        if (ids.length === 0) return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const idsWithDocs = await documentsService.getExpenseIdsWithDocuments(ids);
+                if (cancelled) return;
+                setExpenseHasDocumentsById(prev => {
+                    const next = { ...prev };
+                    for (const id of ids) {
+                        next[id] = idsWithDocs.has(id);
+                    }
+                    return next;
+                });
+            } catch {
+                // Keep UI stable if the check fails.
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [paginatedExpenses, visibleColumns.attachments]);
+
+    const handleViewFirstAttachment = async (expense: Expense) => {
+        try {
+            const inlineDoc = expense.documents?.[0];
+            if (inlineDoc) {
+                setViewingAttachment(inlineDoc);
+                return;
+            }
+
+            const docs = await documentsService.getForExpense(expense.id);
+            if (!docs || docs.length === 0) {
+                setExpenseHasDocumentsById(prev => ({ ...prev, [expense.id]: false }));
+                addToast('لا توجد مرفقات لهذه الحركة', 'error');
+                return;
+            }
+
+            setExpenseHasDocumentsById(prev => ({ ...prev, [expense.id]: true }));
+
+            const first = docs[0];
+            const signedUrl = await documentsService.getSignedUrl(first.storagePath);
+
+            const docForViewer: SaleDocument = {
+                id: first.id,
+                name: first.fileName,
+                fileName: first.fileName,
+                mimeType: first.fileType || 'application/octet-stream',
+                storagePath: first.storagePath,
+                // @ts-expect-error - viewer supports signedUrl as an optional runtime field
+                signedUrl,
+            };
+            setViewingAttachment(docForViewer);
+        } catch (error) {
+            addToast('تعذر تحميل المرفق. حاول مرة أخرى.', 'error');
+        }
+    };
 
     const totalExpensesAmount = useMemo(() => {
         return filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -785,8 +827,8 @@ export const Expenses: React.FC = () => {
                                         {visibleColumns.project && <td className="p-4 text-slate-600 dark:text-slate-300">{projects.find(p=>p.id === exp.projectId)?.name || '-'}</td>}
                                         {visibleColumns.amount && <td className="p-4 font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(exp.amount)}</td>}
                                         {visibleColumns.attachments && <td className="p-4 text-center">
-                                            {exp.documents && exp.documents.length > 0 && (
-                                                <button onClick={() => setViewingAttachment(exp.documents![0])} className="text-primary-600 hover:text-primary-800 p-2 rounded-full hover:bg-primary-100 dark:hover:bg-primary-500/10" title="عرض المرفق">
+                                            {((exp.documents && exp.documents.length > 0) || expenseHasDocumentsById[exp.id]) && (
+                                                <button onClick={() => handleViewFirstAttachment(exp)} className="text-primary-600 hover:text-primary-800 p-2 rounded-full hover:bg-primary-100 dark:hover:bg-primary-500/10" title="عرض المرفق">
                                                     <PaperClipIcon className="h-5 w-5" />
                                                 </button>
                                             )}

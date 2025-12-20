@@ -1737,6 +1737,33 @@ export const documentsService = {
     }));
   },
 
+  // Fast helper: check which expenseIds have at least one linked document.
+  // This avoids issuing one request per expense.
+  async getExpenseIdsWithDocuments(expenseIds: string[]) {
+    const ids = Array.from(new Set((expenseIds || []).filter(Boolean)));
+    const result = new Set<string>();
+    if (ids.length === 0) return result;
+
+    // Keep the chunk size conservative to avoid URL/header limits.
+    const chunkSize = 200;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const { data, error } = await supabase
+        .from('documents')
+        .select('expense_id')
+        .in('expense_id', chunk);
+      if (error) throw error;
+
+      for (const row of data || []) {
+        if (row?.expense_id) {
+          result.add(String(row.expense_id));
+        }
+      }
+    }
+
+    return result;
+  },
+
   // Function to get all unlinked documents (no expense_id)
   async getUnlinkedDocuments() {
     const { data, error } = await supabase
