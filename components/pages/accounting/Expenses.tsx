@@ -9,7 +9,7 @@ import logActivity from '../../../utils/activityLogger.ts';
 import { formatCurrency } from '../../../utils/currencyFormatter.ts';
 import { expensesService, expenseCategoriesService, projectsService, transactionsService, accountsService, documentsService } from '../../../src/services/supabaseService.ts';
 import ConfirmModal from '../../shared/ConfirmModal.tsx';
-import { CloseIcon, ReceiptIcon, FileIcon, EyeIcon, PaperClipIcon, FilterIcon, XCircleIcon } from '../../shared/Icons.tsx';
+import { CloseIcon, ReceiptIcon, FileIcon, EyeIcon, PaperClipIcon, FilterIcon, XCircleIcon, PrinterIcon } from '../../shared/Icons.tsx';
 import EmptyState from '../../shared/EmptyState.tsx';
 import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import AmountInput from '../../shared/AmountInput';
@@ -324,6 +324,180 @@ export const Expenses: React.FC = () => {
         setSearchQuery('');
     };
 
+    const handlePrint = () => {
+        if (!filteredExpenses.length) {
+            addToast('لا توجد بيانات للطباعة حسب الفلاتر الحالية', 'error');
+            return;
+        }
+
+        const currencyCode = (localStorage.getItem('systemCurrency') || 'IQD').toUpperCase();
+        const decimalPlaces = Number.parseInt(localStorage.getItem('systemDecimalPlaces') || '2', 10);
+        const safeDecimalPlaces = Number.isFinite(decimalPlaces) ? Math.max(0, Math.min(6, decimalPlaces)) : 2;
+
+        const formatForPrint = (value: number): string => {
+            try {
+                return new Intl.NumberFormat('ar-SA', {
+                    style: 'currency',
+                    currency: /^[A-Z]{3}$/.test(currencyCode) ? currencyCode : 'IQD',
+                    minimumFractionDigits: safeDecimalPlaces,
+                    maximumFractionDigits: safeDecimalPlaces,
+                }).format(value);
+            } catch {
+                return `${value}`;
+            }
+        };
+
+        const escapeHtml = (value: unknown): string => {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        };
+
+        const accentName = (localStorage.getItem('accentColor') || 'emerald').toLowerCase();
+        const accentPaletteByName: Record<string, { accent600: string; accent700: string; accent50: string; accent100: string }> = {
+            emerald: { accent600: '#059669', accent700: '#047857', accent50: '#ecfdf5', accent100: '#d1fae5' },
+            teal: { accent600: '#0d9488', accent700: '#0f766e', accent50: '#f0fdfa', accent100: '#ccfbf1' },
+            cyan: { accent600: '#0891b2', accent700: '#0e7490', accent50: '#ecfeff', accent100: '#cffafe' },
+            blue: { accent600: '#2563eb', accent700: '#1d4ed8', accent50: '#eff6ff', accent100: '#dbeafe' },
+            indigo: { accent600: '#4f46e5', accent700: '#4338ca', accent50: '#eef2ff', accent100: '#e0e7ff' },
+            purple: { accent600: '#7c3aed', accent700: '#6d28d9', accent50: '#faf5ff', accent100: '#f3e8ff' },
+            rose: { accent600: '#e11d48', accent700: '#be123c', accent50: '#fff1f2', accent100: '#ffe4e6' },
+            amber: { accent600: '#d97706', accent700: '#b45309', accent50: '#fffbeb', accent100: '#fef3c7' },
+        };
+        const accent = accentPaletteByName[accentName] || accentPaletteByName.emerald;
+
+        const baseStyles = `
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            :root { --accent-600: ${accent.accent600}; --accent-700: ${accent.accent700}; --accent-50: ${accent.accent50}; --accent-100: ${accent.accent100}; }
+            @page { size: A4; margin: 12mm; }
+            body { font-family: Arial, sans-serif; direction: rtl; color: #0f172a; background: #ffffff; }
+            .sheet { border: 2px solid var(--accent-700); border-radius: 10px; padding: 14px; }
+            .header { padding-bottom: 10px; border-bottom: 2px solid var(--accent-700); margin-bottom: 14px; }
+            .brandbar { height: 8px; background: var(--accent-700); border-radius: 999px; margin-bottom: 10px; }
+            .title { font-size: 18px; font-weight: 800; color: var(--accent-700); margin-bottom: 6px; }
+            .subtitle { font-size: 12px; color: #475569; margin-top: 2px; }
+            .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 12px; color: #334155; margin-top: 8px; }
+            .meta b { color: #0f172a; }
+            .section { margin-top: 12px; break-inside: avoid; }
+            .section-title { font-size: 13px; font-weight: 800; color: #0f172a; background: var(--accent-50); border: 1px solid var(--accent-100); padding: 8px 10px; border-radius: 8px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #cbd5e1; }
+            thead { display: table-header-group; }
+            th { background: var(--accent-700); color: #fff; padding: 9px 8px; text-align: right; font-size: 12px; border: 1px solid var(--accent-700); }
+            td { padding: 9px 8px; text-align: right; font-size: 12px; border: 1px solid #cbd5e1; color: #0f172a; vertical-align: top; }
+            tbody tr:nth-child(even) { background: #f8fafc; }
+            .summary { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; }
+            .summary .card { border: 1px solid var(--accent-100); background: var(--accent-50); border-radius: 10px; padding: 10px; }
+            .summary .card b { color: var(--accent-700); }
+            .footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #475569; text-align: center; }
+            .nowrap { white-space: nowrap; }
+            @media print { a { color: inherit; text-decoration: none; } }
+        `;
+
+        const projectName = (() => {
+            if (currentUser?.assignedProjectId) {
+                return projects.find(p => p.id === currentUser.assignedProjectId)?.name || '—';
+            }
+            if (activeProject?.name) return String(activeProject.name);
+            if (filters.projectId) return projects.find(p => p.id === filters.projectId)?.name || '—';
+            return 'كل المشاريع';
+        })();
+
+        const categoryName = filters.categoryId
+            ? (categories.find(c => c.id === filters.categoryId)?.name || '—')
+            : 'كل الفئات';
+
+        const dateRange = (() => {
+            const start = filters.startDate ? new Date(filters.startDate).toLocaleDateString('ar-SA') : '';
+            const end = filters.endDate ? new Date(filters.endDate).toLocaleDateString('ar-SA') : '';
+            if (start && end) return `${start} - ${end}`;
+            if (start) return `من ${start}`;
+            if (end) return `حتى ${end}`;
+            return '—';
+        })();
+
+        const rows = filteredExpenses
+            .map(exp => {
+                const cat = categories.find(c => c.id === exp.categoryId)?.name || '—';
+                const proj = projects.find(p => p.id === exp.projectId)?.name || '—';
+                return `
+                    <tr>
+                        <td class="nowrap">${escapeHtml(exp.date)}</td>
+                        <td>${escapeHtml(exp.description)}</td>
+                        <td>${escapeHtml(cat)}</td>
+                        <td>${escapeHtml(proj)}</td>
+                        <td class="nowrap">${formatForPrint(exp.amount)}</td>
+                    </tr>
+                `;
+            })
+            .join('');
+
+        const html = `
+            <!DOCTYPE html>
+            <html dir="rtl">
+            <head>
+                <meta charset="UTF-8" />
+                <title>تقرير الحركات المالية</title>
+                <style>${baseStyles}</style>
+            </head>
+            <body>
+                <div class="sheet">
+                    <div class="header">
+                        <div class="brandbar"></div>
+                        <div class="title">تقرير الحركات المالية (المصروفات)</div>
+                        <div class="subtitle">تاريخ الطباعة: ${escapeHtml(new Date().toLocaleString('ar-SA'))}</div>
+                        <div class="meta">
+                            <div><b>المشروع:</b> ${escapeHtml(projectName)}</div>
+                            <div><b>نوع المصروف:</b> ${escapeHtml(categoryName)}</div>
+                            <div><b>الفترة:</b> ${escapeHtml(dateRange)}</div>
+                            <div><b>عدد السجلات:</b> ${filteredExpenses.length}</div>
+                        </div>
+                    </div>
+
+                    <div class="summary">
+                        <div class="card"><b>إجمالي المصروفات:</b> ${formatForPrint(totalExpensesAmount)}</div>
+                        <div class="card"><b>البحث:</b> ${escapeHtml(searchQuery?.trim() ? searchQuery.trim() : '—')}</div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">تفاصيل الحركات</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>الوصف</th>
+                                    <th>الفئة</th>
+                                    <th>المشروع</th>
+                                    <th>المبلغ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rows || '<tr><td colspan="5">لا توجد بيانات للطباعة</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="footer">
+                        <div>التوقيع/الختم: ____________________</div>
+                        <div>تم إنشاء هذا التقرير من النظام</div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const printWindow = window.open('', '', 'height=800,width=1100');
+        if (!printWindow) return;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+    };
+
     const handleOpenModal = (expense: Expense | null) => {
         setEditingExpense(expense);
         setIsModalOpen(true);
@@ -557,6 +731,15 @@ export const Expenses: React.FC = () => {
                         <FilterIcon className="h-5 w-5" />
                         <span>تصفية</span>
                     </button>
+                    {filteredExpenses.length > 0 && (
+                        <button
+                            onClick={handlePrint}
+                            className="bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-semibold border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm flex items-center gap-2"
+                        >
+                            <PrinterIcon className="h-5 w-5" />
+                            <span>طباعة</span>
+                        </button>
+                    )}
                     <ColumnToggler visibleColumns={visibleColumns} onToggle={handleToggleColumn} />
                     {canAdd && (
                         <button onClick={() => handleOpenModal(null)} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm">
