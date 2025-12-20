@@ -239,6 +239,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         });
     };
 
+    const removeDeprecatedMenuItems = (links: any[]) => {
+        // Remove legacy/unsupported menu keys that should not appear in the UI.
+        return links.filter(l => l?.page !== 'budgets');
+    };
+
     // Load saved order from localStorage when user is available
     useEffect(() => {
         if (currentUser?.username) {
@@ -251,7 +256,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 setProjectsLinks(restoreIcons(parsed, defaultProjectsLinks));
             }
             if (savedExpenses) {
-                const parsed = JSON.parse(savedExpenses);
+                const parsed = removeDeprecatedMenuItems(JSON.parse(savedExpenses));
                 setExpensesLinks(restoreIcons(parsed, defaultExpensesLinks));
             }
             if (savedSystem) {

@@ -8,7 +8,7 @@ import { formatCurrency } from '../../../utils/currencyFormatter';
 import { CloseIcon, UsersIcon } from '../../shared/Icons';
 import ConfirmModal from '../../shared/ConfirmModal';
 import EmptyState from '../../shared/EmptyState';
-import { projectsService } from '../../../src/services/supabaseService';
+import { accountsService, employeesService, expenseCategoriesService, expensesService, projectsService, transactionsService } from '../../../src/services/supabaseService';
 import AmountInput, { type AmountInputValue } from '../../shared/AmountInput';
 
 
@@ -17,7 +17,7 @@ const PaySingleSalaryModal: React.FC<{
     paidAmount: number;
     accounts: Account[];
     onClose: () => void;
-    onConfirm: (employeeId: string, accountId: string, amount: number) => void;
+    onConfirm: (employeeId: string, accountId: string, amount: number) => Promise<void>;
 }> = ({ employee, paidAmount, accounts, onClose, onConfirm }) => {
     const { addToast } = useToast();
     const remainingAmount = employee.salary - paidAmount;
@@ -39,7 +39,7 @@ const PaySingleSalaryModal: React.FC<{
             addToast(`المبلغ المدفوع لا يمكن أن يتجاوز الرصيد المتبقي (${formatCurrency(remainingAmount)}).`, 'error');
             return;
         }
-        onConfirm(employee.id, accountId, amountNumber);
+        void onConfirm(employee.id, accountId, amountNumber);
     };
     
     return (
@@ -150,9 +150,22 @@ const Employees: React.FC = () => {
 
     const loadData = async () => {
         setEmployees(JSON.parse(localStorage.getItem('employees') || '[]'));
-        setAccounts(JSON.parse(localStorage.getItem('accounts') || '[]'));
-        setExpenses(JSON.parse(localStorage.getItem('expenses') || '[]'));
-        setCategories(JSON.parse(localStorage.getItem('expenseCategories') || '[]'));
+        try {
+            const [accountsData, expensesData, categoriesData] = await Promise.all([
+                accountsService.getAll(),
+                expensesService.getAll(),
+                expenseCategoriesService.getAll(),
+            ]);
+            setAccounts(accountsData);
+            setExpenses(expensesData);
+            setCategories(categoriesData as any);
+        } catch (error) {
+            console.error('Error loading accounting data:', error);
+            addToast('تعذر تحميل بيانات الحسابات (الحسابات/الحركات/الفئات).', 'error');
+            setAccounts([]);
+            setExpenses([]);
+            setCategories([]);
+        }
         try {
             const projectsData = await projectsService.getAll();
             setProjects(projectsData);
@@ -220,7 +233,7 @@ const Employees: React.FC = () => {
         setPayingEmployee(employee);
     };
 
-    const confirmPaySalary = (employeeId: string, accountId: string, amount: number) => {
+    const confirmPaySalary = async (employeeId: string, accountId: string, amount: number) => {
         const employee = employees.find(e => e.id === employeeId);
         const account = accounts.find(a => a.id === accountId);
         const salaryCategory = categories.find(c => c.name === 'رواتب');
@@ -229,43 +242,52 @@ const Employees: React.FC = () => {
             addToast('بيانات غير مكتملة, لا يمكن إتمام العملية.', 'error');
             return;
         }
-        
+
         const monthName = new Date().toLocaleString('ar-EG', { month: 'long' });
         const paymentDate = new Date().toISOString().split('T')[0];
         const description = amount >= (employee.salary - (salaryStatus[employee.id]?.paidAmount || 0))
-            ? `راتب شهر ${monthName} - ${employee.name}`
-            : `دفعة من راتب شهر ${monthName} - ${employee.name}`;
+            ? `دفع راتب شهر ${monthName} - ${employee.name}`
+            : `دفع دفعة من راتب شهر ${monthName} - ${employee.name}`;
 
-        const newExpense: Expense = {
-            id: `exp_sal_${Date.now()}_${employee.id}`,
-            date: paymentDate,
-            description,
-            amount,
-            categoryId: salaryCategory.id,
-            accountId: accountId,
-            transactionId: '',
-            employeeId: employee.id,
-        };
-        const newTransaction: Transaction = {
-            id: `trans_sal_${Date.now()}_${employee.id}`,
-            accountId: accountId,
-            accountName: account.name,
-            type: 'Withdrawal',
-            date: paymentDate,
-            description,
-            amount,
-            sourceId: newExpense.id,
-            sourceType: 'Salary',
-        };
-        newExpense.transactionId = newTransaction.id;
+        try {
+            // Ensure employee exists in DB so expenses.employee_id FK passes.
+            await employeesService.upsertFromAppEmployee(employee);
 
-        saveData('expenses', [...expenses, newExpense]);
-        saveData('transactions', [...JSON.parse(localStorage.getItem('transactions') || '[]'), newTransaction]);
+            const newTransaction = await transactionsService.create({
+                accountId,
+                accountName: account.name,
+                type: 'Withdrawal',
+                date: paymentDate,
+                description,
+                amount,
+                sourceType: 'Salary',
+            });
 
-        logActivity('Pay Salary', `Paid ${formatCurrency(amount)} to ${employee.name}`, 'expenses');
-        addToast('تم تسجيل دفعة الراتب بنجاح!', 'success');
-        setPayingEmployee(null);
-        loadData();
+            if (!newTransaction) {
+                throw new Error('Failed to create transaction');
+            }
+
+            const newExpense = await expensesService.create({
+                date: paymentDate,
+                description,
+                amount,
+                categoryId: salaryCategory.id,
+                accountId,
+                employeeId: employee.id,
+                transactionId: newTransaction.id,
+            } as any);
+
+            await transactionsService.update(newTransaction.id, { sourceId: newExpense.id });
+
+            logActivity('Pay Salary', `Paid ${formatCurrency(amount)} to ${employee.name}`, 'expenses');
+            addToast('تم دفع الراتب وتسجيل الحركة المالية بنجاح!', 'success');
+            setPayingEmployee(null);
+            await loadData();
+        } catch (error: any) {
+            console.error('Error paying salary:', error);
+            const errorMessage = error?.message || 'حدث خطأ غير متوقع';
+            addToast(`فشل دفع الراتب. السبب: ${errorMessage}`, 'error');
+        }
     };
 
     const getStatusStyle = (status: string) => {

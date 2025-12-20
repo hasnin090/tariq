@@ -1281,6 +1281,26 @@ export const employeesService = {
     return data || [];
   },
 
+  async upsertFromAppEmployee(employee: Employee) {
+    // The app historically stored employees in localStorage; this ensures a DB row exists
+    // so we can reference it from expenses.employee_id without FK failures.
+    const payload = {
+      id: employee.id,
+      name: employee.name,
+      position: employee.position || null,
+      salary: employee.salary,
+    };
+
+    const { data, error } = await supabase
+      .from('employees')
+      .upsert(payload, { onConflict: 'id' })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
   async create(employee: Omit<Employee, 'id'>) {
     const id = generateUniqueId('emp');
     const { data, error } = await supabase
