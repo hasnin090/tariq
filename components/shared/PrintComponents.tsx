@@ -39,11 +39,11 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="full" topOffset="pt-6" noPadding>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} size="full" noPadding>
       <div className="flex flex-col h-full">
         {/* Preview Frame */}
-        <div className="flex-1 p-4 sm:p-6">
-          <div className="h-full min-h-[75vh] bg-gray-100 dark:bg-slate-900 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+        <div className="flex-1 p-2 sm:p-3">
+          <div className="h-full min-h-[85vh] bg-gray-100 dark:bg-slate-900 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
             <iframe
               srcDoc={htmlContent}
               className="w-full h-full bg-white"
