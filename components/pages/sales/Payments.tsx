@@ -11,6 +11,8 @@ import { paymentsService, customersService, bookingsService, unitsService, docum
 import { CreditCardIcon, PrinterIcon, PlusIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, UploadIcon, FileIcon, CalendarIcon, ClockIcon, CheckCircleIcon, ExclamationCircleIcon } from '../../shared/Icons';
 import ConfirmModal from '../../shared/ConfirmModal';
 import AmountInput from '../../shared/AmountInput';
+import { PrintReceiptButton } from '../../shared/PrintComponents';
+import { PaymentInfo, generateReceiptNumber } from '../../../utils/printService';
 
 // نوع لتجميع الدفعات حسب الحجز
 interface BookingPaymentGroup {
@@ -345,6 +347,9 @@ const Payments: React.FC = () => {
             // المبلغ بعد الحذف
             const newTotalPaid = currentTotalPaid - paymentToDelete.amount;
             
+            // ✅ فك ربط الدفعة من الدفعة المجدولة (إرجاعها لحالة pending)
+            await scheduledPaymentsService.unlinkPayment(paymentToDelete.id);
+            
             await paymentsService.delete(paymentToDelete.id);
             logActivity('Delete Payment', `Deleted additional payment of ${formatCurrency(paymentToDelete.amount)} for ${paymentToDelete.customerName}`, 'projects');
             
@@ -443,6 +448,26 @@ const Payments: React.FC = () => {
             if (newTotalPaid >= unit.price) {
                 // تحديث حالة الحجز إلى مكتمل - هذا سيفعّل الـ trigger لتحديث حالة الوحدة إلى Sold
                 await bookingsService.update(booking.id, { status: 'Completed' } as any);
+                
+                // ✅ تسجيل عملية البيع في سجل المبيعات (unitSales)
+                const customer = customers.find(c => c.id === booking.customerId);
+                const unitSales = JSON.parse(localStorage.getItem('unitSales') || '[]');
+                const saleRecord = {
+                    id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    unitId: unit.id,
+                    unitName: unit.name,
+                    customerId: booking.customerId,
+                    customerName: customer?.name || 'غير معروف',
+                    salePrice: unit.price,
+                    finalSalePrice: newTotalPaid,
+                    saleDate: new Date().toISOString().split('T')[0],
+                    accountId: '',
+                    notes: `بيع تلقائي من الحجز #${booking.id}`,
+                    bookingId: booking.id
+                };
+                unitSales.push(saleRecord);
+                localStorage.setItem('unitSales', JSON.stringify(unitSales));
+                
                 addToast('تم إضافة الدفعة واكتمال سداد الوحدة بنجاح 🎉', 'success');
                 logActivity('Payment Complete', `Booking ${booking.id} completed - Unit ${unit.name} marked as Sold`, 'projects');
             } else {
@@ -1393,7 +1418,27 @@ const Payments: React.FC = () => {
                                                                             <td className="p-3 font-semibold text-emerald-400">{formatCurrency(payment.amount)}</td>
                                                                             <td className="p-3 font-semibold text-blue-400">{formatCurrency(runningTotal)}</td>
                                                                             <td className="p-3 font-semibold text-amber-400">{formatCurrency(remainingAfter)}</td>
-                                                                            <td className="p-3">
+                                                                            <td className="p-3 flex items-center gap-2">
+                                                                                {/* زر طباعة الإيصال */}
+                                                                                {(() => {
+                                                                                    const paymentInfo: PaymentInfo = {
+                                                                                        id: payment.id,
+                                                                                        date: payment.paymentDate,
+                                                                                        amount: payment.amount,
+                                                                                        paymentMethod: payment.paymentMethod || 'نقدي',
+                                                                                        referenceNumber: payment.referenceNumber,
+                                                                                        bookingId: payment.bookingId,
+                                                                                        customerName: group.customerName,
+                                                                                        unitName: group.unitName,
+                                                                                        receiptNumber: `REC-${payment.id.slice(0, 8).toUpperCase()}`
+                                                                                    };
+                                                                                    return (
+                                                                                        <PrintReceiptButton
+                                                                                            payment={paymentInfo}
+                                                                                            variant="icon"
+                                                                                        />
+                                                                                    );
+                                                                                })()}
                                                                                 {currentUser?.role === 'Admin' && !isBookingPayment && (
                                                                                     <button
                                                                                         onClick={(e) => {

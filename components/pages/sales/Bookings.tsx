@@ -15,6 +15,8 @@ import CompactDocumentUploader from '../../shared/CompactDocumentUploader';
 import PaymentTimeline from '../../shared/PaymentTimeline';
 import AmountInput from '../../shared/AmountInput';
 import { CloseIcon, DocumentTextIcon, EditIcon } from '../../shared/Icons';
+import { PrintContractButton, PrintReceiptButton, QuickPrintMenu } from '../../shared/PrintComponents';
+import { BookingInfo, PaymentInfo, CustomerInfo, UnitInfo } from '../../../utils/printService';
 
 export const Bookings: React.FC = () => {
     const { addToast } = useToast();
@@ -471,8 +473,50 @@ export const Bookings: React.FC = () => {
                                     </span>
                                 </td>
                                 <td className="p-4"><span className={`px-3 py-1 text-xs font-bold rounded-full ${getStatusStyle(booking.status)}`}>{booking.status}</span></td>
-                                <td className="p-4 space-x-4">
+                                <td className="p-4 space-x-4 space-x-reverse">
                                     <button onClick={() => handleOpenDocManager(booking)} className="text-teal-600 hover:underline font-semibold">المرفقات</button>
+                                    {/* زر طباعة العقد */}
+                                    {(() => {
+                                        const customer = customers.find(c => c.id === booking.customerId);
+                                        if (customer && unit) {
+                                            const bookingInfo: BookingInfo = {
+                                                id: booking.id,
+                                                date: booking.bookingDate,
+                                                customer: {
+                                                    id: customer.id,
+                                                    name: customer.name,
+                                                    phone: customer.phone,
+                                                    email: customer.email,
+                                                    nationalId: customer.nationalId,
+                                                    address: customer.address
+                                                },
+                                                unit: {
+                                                    id: unit.id,
+                                                    name: unit.name,
+                                                    type: unit.type,
+                                                    area: unit.area,
+                                                    price: unit.price,
+                                                    projectName: activeProject?.name || 'المشروع',
+                                                    building: unit.building,
+                                                    floor: unit.floor
+                                                },
+                                                totalPrice: unitPrice,
+                                                downPayment: totalPaid,
+                                                remainingAmount: remainingAmount,
+                                                paymentMethod: booking.paymentMethod || 'نقدي',
+                                                installmentsCount: booking.installmentsCount,
+                                                notes: booking.notes
+                                            };
+                                            return (
+                                                <PrintContractButton 
+                                                    booking={bookingInfo} 
+                                                    variant="menu-item" 
+                                                    className="inline-block text-indigo-600 hover:underline font-semibold"
+                                                />
+                                            );
+                                        }
+                                        return null;
+                                    })()}
                                     {booking.status === 'Active' && <button onClick={() => handleCancelRequest(booking)} className="text-rose-600 dark:text-rose-400 hover:underline font-semibold">إلغاء</button>}
                                 </td>
                             </tr>

@@ -5,13 +5,16 @@ import { useToast } from '../../contexts/ToastContext';
 import { CloseIcon, UploadIcon, TrashIcon, FileIcon, SpinnerIcon } from './Icons';
 import Modal from './Modal';
 import { devError } from '../../utils/devLogger';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import {
   DocumentCategory,
   DocumentMetadata,
   DOCUMENT_CATEGORIES,
   detectDocumentCategory,
   formatFileSize,
-  calculateDocumentStats
+  calculateDocumentStats,
+  getExpiryStatusBadge
 } from '../../types/documentTypes';
 
 interface EnhancedDocumentManagerProps {
@@ -35,6 +38,7 @@ const EnhancedDocumentManager: React.FC<EnhancedDocumentManagerProps> = ({
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>('other');
+  const [expiryDate, setExpiryDate] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<DocumentCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -154,19 +158,22 @@ const EnhancedDocumentManager: React.FC<EnhancedDocumentManagerProps> = ({
 
       const newDoc = await documentsService.upload(selectedFile, linkedTo, {
         category: selectedCategory,
-        file_size: selectedFile.size
+        file_size: selectedFile.size,
+        expiry_date: expiryDate || undefined
       });
       
       const signedUrl = await documentsService.getSignedUrl(newDoc.storagePath);
       const newDocWithUrl = {
         ...newDoc,
         publicUrl: signedUrl,
-        category: selectedCategory
+        category: selectedCategory,
+        expiry_date: expiryDate || undefined
       };
 
       setDocuments(prev => [newDocWithUrl, ...prev]);
       setSelectedFile(null);
       setSelectedCategory('other');
+      setExpiryDate('');
       if(fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -229,6 +236,45 @@ const EnhancedDocumentManager: React.FC<EnhancedDocumentManagerProps> = ({
     }
   };
 
+  // تنزيل المستندات المحددة كـ ZIP
+  const handleDownloadZip = async () => {
+    const docsToDownload = selectedDocs.size > 0 
+      ? filteredDocuments.filter(d => selectedDocs.has(d.id))
+      : filteredDocuments;
+    
+    if (docsToDownload.length === 0) {
+      addToast('لا توجد مستندات للتنزيل', 'warning');
+      return;
+    }
+
+    addToast('جاري تحضير الملفات...', 'info');
+    
+    try {
+      const zip = new JSZip();
+      
+      for (const doc of docsToDownload) {
+        if (doc.publicUrl) {
+          try {
+            const response = await fetch(doc.publicUrl);
+            const blob = await response.blob();
+            zip.file(doc.fileName, blob);
+          } catch (error) {
+            devError(error, `Error downloading ${doc.fileName}`);
+          }
+        }
+      }
+      
+      const content = await zip.generateAsync({ type: 'blob' });
+      const filename = `${entityName}_documents_${new Date().toISOString().split('T')[0]}.zip`;
+      saveAs(content, filename);
+      
+      addToast(`تم تنزيل ${docsToDownload.length} مستند بنجاح`, 'success');
+    } catch (error) {
+      devError(error, 'Error creating ZIP');
+      addToast('فشل في إنشاء ملف ZIP', 'error');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -245,8 +291,22 @@ const EnhancedDocumentManager: React.FC<EnhancedDocumentManagerProps> = ({
               {stats.recentUploads > 0 && ` • ${stats.recentUploads} جديد خلال 7 أيام`}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-            <CloseIcon className="h-5 w-5" />
+          <div className="flex items-center gap-2">
+            {/* زر تنزيل ZIP */}
+            {filteredDocuments.length > 0 && (
+              <button
+                onClick={handleDownloadZip}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
+                title={selectedDocs.size > 0 ? `تنزيل ${selectedDocs.size} مستند محدد` : 'تنزيل الكل'}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                {selectedDocs.size > 0 ? `ZIP (${selectedDocs.size})` : 'تنزيل ZIP'}
+              </button>
+            )}
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+              <CloseIcon className="h-5 w-5" />
           </button>
         </div>
 
@@ -290,22 +350,37 @@ const EnhancedDocumentManager: React.FC<EnhancedDocumentManagerProps> = ({
 
               {/* Category Selection */}
               {selectedFile && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-slate-600 dark:text-slate-400">التصنيف:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {(Object.keys(DOCUMENT_CATEGORIES) as DocumentCategory[]).map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                          selectedCategory === cat
-                            ? DOCUMENT_CATEGORIES[cat].color
-                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-                        }`}
-                      >
-                        {DOCUMENT_CATEGORIES[cat].icon} {DOCUMENT_CATEGORIES[cat].label}
-                      </button>
-                    ))}
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-slate-600 dark:text-slate-400 whitespace-nowrap">التصنيف:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {(Object.keys(DOCUMENT_CATEGORIES) as DocumentCategory[]).map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedCategory(cat)}
+                          className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                            selectedCategory === cat
+                              ? DOCUMENT_CATEGORIES[cat].color
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                          }`}
+                        >
+                          {DOCUMENT_CATEGORIES[cat].icon} {DOCUMENT_CATEGORIES[cat].label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* تاريخ الانتهاء */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-slate-600 dark:text-slate-400 whitespace-nowrap">تاريخ الانتهاء:</span>
+                    <input
+                      type="date"
+                      value={expiryDate}
+                      onChange={(e) => setExpiryDate(e.target.value)}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                    <span className="text-xs text-slate-400">(اختياري)</span>
                   </div>
                 </div>
               )}
@@ -438,10 +513,22 @@ const EnhancedDocumentManager: React.FC<EnhancedDocumentManagerProps> = ({
                           className="flex-1 min-w-0 text-right"
                         >
                           <div className="flex flex-col">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className={`text-xs px-2 py-0.5 rounded-full ${categoryInfo.color}`}>
                                 {categoryInfo.icon} {categoryInfo.label}
                               </span>
+                              {/* شارة تاريخ الانتهاء */}
+                              {(() => {
+                                const expiryBadge = getExpiryStatusBadge((doc as any).expiry_date);
+                                if (expiryBadge) {
+                                  return (
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${expiryBadge.color}`}>
+                                      {expiryBadge.icon} {expiryBadge.text}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </div>
                             <span className="text-sm font-medium text-slate-700 dark:text-slate-100 truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                               {doc.fileName}
@@ -454,6 +541,9 @@ const EnhancedDocumentManager: React.FC<EnhancedDocumentManagerProps> = ({
                                 hour: '2-digit',
                                 minute: '2-digit'
                               })} • {formatFileSize((doc as any).file_size || 0)}
+                              {(doc as any).expiry_date && (
+                                <> • ينتهي: {new Date((doc as any).expiry_date).toLocaleDateString('ar-SA')}</>
+                              )}
                             </span>
                           </div>
                         </button>
