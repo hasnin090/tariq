@@ -110,18 +110,17 @@ const DEFAULT_SETTINGS: PrintSettings = {
 };
 
 const DEFAULT_COMPANY: CompanyInfo = {
-  name: 'شركة إدارة العقارات',
-  nameEn: 'Real Estate Management Co.',
-  address: 'المملكة العربية السعودية',
-  phone: '+966 XX XXX XXXX',
-  email: 'info@company.com',
-  website: 'www.company.com'
+  name: 'شركة طريق العامرة',
+  nameEn: 'Tariq Al-Amarah Co.',
+  address: 'جمهورية العراق',
+  phone: '+964',
+  email: 'info@tariq-alamara.com'
 };
 
 // ==================== Helpers ====================
 
 const formatDate = (date: string): string => {
-  return new Date(date).toLocaleDateString('ar-SA', {
+  return new Date(date).toLocaleDateString('ar-IQ', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -129,7 +128,7 @@ const formatDate = (date: string): string => {
 };
 
 const formatDateShort = (date: string): string => {
-  return new Date(date).toLocaleDateString('ar-SA');
+  return new Date(date).toLocaleDateString('ar-IQ');
 };
 
 const generateReceiptNumber = (): string => {
@@ -157,6 +156,8 @@ export const generateContractHTML = (
   booking: BookingInfo,
   company: CompanyInfo = DEFAULT_COMPANY
 ): string => {
+  const projectName = booking.unit.projectName?.trim() || 'مجمع الحميدية';
+
   return `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -381,7 +382,7 @@ export const generateContractHTML = (
       </div>
       <div class="info-item">
         <span class="info-label">المشروع:</span>
-        <span class="info-value">${booking.unit.projectName}</span>
+        <span class="info-value">${projectName}</span>
       </div>
       <div class="info-item">
         <span class="info-label">النوع:</span>
