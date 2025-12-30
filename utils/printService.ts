@@ -61,6 +61,15 @@ export interface BookingInfo {
   paymentMethod: string;
   installmentsCount?: number;
   notes?: string;
+  scheduledPayments?: ScheduledPaymentInfo[]; // إضافة الأقساط المجدولة
+}
+
+export interface ScheduledPaymentInfo {
+  installmentNumber: number;
+  dueDate: string;
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue';
+  paidDate?: string;
 }
 
 export interface PaymentInfo {
@@ -301,6 +310,55 @@ export const generateContractHTML = (
       <span class="value">${formatDate(expiryDate.toISOString())} (20 يوم بعد الحجز)</span>
     </div>
   </div>
+
+  ${booking.scheduledPayments && booking.scheduledPayments.length > 0 ? `
+  <div class="section">
+    <div class="section-title">جدول الدفعات المستحقة (${booking.scheduledPayments.length} قسط):</div>
+    <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px;">
+      <thead>
+        <tr style="background-color: #f5f5f5; border: 1px solid #ddd;">
+          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">القسط</th>
+          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">تاريخ الاستحقاق</th>
+          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">المبلغ</th>
+          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">الحالة</th>
+          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">تاريخ الدفع</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${booking.scheduledPayments.map(payment => `
+          <tr style="border: 1px solid #ddd; ${payment.status === 'paid' ? 'background-color: #e8f5e9;' : payment.status === 'overdue' ? 'background-color: #ffebee;' : ''}">
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">#${payment.installmentNumber}</td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${formatDateShort(payment.dueDate)}</td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${formatCurrency(payment.amount)}</td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+              ${payment.status === 'paid' 
+                ? '<span style="color: #4caf50; font-weight: bold;">✓ مدفوع</span>' 
+                : payment.status === 'overdue'
+                ? '<span style="color: #f44336; font-weight: bold;">⚠ متأخر</span>'
+                : '<span style="color: #ff9800; font-weight: bold;">⏳ معلق</span>'
+              }
+            </td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+              ${payment.paidDate ? formatDateShort(payment.paidDate) : '—'}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background-color: #f5f5f5; border: 1px solid #ddd; font-weight: bold;">
+          <td colspan="2" style="padding: 10px; text-align: right; border: 1px solid #ddd;">الإجمالي:</td>
+          <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">
+            ${formatCurrency(booking.scheduledPayments.reduce((sum, p) => sum + p.amount, 0))}
+          </td>
+          <td colspan="2" style="padding: 10px; text-align: center; border: 1px solid #ddd;">
+            ${booking.scheduledPayments.filter(p => p.status === 'paid').length} مدفوع / 
+            ${booking.scheduledPayments.filter(p => p.status === 'pending').length} معلق
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  ` : ''}
 
   <div class="section">
     <div class="section-title">الشروط والأحكام:</div>

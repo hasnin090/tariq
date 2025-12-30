@@ -49,6 +49,7 @@ export const Bookings: React.FC = () => {
     const [selectedUnitPrice, setSelectedUnitPrice] = useState(0);
     const [selectedBookingForPayments, setSelectedBookingForPayments] = useState<Booking | null>(null);
     const [editingPayment, setEditingPayment] = useState<{ id: string; amount: number; isBooking: boolean } | null>(null);
+    const [scheduledPaymentsByBooking, setScheduledPaymentsByBooking] = useState<Map<string, any[]>>(new Map());
 
     const handleOpenDocManager = (booking: Booking) => {
         setSelectedBookingForDocs(booking);
@@ -123,6 +124,27 @@ export const Bookings: React.FC = () => {
                 });
             });
             setBookingPayments(paymentsMap);
+            
+            // Load scheduled payments for all bookings
+            try {
+                const allScheduledPayments = await scheduledPaymentsService.getAll();
+                const scheduledMap = new Map<string, any[]>();
+                allScheduledPayments.forEach(sp => {
+                    if (!scheduledMap.has(sp.bookingId)) {
+                        scheduledMap.set(sp.bookingId, []);
+                    }
+                    scheduledMap.get(sp.bookingId)!.push({
+                        installmentNumber: sp.installmentNumber,
+                        dueDate: sp.dueDate,
+                        amount: sp.amount,
+                        status: sp.status,
+                        paidDate: sp.paidDate
+                    });
+                });
+                setScheduledPaymentsByBooking(scheduledMap);
+            } catch (error) {
+                console.warn('Could not load scheduled payments:', error);
+            }
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات', 'error');
@@ -512,7 +534,8 @@ export const Bookings: React.FC = () => {
                                                 remainingAmount: remainingAmount,
                                                 paymentMethod: booking.paymentMethod || 'نقدي',
                                                 installmentsCount: booking.installmentsCount,
-                                                notes: booking.notes
+                                                notes: booking.notes,
+                                                scheduledPayments: scheduledPaymentsByBooking.get(booking.id) || []
                                             };
                                             return (
                                                 <PrintContractButton 
