@@ -185,9 +185,10 @@ const UnitSales: React.FC = () => {
                 setDocumentUrls(urlsMap);
             }
 
-            // 5. Update unit status to Sold
+            // 5. Update unit status to Sold and assign customer
             await unitsService.update(unit.id, { 
-                status: 'Sold'
+                status: 'Sold',
+                customerId: customer.id
             });
 
             addToast('تم تسجيل عملية البيع بنجاح!', 'success');

@@ -148,6 +148,56 @@ export const ScheduledPayments: React.FC = () => {
             addToast('خطأ في تسجيل الدفعة', 'error');
         }
     };
+    
+    /**
+     * التحقق من إمكانية تسديد القسط
+     * - يجب تسديد الأقساط بالتسلسل
+     * - القسط الأول دائماً يمكن تسديده
+     * - الأقساط التالية تُفعّل فقط بعد تسديد القسط السابق
+     */
+    const canPayInstallment = (payment: ScheduledPayment): { canPay: boolean; reason?: string } => {
+        console.log('🔍 Checking payment:', payment.installmentNumber, 'Status:', payment.status);
+        
+        // إذا كان القسط مدفوعاً بالفعل، لا حاجة لتسديده
+        if (payment.status === 'paid') {
+            console.log('✅ Payment already paid');
+            return { canPay: false, reason: 'تم الدفع بالفعل' };
+        }
+        
+        // الحصول على جميع أقساط نفس الحجز
+        const bookingPayments = scheduledPayments
+            .filter(p => p.bookingId === payment.bookingId)
+            .sort((a, b) => a.installmentNumber - b.installmentNumber);
+        
+        console.log('📋 Total payments for booking:', bookingPayments.length);
+        
+        // القسط الأول (رقم 1) دائماً يمكن تسديده
+        if (payment.installmentNumber === 1) {
+            console.log('✅ First payment - always can pay');
+            return { canPay: true };
+        }
+        
+        // التحقق من أن جميع الأقساط السابقة تم تسديدها
+        const previousPayments = bookingPayments.filter(
+            p => p.installmentNumber < payment.installmentNumber
+        );
+        
+        console.log('📌 Previous payments:', previousPayments.map(p => `#${p.installmentNumber}:${p.status}`));
+        
+        const allPreviousPaid = previousPayments.every(p => p.status === 'paid');
+        
+        if (!allPreviousPaid) {
+            const unpaidPrevious = previousPayments.find(p => p.status !== 'paid');
+            console.log('❌ Cannot pay - previous payment not paid:', unpaidPrevious?.installmentNumber);
+            return { 
+                canPay: false, 
+                reason: `يجب تسديد القسط #${unpaidPrevious?.installmentNumber} أولاً` 
+            };
+        }
+        
+        console.log('✅ All previous paid - can pay');
+        return { canPay: true };
+    };
 
     // قراءة الإشعار
     const handleMarkNotificationAsRead = async (notificationId: string) => {
@@ -509,10 +559,28 @@ export const ScheduledPayments: React.FC = () => {
                                 <tbody className="divide-y divide-white/5">
                                     {filteredPayments.map((payment) => {
                                         const customerInfo = getCustomerInfo(payment.bookingId);
+                                        const paymentCheck = canPayInstallment(payment);
+                                        
+                                        // Debug: تسجيل معلومات القسط
+                                        console.log(`القسط #${payment.installmentNumber}:`, {
+                                            status: payment.status,
+                                            canPay: paymentCheck.canPay,
+                                            reason: paymentCheck.reason,
+                                            dueDate: payment.dueDate,
+                                            amount: payment.amount
+                                        });
+                                        
                                         return (
                                             <tr key={payment.id} className="hover:bg-white/5 transition-colors">
                                                 <td className="px-4 py-3 text-white font-medium">
-                                                    #{payment.installmentNumber}
+                                                    <div className="flex items-center gap-2">
+                                                        <span>#{payment.installmentNumber}</span>
+                                                        {payment.status === 'paid' && (
+                                                            <svg className="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-white">
                                                     {customerInfo.name}
@@ -533,18 +601,65 @@ export const ScheduledPayments: React.FC = () => {
                                                     {getStatusBadge(payment)}
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
-                                                    {payment.status !== 'paid' && (
-                                                        <button
-                                                            onClick={() => handleMarkAsPaid(payment)}
-                                                            className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                                                        >
-                                                            تسجيل دفع
-                                                        </button>
-                                                    )}
-                                                    {payment.status === 'paid' && payment.paidDate && (
-                                                        <span className="text-emerald-400 text-sm">
-                                                            تم الدفع {formatDate(payment.paidDate)}
-                                                        </span>
+                                                    {/* Debug: عرض حالة القسط */}
+                                                    <div className="text-xs text-slate-500 mb-1">
+                                                        Status: {payment.status}
+                                                    </div>
+                                                    
+                                                    {payment.status === 'paid' ? (
+                                                        <div className="text-emerald-400 text-sm">
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                                </svg>
+                                                                <span>مدفوع</span>
+                                                            </div>
+                                                            {payment.paidDate && (
+                                                                <span className="text-xs text-slate-500 block mt-1">
+                                                                    {formatDate(payment.paidDate)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            {/* دائماً عرض زر الدفع */}
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (paymentCheck.canPay) {
+                                                                        handleMarkAsPaid(payment);
+                                                                    } else {
+                                                                        addToast(paymentCheck.reason || 'لا يمكن تسديد هذا القسط الآن', 'warning');
+                                                                    }
+                                                                }}
+                                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                                                    paymentCheck.canPay
+                                                                        ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 cursor-pointer'
+                                                                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 cursor-pointer border-2 border-amber-500/30'
+                                                                }`}
+                                                                title={paymentCheck.reason || 'تسجيل دفع'}
+                                                            >
+                                                                {paymentCheck.canPay ? (
+                                                                    <span className="flex items-center gap-2">
+                                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                        </svg>
+                                                                        تسديد
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="flex items-center gap-2">
+                                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                                        </svg>
+                                                                        مقفل
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                            {!paymentCheck.canPay && paymentCheck.reason && (
+                                                                <span className="text-xs text-amber-400 mt-1 text-center px-2 py-1 bg-amber-500/10 rounded">
+                                                                    {paymentCheck.reason}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </td>
                                             </tr>

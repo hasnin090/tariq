@@ -1535,6 +1535,70 @@ const Payments: React.FC = () => {
                                                                                 <span>تاريخ السداد: {scheduledPayment.paidDate}</span>
                                                                             </div>
                                                                         )}
+                                                                        
+                                                                        {/* زر تسديد القسط */}
+                                                                        {scheduledPayment.status !== 'paid' && (
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    // التحقق من التسلسل
+                                                                                    const allScheduledForBooking = scheduledPaymentsByBooking.get(group.bookingId) || [];
+                                                                                    const sortedScheduled = allScheduledForBooking.sort((a, b) => a.installmentNumber - b.installmentNumber);
+                                                                                    
+                                                                                    // إذا كان القسط الأول، يمكن تسديده مباشرة
+                                                                                    if (scheduledPayment.installmentNumber === 1) {
+                                                                                        try {
+                                                                                            await scheduledPaymentsService.update(scheduledPayment.id, {
+                                                                                                status: 'paid',
+                                                                                                paidDate: new Date().toISOString().split('T')[0]
+                                                                                            });
+                                                                                            addToast('تم تسديد القسط بنجاح ✅', 'success');
+                                                                                            loadAllData(); // إعادة تحميل البيانات
+                                                                                        } catch (error) {
+                                                                                            console.error('Error paying installment:', error);
+                                                                                            addToast('خطأ في تسديد القسط', 'error');
+                                                                                        }
+                                                                                        return;
+                                                                                    }
+                                                                                    
+                                                                                    // للأقساط الأخرى، التحقق من تسديد الأقساط السابقة
+                                                                                    const previousPayments = sortedScheduled.filter(
+                                                                                        p => p.installmentNumber < scheduledPayment.installmentNumber
+                                                                                    );
+                                                                                    
+                                                                                    const allPreviousPaid = previousPayments.every(p => p.status === 'paid');
+                                                                                    
+                                                                                    if (!allPreviousPaid) {
+                                                                                        const unpaidPrevious = previousPayments.find(p => p.status !== 'paid');
+                                                                                        addToast(`⚠️ يجب تسديد القسط #${unpaidPrevious?.installmentNumber} أولاً`, 'warning');
+                                                                                        return;
+                                                                                    }
+                                                                                    
+                                                                                    // يمكن تسديده
+                                                                                    try {
+                                                                                        await scheduledPaymentsService.update(scheduledPayment.id, {
+                                                                                            status: 'paid',
+                                                                                            paidDate: new Date().toISOString().split('T')[0]
+                                                                                        });
+                                                                                        addToast('تم تسديد القسط بنجاح ✅', 'success');
+                                                                                        loadAllData(); // إعادة تحميل البيانات
+                                                                                    } catch (error) {
+                                                                                        console.error('Error paying installment:', error);
+                                                                                        addToast('خطأ في تسديد القسط', 'error');
+                                                                                    }
+                                                                                }}
+                                                                                className={`mt-3 w-full py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                                                                                    scheduledPayment.installmentNumber === 1 || 
+                                                                                    (scheduledPaymentsByBooking.get(group.bookingId) || [])
+                                                                                        .filter(p => p.installmentNumber < scheduledPayment.installmentNumber)
+                                                                                        .every(p => p.status === 'paid')
+                                                                                        ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'
+                                                                                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 border border-amber-500/30'
+                                                                                }`}
+                                                                            >
+                                                                                <CreditCardIcon className="h-4 w-4" />
+                                                                                <span>تسديد القسط</span>
+                                                                            </button>
+                                                                        )}
                                                                     </div>
                                                                 );
                                                             })}

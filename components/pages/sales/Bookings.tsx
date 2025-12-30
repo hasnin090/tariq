@@ -294,9 +294,10 @@ export const Bookings: React.FC = () => {
                 };
                 const createdBooking = await bookingsService.create(newBooking as any);
                 
-                // Update unit status to 'Booked'
+                // Update unit status to 'Booked' and assign customer
                 await unitsService.update(unit.id, { 
-                    status: 'Booked'
+                    status: 'Booked',
+                    customerId: customer.id
                 } as any);
                 
                 // ✅ إنشاء سجل دفعة الحجز في جدول payments
@@ -369,10 +370,16 @@ export const Bookings: React.FC = () => {
             const unit = units.find(u => u.id === bookingToCancel.unitId);
             
             if (unit) {
-                await unitsService.update(unit.id, { status: 'Available' } as any);
+                await unitsService.update(unit.id, { 
+                    status: 'Available',
+                    customerId: null
+                } as any);
             } else if (bookingToCancel.unitId) {
                 // محاولة التحديث مباشرة باستخدام unitId من الحجز
-                await unitsService.update(bookingToCancel.unitId, { status: 'Available' } as any);
+                await unitsService.update(bookingToCancel.unitId, { 
+                    status: 'Available',
+                    customerId: null
+                } as any);
             }
             
             logActivity('Cancel Booking', `Cancelled booking for unit ${bookingToCancel.unitName}`, 'projects');
@@ -558,6 +565,14 @@ interface PanelProps { booking: Booking | null; units: Unit[]; customers: Custom
 const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, accounts, onClose, onSave }) => {
     const { addToast } = useToast();
     const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+    
+    // حساب تاريخ القسط الأول (5 أيام بعد تاريخ الحجز)
+    const getDefaultStartDate = (bookingDate: string) => {
+        const date = new Date(bookingDate);
+        date.setDate(date.getDate() + 5); // إضافة 5 أيام
+        return date.toISOString().split('T')[0];
+    };
+    
     const [formData, setFormData] = useState({
         unitId: booking?.unitId || '',
         customerId: booking?.customerId || '',
@@ -568,7 +583,7 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
         enablePaymentPlan: !!booking?.paymentPlanYears,
         paymentPlanYears: booking?.paymentPlanYears || 5 as 4 | 5,
         paymentFrequencyMonths: booking?.paymentFrequencyMonths || 1 as 1 | 2 | 3 | 4 | 5,
-        paymentStartDate: booking?.paymentStartDate || new Date().toISOString().split('T')[0],
+        paymentStartDate: booking?.paymentStartDate || getDefaultStartDate(booking?.bookingDate || new Date().toISOString().split('T')[0]),
     });
     
     // حساب تفاصيل خطة الدفع (مع خصم دفعة الحجز)
@@ -701,6 +716,10 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
             setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
         } else if (name === 'amountPaid' || name === 'paymentPlanYears' || name === 'paymentFrequencyMonths') {
             setFormData(prev => ({ ...prev, [name]: Number(value) }));
+        } else if (name === 'bookingDate') {
+            // عند تغيير تاريخ الحجز، تحديث تاريخ القسط الأول تلقائياً
+            const newStartDate = getDefaultStartDate(value);
+            setFormData(prev => ({ ...prev, [name]: value, paymentStartDate: newStartDate }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
@@ -869,6 +888,9 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
                                                 className="input-field"
                                                 required={formData.enablePaymentPlan}
                                             />
+                                            <p className="text-xs text-amber-300 mt-1">
+                                                💡 سيبدأ القسط الأول بعد 5 أيام من تاريخ الحجز تلقائياً
+                                            </p>
                                         </div>
                                     </div>
                                     

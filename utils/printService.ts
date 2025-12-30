@@ -156,317 +156,170 @@ export const generateContractHTML = (
   booking: BookingInfo,
   company: CompanyInfo = DEFAULT_COMPANY
 ): string => {
-  const projectName = booking.unit.projectName?.trim() || 'مجمع الحميدية';
+  const projectName = booking.unit.projectName?.trim() || 'مجمع الحميدية السكني';
+  // حساب تاريخ انتهاء صلاحية الحجز (20 يوم من تاريخ الحجز)
+  const bookingDate = new Date(booking.date);
+  const expiryDate = new Date(bookingDate);
+  expiryDate.setDate(expiryDate.getDate() + 20);
+  
+  // تحديد إذا كانت طريقة الدفع بالتقسيط أو كاش
+  const isInstallment = booking.installmentsCount && booking.installmentsCount > 1;
+  const paymentMethodDisplay = isInstallment ? 'أقساط' : 'كاش';
 
   return `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>عقد حجز - ${booking.customer.name}</title>
+  <title>نموذج حجز وحدة سكنية - ${booking.customer.name}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { size: A4; margin: 15mm; }
     body {
-      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      font-family: 'Traditional Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
       direction: rtl;
-      padding: 40px;
-      line-height: 1.8;
-      color: #1a1a2e;
+      padding: 30px;
+      line-height: 2;
+      color: #000;
       background: #fff;
     }
     .header {
       text-align: center;
-      border-bottom: 3px solid #1e3a8a;
-      padding-bottom: 20px;
+      border-bottom: 3px double #000;
+      padding-bottom: 15px;
       margin-bottom: 30px;
     }
     .header h1 {
-      color: #1e3a8a;
-      font-size: 28px;
-      margin-bottom: 5px;
-    }
-    .header .company-name {
-      font-size: 18px;
-      color: #475569;
-    }
-    .contract-number {
-      background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-      color: white;
-      padding: 10px 30px;
-      border-radius: 50px;
-      display: inline-block;
-      font-weight: bold;
-      margin: 15px 0;
-    }
-    .section {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    .section-title {
-      color: #1e3a8a;
-      font-size: 16px;
-      font-weight: bold;
-      margin-bottom: 15px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #3b82f6;
-    }
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-    }
-    .info-item {
-      display: flex;
-      gap: 10px;
-    }
-    .info-label {
-      color: #64748b;
-      min-width: 120px;
-    }
-    .info-value {
-      font-weight: 600;
-      color: #1e293b;
-    }
-    .financial-summary {
-      background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-      border: 2px solid #0284c7;
-      border-radius: 12px;
-      padding: 25px;
-      margin: 25px 0;
-    }
-    .financial-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px dashed #94a3b8;
-    }
-    .financial-row:last-child {
-      border-bottom: none;
-      font-size: 18px;
-      font-weight: bold;
-      color: #0369a1;
-      padding-top: 15px;
-      margin-top: 10px;
-      border-top: 2px solid #0284c7;
-    }
-    .terms {
-      background: #fffbeb;
-      border: 1px solid #fcd34d;
-      border-radius: 12px;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    .terms-title {
-      color: #b45309;
+      color: #000;
+      font-size: 24px;
       font-weight: bold;
       margin-bottom: 10px;
     }
-    .terms-list {
-      list-style: none;
+    .section {
+      margin: 25px 0;
     }
-    .terms-list li {
-      padding: 8px 0;
-      padding-right: 25px;
-      position: relative;
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      text-decoration: underline;
     }
-    .terms-list li::before {
-      content: "✓";
-      position: absolute;
-      right: 0;
-      color: #16a34a;
+    .info-row {
+      margin: 12px 0;
+      line-height: 2.2;
+    }
+    .label {
       font-weight: bold;
     }
+    .value {
+      display: inline-block;
+    }
+    .terms-list {
+      list-style: decimal;
+      padding-right: 30px;
+      line-height: 2.5;
+    }
+    .terms-list li {
+      margin: 8px 0;
+    }
     .signatures {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
-      margin-top: 50px;
-      padding-top: 30px;
-      border-top: 2px dashed #cbd5e1;
+      margin-top: 60px;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 50px;
     }
     .signature-box {
       text-align: center;
+      min-width: 200px;
     }
     .signature-line {
-      border-bottom: 1px solid #1e3a8a;
-      height: 60px;
-      margin-bottom: 10px;
+      border-bottom: 1px solid #000;
+      height: 50px;
+      margin-bottom: 8px;
     }
     .signature-label {
-      color: #64748b;
-      font-size: 14px;
-    }
-    .footer {
-      text-align: center;
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #e2e8f0;
-      color: #94a3b8;
-      font-size: 12px;
+      font-weight: bold;
     }
     @media print {
-      body { padding: 0; }
-      .no-print { display: none; }
+      body { padding: 20px; }
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>عقد حجز وحدة عقارية</h1>
-    <div class="company-name">${company.name}</div>
-    <div class="contract-number">رقم العقد: ${booking.id.slice(0, 8).toUpperCase()}</div>
+    <h1>نموذج حجز وحدة سكنية</h1>
   </div>
 
-  <p style="text-align: center; color: #64748b; margin-bottom: 30px;">
-    تم تحرير هذا العقد بتاريخ ${formatDate(booking.date)} بين كل من:
-  </p>
-
   <div class="section">
-    <div class="section-title">🏢 الطرف الأول (البائع)</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <span class="info-label">الاسم:</span>
-        <span class="info-value">${company.name}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">العنوان:</span>
-        <span class="info-value">${company.address}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">الهاتف:</span>
-        <span class="info-value">${company.phone}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">البريد:</span>
-        <span class="info-value">${company.email}</span>
-      </div>
+    <div class="section-title">بيانات الطرفين:</div>
+    <div class="info-row">
+      <span class="label">• البائع:</span>
+      <span class="value">شركة طريق العامرة المالكة مشروع ${projectName}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">• المشتري:</span>
+      <span class="value">${booking.customer.name}</span>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">👤 الطرف الثاني (المشتري)</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <span class="info-label">الاسم:</span>
-        <span class="info-value">${booking.customer.name}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">الهاتف:</span>
-        <span class="info-value">${booking.customer.phone}</span>
-      </div>
-      ${booking.customer.nationalId ? `
-      <div class="info-item">
-        <span class="info-label">رقم الهوية:</span>
-        <span class="info-value">${booking.customer.nationalId}</span>
-      </div>
-      ` : ''}
-      ${booking.customer.address ? `
-      <div class="info-item">
-        <span class="info-label">العنوان:</span>
-        <span class="info-value">${booking.customer.address}</span>
-      </div>
-      ` : ''}
+    <div class="section-title">وصف الوحدة السكنية:</div>
+    <div class="info-row">
+      <span class="label">• المشروع:</span>
+      <span class="value">${projectName}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">• رقم الوحدة:</span>
+      <span class="value">${booking.unit.name}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">• المساحة:</span>
+      <span class="value">${booking.unit.area ? booking.unit.area + ' م²' : booking.unit.type}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">• المدينة/الحي:</span>
+      <span class="value">واسط / الزبيدية</span>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title">🏠 تفاصيل الوحدة</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <span class="info-label">اسم الوحدة:</span>
-        <span class="info-value">${booking.unit.name}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">المشروع:</span>
-        <span class="info-value">${projectName}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">النوع:</span>
-        <span class="info-value">${booking.unit.type}</span>
-      </div>
-      ${booking.unit.area ? `
-      <div class="info-item">
-        <span class="info-label">المساحة:</span>
-        <span class="info-value">${booking.unit.area} م²</span>
-      </div>
-      ` : ''}
-      ${booking.unit.building ? `
-      <div class="info-item">
-        <span class="info-label">المبنى:</span>
-        <span class="info-value">${booking.unit.building}</span>
-      </div>
-      ` : ''}
-      ${booking.unit.floor ? `
-      <div class="info-item">
-        <span class="info-label">الطابق:</span>
-        <span class="info-value">${booking.unit.floor}</span>
-      </div>
-      ` : ''}
+    <div class="section-title">تفاصيل الحجز المالي:</div>
+    <div class="info-row">
+      <span class="label">• إجمالي قيمة الوحدة:</span>
+      <span class="value">${formatCurrency(booking.totalPrice)}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">• مبلغ الحجز (العربون):</span>
+      <span class="value">${formatCurrency(booking.downPayment)}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">• طريقة السداد:</span>
+      <span class="value">${paymentMethodDisplay}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">• تاريخ انتهاء صلاحية الحجز:</span>
+      <span class="value">${formatDate(expiryDate.toISOString())} (20 يوم بعد الحجز)</span>
     </div>
   </div>
 
-  <div class="financial-summary">
-    <div class="section-title" style="color: #0369a1; border-color: #0284c7;">💰 التفاصيل المالية</div>
-    <div class="financial-row">
-      <span>سعر الوحدة:</span>
-      <span>${formatCurrency(booking.totalPrice)}</span>
-    </div>
-    <div class="financial-row">
-      <span>الدفعة المقدمة:</span>
-      <span>${formatCurrency(booking.downPayment)}</span>
-    </div>
-    <div class="financial-row">
-      <span>المبلغ المتبقي:</span>
-      <span>${formatCurrency(booking.remainingAmount)}</span>
-    </div>
-    ${booking.installmentsCount ? `
-    <div class="financial-row">
-      <span>عدد الأقساط:</span>
-      <span>${booking.installmentsCount} قسط</span>
-    </div>
-    ` : ''}
-    <div class="financial-row">
-      <span>طريقة الدفع:</span>
-      <span>${booking.paymentMethod}</span>
-    </div>
-  </div>
-
-  <div class="terms">
-    <div class="terms-title">📋 الشروط والأحكام</div>
-    <ul class="terms-list">
-      <li>يلتزم الطرف الثاني بدفع المبالغ المستحقة في مواعيدها المحددة</li>
-      <li>في حال التأخر عن السداد، يحق للطرف الأول اتخاذ الإجراءات القانونية</li>
-      <li>لا يحق للطرف الثاني التنازل عن هذا العقد دون موافقة الطرف الأول</li>
-      <li>يتحمل الطرف الثاني كافة رسوم التسجيل والنقل</li>
-      <li>هذا العقد ملزم للطرفين ولورثتهم وخلفائهم</li>
-    </ul>
-  </div>
-
-  ${booking.notes ? `
   <div class="section">
-    <div class="section-title">📝 ملاحظات إضافية</div>
-    <p>${booking.notes}</p>
+    <div class="section-title">الشروط والأحكام:</div>
+    <ol class="terms-list">
+      <li>يعتبر هذا النموذج حجزاً مبدئياً ولا يعد عقداً للبيع إلا بعد استكمال الإجراءات.</li>
+      <li>يلتزم المشتري باستكمال الدفعة الأولى وتوقيع العقد النهائي في موعد أقصاه التاريخ المذكور أعلاه.</li>
+      <li>في حال تراجع المشتري، تخضع استرداد قيمة العربون لسياسة الشركة المتمثلة في (استقطاع 10% من دفع الحجز عند إلغاء الحجز).</li>
+    </ol>
   </div>
-  ` : ''}
 
   <div class="signatures">
     <div class="signature-box">
       <div class="signature-line"></div>
-      <div class="signature-label">توقيع الطرف الأول (البائع)</div>
+      <div class="signature-label">توقيع المشتري: ...........................</div>
     </div>
     <div class="signature-box">
       <div class="signature-line"></div>
-      <div class="signature-label">توقيع الطرف الثاني (المشتري)</div>
+      <div class="signature-label">توقيع البائع: ...........................</div>
     </div>
-  </div>
-
-  <div class="footer">
-    <p>${company.name} | ${company.phone} | ${company.email}</p>
-    <p>تم إنشاء هذا العقد إلكترونياً بتاريخ ${formatDate(new Date().toISOString())}</p>
   </div>
 </body>
 </html>

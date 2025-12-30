@@ -357,18 +357,25 @@ export const unitsService = {
   async getAll() {
     const { data, error } = await supabase
       .from('units')
-      .select('*')
+      .select(`
+        *,
+        customers:customer_id (
+          id,
+          name
+        )
+      `)
       .order('created_at', { ascending: false });
     if (error) throw error;
     
     // Transform snake_case to camelCase
-    // Note: Units don't have direct customer relationship - that's through bookings
     return (data || []).map((unit: any) => ({
       id: unit.id,
       name: unit.unit_number,
       type: unit.type,
       status: unit.status,
       price: unit.price,
+      customerId: unit.customer_id,
+      customerName: unit.customers?.name || null,
       projectId: unit.project_id,
     }));
   },
@@ -377,14 +384,13 @@ export const unitsService = {
     const id = generateUniqueId('unit');
     
     // Transform camelCase to snake_case for database
-    // Note: customer_id should NOT be set here - units don't have direct customer relationship
-    // Customer relationship is through bookings table
     const dbUnit: any = {
       id,
       unit_number: unit.name,
       type: unit.type,
       status: unit.status,
       price: unit.price,
+      customer_id: unit.customerId || null,
       project_id: (unit as any).projectId || null,
     };
     
@@ -393,7 +399,13 @@ export const unitsService = {
     const { data, error } = await supabase
       .from('units')
       .insert([dbUnit])
-      .select();
+      .select(`
+        *,
+        customers:customer_id (
+          id,
+          name
+        )
+      `);
     
     if (error) {
       console.error('❌ Supabase insert error:', error);
@@ -407,6 +419,8 @@ export const unitsService = {
         type: data[0].type,
         status: data[0].status,
         price: data[0].price,
+        customerId: data[0].customer_id,
+        customerName: data[0].customers?.name || null,
         projectId: data[0].project_id,
       };
     }
@@ -414,19 +428,25 @@ export const unitsService = {
 
   async update(id: string, unit: Partial<Unit>) {
     // Transform camelCase to snake_case for database
-    // Note: customer_id should NOT be updated here - units don't have direct customer relationship
     const dbUnit: any = {};
     if (unit.name !== undefined) dbUnit.unit_number = unit.name;
     if (unit.type !== undefined) dbUnit.type = unit.type;
     if (unit.status !== undefined) dbUnit.status = unit.status;
     if (unit.price !== undefined) dbUnit.price = unit.price;
+    if (unit.customerId !== undefined) dbUnit.customer_id = unit.customerId;
     if ((unit as any).projectId !== undefined) dbUnit.project_id = (unit as any).projectId;
     
     const { data, error } = await supabase
       .from('units')
       .update(dbUnit)
       .eq('id', id)
-      .select();
+      .select(`
+        *,
+        customers:customer_id (
+          id,
+          name
+        )
+      `);
     if (error) throw error;
     
     if (data?.[0]) {
@@ -436,6 +456,8 @@ export const unitsService = {
         type: data[0].type,
         status: data[0].status,
         price: data[0].price,
+        customerId: data[0].customer_id,
+        customerName: data[0].customers?.name || null,
         projectId: data[0].project_id,
       };
     }
