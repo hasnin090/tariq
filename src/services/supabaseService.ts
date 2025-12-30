@@ -1240,35 +1240,68 @@ export const unitSalesService = {
   async getAll(): Promise<UnitSaleRecord[]> {
     const { data, error } = await supabase
       .from('unit_sales')
-      .select('*')
+      .select(`
+        *,
+        units:unit_id (unit_number),
+        customers:customer_id (name)
+      `)
       .order('created_at', { ascending: false });
     if (error) throw error;
     
     // Map database fields to frontend fields
-    return (data || []).map(sale => ({
+    return (data || []).map((sale: any) => ({
       id: sale.id,
       unitId: sale.unit_id || '',
-      unitName: sale.unit_name || '',
+      unitName: sale.units?.unit_number || '',
       customerId: sale.customer_id || '',
-      customerName: sale.customer_name || '',
+      customerName: sale.customers?.name || '',
       salePrice: sale.sale_price || 0,
       finalSalePrice: sale.final_sale_price || 0,
       saleDate: sale.sale_date || '',
-      documents: sale.documents || [],
+      documents: [],
       accountId: sale.account_id || '',
       transactionId: sale.transaction_id,
       projectId: sale.project_id,
     }));
   },
 
-  async create(sale: Omit<UnitSaleRecord, 'id'>) {
+  async create(sale: Omit<UnitSaleRecord, 'id'>): Promise<UnitSaleRecord> {
     const id = generateUniqueId('sale');
     const { data, error } = await supabase
       .from('unit_sales')
-      .insert([{ ...sale, id }])
-      .select();
+      .insert([{
+        id,
+        unit_id: sale.unitId,
+        customer_id: sale.customerId,
+        sale_price: sale.salePrice,
+        final_sale_price: sale.finalSalePrice,
+        sale_date: sale.saleDate,
+        account_id: sale.accountId,
+        transaction_id: sale.transactionId,
+        project_id: sale.projectId,
+      }])
+      .select(`
+        *,
+        units:unit_id (unit_number),
+        customers:customer_id (name)
+      `);
     if (error) throw error;
-    return data?.[0];
+    
+    const created = data?.[0];
+    return {
+      id: created.id,
+      unitId: created.unit_id,
+      unitName: created.units?.unit_number || '',
+      customerId: created.customer_id,
+      customerName: created.customers?.name || '',
+      salePrice: created.sale_price,
+      finalSalePrice: created.final_sale_price,
+      saleDate: created.sale_date,
+      documents: [],
+      accountId: created.account_id,
+      transactionId: created.transaction_id,
+      projectId: created.project_id,
+    };
   },
 
   async update(id: string, sale: Partial<UnitSaleRecord>) {

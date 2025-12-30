@@ -65,13 +65,12 @@ const UnitSales: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            // Load data from localStorage and Supabase
-            const salesData: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
             
-            const [unitsData, customersData, accountsData] = await Promise.all([
+            const [unitsData, customersData, accountsData, salesData] = await Promise.all([
                 unitsService.getAll(),
                 customersService.getAll(),
                 accountsService.getAll(), // Load accounts from Supabase
+                unitSalesService.getAll(), // Load sales from Supabase
             ]);
             setSales(salesData);
             setUnits(unitsData);
@@ -138,11 +137,8 @@ const UnitSales: React.FC = () => {
                 sourceType: 'Sale'
             });
 
-            // 2. Create Sale Record in localStorage (unitSales table doesn't exist in Supabase yet)
-            const unitSales: UnitSaleRecord[] = JSON.parse(localStorage.getItem('unitSales') || '[]');
-            const saleId = `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const newSale: UnitSaleRecord = {
-                id: saleId,
+            // 2. Create Sale Record in Supabase
+            const newSale = await unitSalesService.create({
                 unitId: saleData.unitId,
                 unitName: unit.name,
                 customerId: saleData.customerId,
@@ -154,30 +150,28 @@ const UnitSales: React.FC = () => {
                 accountId: saleData.accountId,
                 transactionId: newTransaction.id,
                 projectId: unit.projectId
-            };
-            unitSales.push(newSale);
-            localStorage.setItem('unitSales', JSON.stringify(unitSales));
+            });
 
             // 3. Update transaction with sourceId
-            await transactionsService.update(newTransaction.id, { sourceId: saleId });
+            await transactionsService.update(newTransaction.id, { sourceId: newSale.id });
 
             // 4. Upload documents to Supabase Storage
             if (documents.length > 0) {
                 for (const doc of documents) {
-                    await documentsService.upload(doc, { sale_id: saleId });
+                    await documentsService.upload(doc, { sale_id: newSale.id });
                 }
                 addToast(`تم رفع ${documents.length} مستندات بنجاح.`, 'success');
                 
                 // Reload documents for this sale
-                const uploadedDocs = await documentsService.getForSale(saleId);
-                setSaleDocuments(prev => new Map(prev).set(saleId, uploadedDocs));
+                const uploadedDocs = await documentsService.getForSale(newSale.id);
+                setSaleDocuments(prev => new Map(prev).set(newSale.id, uploadedDocs));
                 
                 // Generate signed URLs for uploaded documents
                 const urlsMap = new Map(documentUrls);
                 for (const doc of uploadedDocs) {
                     try {
                         const signedUrl = await documentsService.getSignedUrl(doc.storagePath);
-                        urlsMap.set(`${saleId}_${doc.id}`, signedUrl);
+                        urlsMap.set(`${newSale.id}_${doc.id}`, signedUrl);
                     } catch (error) {
                         console.error('Error generating signed URL:', error);
                     }
