@@ -279,11 +279,15 @@ const UnitPanel: React.FC<PanelProps> = ({ unit, unitTypes, unitStatuses, custom
              return;
         }
 
+        // تحويل customerId الفارغ إلى null
+        const dataToSave = {
+            ...formData,
+            customerId: formData.customerId || null, // تحويل string فارغ إلى null
+            projectId: unit?.projectId || activeProjectId
+        };
+
         // Don't send customerName - it will be fetched via join
-        onSave({ 
-            ...formData, 
-            projectId: unit?.projectId || activeProjectId 
-        } as any);
+        onSave(dataToSave as any);
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
