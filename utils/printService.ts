@@ -175,208 +175,584 @@ export const generateContractHTML = (
   const isInstallment = booking.installmentsCount && booking.installmentsCount > 1;
   const paymentMethodDisplay = isInstallment ? 'أقساط' : 'كاش';
 
+  // رقم العقد
+  const contractNumber = `CNT-${new Date(booking.date).getFullYear()}-${booking.id.slice(0, 6).toUpperCase()}`;
+
   return `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>نموذج حجز وحدة سكنية - ${booking.customer.name}</title>
+  <title>عقد حجز وحدة سكنية - ${booking.customer.name}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { size: A4; margin: 15mm; }
+    @page { size: A4; margin: 10mm; }
     body {
-      font-family: 'Traditional Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
+      font-family: 'Segoe UI', 'Tahoma', 'Traditional Arabic', Arial, sans-serif;
       direction: rtl;
-      padding: 30px;
-      line-height: 2;
-      color: #000;
+      padding: 0;
+      line-height: 1.8;
+      color: #333;
       background: #fff;
+      font-size: 14px;
     }
+    
+    /* Container */
+    .contract-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #fff;
+      border: 3px solid #1a365d;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    /* Header */
     .header {
+      background: linear-gradient(135deg, #1a365d 0%, #2c5282 50%, #1a365d 100%);
+      color: #fff;
+      padding: 25px 30px;
       text-align: center;
-      border-bottom: 3px double #000;
-      padding-bottom: 15px;
-      margin-bottom: 30px;
+      position: relative;
     }
-    .header h1 {
-      color: #000;
-      font-size: 24px;
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #d69e2e, #f6e05e, #d69e2e);
+    }
+    .company-name {
+      font-size: 28px;
       font-weight: bold;
-      margin-bottom: 10px;
+      margin-bottom: 5px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
-    .section {
-      margin: 25px 0;
+    .company-name-en {
+      font-size: 14px;
+      color: #cbd5e0;
+      letter-spacing: 2px;
     }
-    .section-title {
-      font-size: 18px;
+    .contract-title {
+      font-size: 22px;
       font-weight: bold;
-      margin-bottom: 15px;
-      text-decoration: underline;
-    }
-    .info-row {
-      margin: 12px 0;
-      line-height: 2.2;
-    }
-    .label {
-      font-weight: bold;
-    }
-    .value {
+      margin-top: 15px;
+      padding: 10px 30px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 25px;
       display: inline-block;
     }
-    .terms-list {
-      list-style: decimal;
-      padding-right: 30px;
-      line-height: 2.5;
-    }
-    .terms-list li {
-      margin: 8px 0;
-    }
-    .signatures {
-      margin-top: 60px;
+    
+    /* Contract Info Bar */
+    .contract-info-bar {
+      background: #f7fafc;
+      border-bottom: 2px solid #e2e8f0;
+      padding: 15px 30px;
       display: flex;
       justify-content: space-between;
-      padding: 0 50px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .contract-info-item {
+      text-align: center;
+    }
+    .contract-info-label {
+      font-size: 11px;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .contract-info-value {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1a365d;
+      margin-top: 3px;
+    }
+    
+    /* Content */
+    .content {
+      padding: 25px 30px;
+    }
+    
+    /* Section */
+    .section {
+      margin-bottom: 25px;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+    .section-header {
+      background: linear-gradient(90deg, #2c5282, #3182ce);
+      color: #fff;
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-header .icon {
+      width: 24px;
+      height: 24px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .section-body {
+      padding: 20px;
+    }
+    
+    /* Info Grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+    .info-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .info-item.full-width {
+      grid-column: 1 / -1;
+    }
+    .info-label {
+      font-weight: bold;
+      color: #4a5568;
+      min-width: 100px;
+      flex-shrink: 0;
+    }
+    .info-label::after {
+      content: ':';
+    }
+    .info-value {
+      color: #1a202c;
+      font-weight: 500;
+    }
+    .info-value.highlight {
+      color: #2c5282;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    
+    /* Parties Section */
+    .parties-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .party-box {
+      background: #fff;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+    }
+    .party-box.seller {
+      border-color: #3182ce;
+    }
+    .party-box.buyer {
+      border-color: #38a169;
+    }
+    .party-title {
+      font-size: 12px;
+      color: #718096;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .party-name {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a202c;
+    }
+    .party-subtitle {
+      font-size: 12px;
+      color: #718096;
+      margin-top: 5px;
+    }
+    
+    /* Financial Summary */
+    .financial-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .financial-item {
+      background: #fff;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+    }
+    .financial-item.total {
+      border-color: #3182ce;
+      background: linear-gradient(135deg, #ebf8ff 0%, #fff 100%);
+    }
+    .financial-item.paid {
+      border-color: #38a169;
+      background: linear-gradient(135deg, #f0fff4 0%, #fff 100%);
+    }
+    .financial-item.remaining {
+      border-color: #d69e2e;
+      background: linear-gradient(135deg, #fffff0 0%, #fff 100%);
+    }
+    .financial-label {
+      font-size: 11px;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .financial-value {
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+    .financial-item.total .financial-value { color: #2c5282; }
+    .financial-item.paid .financial-value { color: #276749; }
+    .financial-item.remaining .financial-value { color: #975a16; }
+    
+    /* Installments Table */
+    .installments-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      font-size: 13px;
+    }
+    .installments-table th {
+      background: #2c5282;
+      color: #fff;
+      padding: 12px 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+    .installments-table th:first-child { border-radius: 8px 0 0 0; }
+    .installments-table th:last-child { border-radius: 0 8px 0 0; }
+    .installments-table td {
+      padding: 10px;
+      text-align: center;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .installments-table tr:nth-child(even) { background: #f7fafc; }
+    .installments-table tr:hover { background: #edf2f7; }
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .status-paid { background: #c6f6d5; color: #276749; }
+    .status-pending { background: #fef3c7; color: #975a16; }
+    .status-overdue { background: #fed7d7; color: #c53030; }
+    .installments-table tfoot td {
+      background: #edf2f7;
+      font-weight: bold;
+      border-top: 2px solid #2c5282;
+    }
+    
+    /* Terms */
+    .terms-list {
+      list-style: none;
+      padding: 0;
+      counter-reset: terms;
+    }
+    .terms-list li {
+      position: relative;
+      padding: 10px 15px 10px 0;
+      margin-bottom: 10px;
+      background: #fff;
+      border-radius: 5px;
+      border-right: 4px solid #3182ce;
+      counter-increment: terms;
+    }
+    .terms-list li::before {
+      content: counter(terms) '.';
+      position: absolute;
+      right: -25px;
+      top: 10px;
+      width: 20px;
+      height: 20px;
+      background: #3182ce;
+      color: #fff;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    /* Signatures */
+    .signatures-section {
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 2px dashed #e2e8f0;
+    }
+    .signatures-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 50px;
+      padding: 0 30px;
     }
     .signature-box {
       text-align: center;
-      min-width: 200px;
-    }
-    .signature-line {
-      border-bottom: 1px solid #000;
-      height: 50px;
-      margin-bottom: 8px;
     }
     .signature-label {
       font-weight: bold;
+      color: #4a5568;
+      margin-bottom: 10px;
     }
+    .signature-line {
+      border-bottom: 2px solid #1a365d;
+      height: 60px;
+      margin-bottom: 8px;
+      background: linear-gradient(to bottom, transparent 90%, #f7fafc 100%);
+    }
+    .signature-name {
+      font-size: 12px;
+      color: #718096;
+    }
+    
+    /* Footer */
+    .footer {
+      background: #1a365d;
+      color: #fff;
+      padding: 15px 30px;
+      text-align: center;
+      font-size: 12px;
+      margin-top: 30px;
+    }
+    .footer-contact {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    .footer-contact span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
     @media print {
-      body { padding: 20px; }
+      body { padding: 0; }
+      .contract-container { border: none; }
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>نموذج حجز وحدة سكنية</h1>
-  </div>
-
-  <div class="section">
-    <div class="section-title">بيانات الطرفين:</div>
-    <div class="info-row">
-      <span class="label">• البائع:</span>
-      <span class="value">شركة طريق العامرة المالكة مشروع ${projectName}</span>
+  <div class="contract-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="company-name">${company.name}</div>
+      <div class="company-name-en">${company.nameEn || 'TARIQ AL-AMARAH COMPANY'}</div>
+      <div class="contract-title">📋 عقد حجز وحدة سكنية</div>
     </div>
-    <div class="info-row">
-      <span class="label">• المشتري:</span>
-      <span class="value">${booking.customer.name}</span>
+    
+    <!-- Contract Info Bar -->
+    <div class="contract-info-bar">
+      <div class="contract-info-item">
+        <div class="contract-info-label">رقم العقد</div>
+        <div class="contract-info-value">${contractNumber}</div>
+      </div>
+      <div class="contract-info-item">
+        <div class="contract-info-label">تاريخ التحرير</div>
+        <div class="contract-info-value">${formatDate(booking.date)}</div>
+      </div>
+      <div class="contract-info-item">
+        <div class="contract-info-label">صلاحية الحجز</div>
+        <div class="contract-info-value">${formatDate(expiryDate.toISOString())}</div>
+      </div>
+      <div class="contract-info-item">
+        <div class="contract-info-label">المشروع</div>
+        <div class="contract-info-value">${projectName}</div>
+      </div>
     </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">وصف الوحدة السكنية:</div>
-    <div class="info-row">
-      <span class="label">• المشروع:</span>
-      <span class="value">${projectName}</span>
+    
+    <div class="content">
+      <!-- Parties Section -->
+      <div class="section">
+        <div class="section-header">
+          <span class="icon">👥</span>
+          أطراف العقد
+        </div>
+        <div class="section-body">
+          <div class="parties-grid">
+            <div class="party-box seller">
+              <div class="party-title">الطرف الأول (البائع)</div>
+              <div class="party-name">${company.name}</div>
+              <div class="party-subtitle">المالكة لمشروع ${projectName}</div>
+            </div>
+            <div class="party-box buyer">
+              <div class="party-title">الطرف الثاني (المشتري)</div>
+              <div class="party-name">${booking.customer.name}</div>
+              <div class="party-subtitle">هاتف: ${booking.customer.phone || '---'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Unit Details -->
+      <div class="section">
+        <div class="section-header">
+          <span class="icon">🏠</span>
+          تفاصيل الوحدة السكنية
+        </div>
+        <div class="section-body">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">رقم الوحدة</span>
+              <span class="info-value highlight">${booking.unit.name}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">نوع الوحدة</span>
+              <span class="info-value">${booking.unit.type || 'سكني'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">المساحة</span>
+              <span class="info-value">${booking.unit.area ? booking.unit.area + ' م²' : '---'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">الموقع</span>
+              <span class="info-value">${booking.unit.building || 'واسط / الزبيدية'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Financial Details -->
+      <div class="section">
+        <div class="section-header">
+          <span class="icon">💰</span>
+          التفاصيل المالية
+        </div>
+        <div class="section-body">
+          <div class="financial-summary">
+            <div class="financial-item total">
+              <div class="financial-label">إجمالي قيمة الوحدة</div>
+              <div class="financial-value">${formatCurrency(booking.totalPrice)}</div>
+            </div>
+            <div class="financial-item paid">
+              <div class="financial-label">مبلغ الحجز (العربون)</div>
+              <div class="financial-value">${formatCurrency(booking.downPayment)}</div>
+            </div>
+            <div class="financial-item remaining">
+              <div class="financial-label">المبلغ المتبقي</div>
+              <div class="financial-value">${formatCurrency(booking.remainingAmount)}</div>
+            </div>
+          </div>
+          
+          <div class="info-grid" style="margin-top: 20px;">
+            <div class="info-item">
+              <span class="info-label">طريقة السداد</span>
+              <span class="info-value highlight">${paymentMethodDisplay}</span>
+            </div>
+            ${isInstallment ? `
+            <div class="info-item">
+              <span class="info-label">عدد الأقساط</span>
+              <span class="info-value highlight">${booking.installmentsCount} قسط</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+      
+      ${booking.scheduledPayments && booking.scheduledPayments.length > 0 ? `
+      <!-- Installments Schedule -->
+      <div class="section">
+        <div class="section-header">
+          <span class="icon">📅</span>
+          جدول الأقساط (${booking.scheduledPayments.length} قسط)
+        </div>
+        <div class="section-body" style="padding: 15px;">
+          <table class="installments-table">
+            <thead>
+              <tr>
+                <th>القسط</th>
+                <th>تاريخ الاستحقاق</th>
+                <th>المبلغ</th>
+                <th>الحالة</th>
+                <th>تاريخ الدفع</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${booking.scheduledPayments.map(payment => `
+                <tr>
+                  <td><strong>#${payment.installmentNumber}</strong></td>
+                  <td>${formatDateShort(payment.dueDate)}</td>
+                  <td><strong>${formatCurrency(payment.amount)}</strong></td>
+                  <td>
+                    <span class="status-badge ${payment.status === 'paid' ? 'status-paid' : payment.status === 'overdue' ? 'status-overdue' : 'status-pending'}">
+                      ${payment.status === 'paid' ? '✓ مدفوع' : payment.status === 'overdue' ? '⚠ متأخر' : '⏳ معلق'}
+                    </span>
+                  </td>
+                  <td>${payment.paidDate ? formatDateShort(payment.paidDate) : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2">الإجمالي</td>
+                <td><strong>${formatCurrency(booking.scheduledPayments.reduce((sum, p) => sum + p.amount, 0))}</strong></td>
+                <td colspan="2">
+                  ${booking.scheduledPayments.filter(p => p.status === 'paid').length} مدفوع / 
+                  ${booking.scheduledPayments.filter(p => p.status !== 'paid').length} متبقي
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      ` : ''}
+      
+      <!-- Terms -->
+      <div class="section">
+        <div class="section-header">
+          <span class="icon">📜</span>
+          الشروط والأحكام
+        </div>
+        <div class="section-body">
+          <ul class="terms-list">
+            <li>يعتبر هذا العقد حجزاً مبدئياً ولا يعد عقداً نهائياً للبيع إلا بعد استكمال جميع الإجراءات القانونية.</li>
+            <li>يلتزم المشتري باستكمال الدفعة الأولى وتوقيع العقد النهائي خلال فترة صلاحية الحجز المذكورة أعلاه.</li>
+            <li>في حال تراجع المشتري عن الحجز، يتم استقطاع 10% من مبلغ الحجز كرسوم إدارية.</li>
+            <li>تلتزم الشركة بتسليم الوحدة حسب المواصفات المتفق عليها وفي الموعد المحدد.</li>
+            <li>أي نزاع ينشأ عن هذا العقد يتم حله ودياً، وفي حال تعذر ذلك يُحال للمحاكم المختصة.</li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- Signatures -->
+      <div class="signatures-section">
+        <div class="signatures-grid">
+          <div class="signature-box">
+            <div class="signature-label">توقيع الطرف الأول (البائع)</div>
+            <div class="signature-line"></div>
+            <div class="signature-name">${company.name}</div>
+          </div>
+          <div class="signature-box">
+            <div class="signature-label">توقيع الطرف الثاني (المشتري)</div>
+            <div class="signature-line"></div>
+            <div class="signature-name">${booking.customer.name}</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="info-row">
-      <span class="label">• رقم الوحدة:</span>
-      <span class="value">${booking.unit.name}</span>
-    </div>
-    <div class="info-row">
-      <span class="label">• المساحة:</span>
-      <span class="value">${booking.unit.area ? booking.unit.area + ' م²' : booking.unit.type}</span>
-    </div>
-    <div class="info-row">
-      <span class="label">• المدينة/الحي:</span>
-      <span class="value">واسط / الزبيدية</span>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">تفاصيل الحجز المالي:</div>
-    <div class="info-row">
-      <span class="label">• إجمالي قيمة الوحدة:</span>
-      <span class="value">${formatCurrency(booking.totalPrice)}</span>
-    </div>
-    <div class="info-row">
-      <span class="label">• مبلغ الحجز (العربون):</span>
-      <span class="value">${formatCurrency(booking.downPayment)}</span>
-    </div>
-    <div class="info-row">
-      <span class="label">• طريقة السداد:</span>
-      <span class="value">${paymentMethodDisplay}</span>
-    </div>
-    <div class="info-row">
-      <span class="label">• تاريخ انتهاء صلاحية الحجز:</span>
-      <span class="value">${formatDate(expiryDate.toISOString())} (20 يوم بعد الحجز)</span>
-    </div>
-  </div>
-
-  ${booking.scheduledPayments && booking.scheduledPayments.length > 0 ? `
-  <div class="section">
-    <div class="section-title">جدول الدفعات المستحقة (${booking.scheduledPayments.length} قسط):</div>
-    <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px;">
-      <thead>
-        <tr style="background-color: #f5f5f5; border: 1px solid #ddd;">
-          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">القسط</th>
-          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">تاريخ الاستحقاق</th>
-          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">المبلغ</th>
-          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">الحالة</th>
-          <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">تاريخ الدفع</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${booking.scheduledPayments.map(payment => `
-          <tr style="border: 1px solid #ddd; ${payment.status === 'paid' ? 'background-color: #e8f5e9;' : payment.status === 'overdue' ? 'background-color: #ffebee;' : ''}">
-            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">#${payment.installmentNumber}</td>
-            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${formatDateShort(payment.dueDate)}</td>
-            <td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${formatCurrency(payment.amount)}</td>
-            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
-              ${payment.status === 'paid' 
-                ? '<span style="color: #4caf50; font-weight: bold;">✓ مدفوع</span>' 
-                : payment.status === 'overdue'
-                ? '<span style="color: #f44336; font-weight: bold;">⚠ متأخر</span>'
-                : '<span style="color: #ff9800; font-weight: bold;">⏳ معلق</span>'
-              }
-            </td>
-            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
-              ${payment.paidDate ? formatDateShort(payment.paidDate) : '—'}
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-      <tfoot>
-        <tr style="background-color: #f5f5f5; border: 1px solid #ddd; font-weight: bold;">
-          <td colspan="2" style="padding: 10px; text-align: right; border: 1px solid #ddd;">الإجمالي:</td>
-          <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">
-            ${formatCurrency(booking.scheduledPayments.reduce((sum, p) => sum + p.amount, 0))}
-          </td>
-          <td colspan="2" style="padding: 10px; text-align: center; border: 1px solid #ddd;">
-            ${booking.scheduledPayments.filter(p => p.status === 'paid').length} مدفوع / 
-            ${booking.scheduledPayments.filter(p => p.status === 'pending').length} معلق
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-  ` : ''}
-
-  <div class="section">
-    <div class="section-title">الشروط والأحكام:</div>
-    <ol class="terms-list">
-      <li>يعتبر هذا النموذج حجزاً مبدئياً ولا يعد عقداً للبيع إلا بعد استكمال الإجراءات.</li>
-      <li>يلتزم المشتري باستكمال الدفعة الأولى وتوقيع العقد النهائي في موعد أقصاه التاريخ المذكور أعلاه.</li>
-      <li>في حال تراجع المشتري، تخضع استرداد قيمة العربون لسياسة الشركة المتمثلة في (استقطاع 10% من دفع الحجز عند إلغاء الحجز).</li>
-    </ol>
-  </div>
-
-  <div class="signatures">
-    <div class="signature-box">
-      <div class="signature-line"></div>
-      <div class="signature-label">توقيع المشتري: ...........................</div>
-    </div>
-    <div class="signature-box">
-      <div class="signature-line"></div>
-      <div class="signature-label">توقيع البائع: ...........................</div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-contact">
+        <span>📍 ${company.address}</span>
+        <span>📞 ${company.phone}</span>
+        <span>✉️ ${company.email}</span>
+      </div>
     </div>
   </div>
 </body>

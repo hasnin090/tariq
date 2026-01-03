@@ -144,9 +144,10 @@ export interface Booking {
   status: 'Active' | 'Cancelled' | 'Completed';
   documents?: Document[];
   projectId?: string;
+  unitSaleId?: string; // رابط إلى جدول unit_sales
   // حقول خطة الدفع الجديدة
   paymentPlanYears?: 4 | 5;  // 4 سنوات أو 5 سنوات
-  paymentFrequencyMonths?: 1 | 2 | 3 | 4 | 5;  // شهري أو كل 2/3/4/5 أشهر
+  paymentFrequencyMonths?: 1 | 2 | 3 | 4 | 5 | 6 | 12;  // شهري أو كل 2/3/4/5/6/12 أشهر
   paymentStartDate?: string;  // تاريخ بدء الدفعات
   monthlyAmount?: number;  // المبلغ الشهري المحسوب
   installmentAmount?: number;  // مبلغ الدفعة الواحدة
@@ -167,6 +168,7 @@ export interface ScheduledPayment {
   notificationSent?: boolean;
   notificationSentAt?: string;
   notes?: string;
+  attachment_id?: string; // رابط إلى جدول payment_attachments
   // بيانات مضافة من JOIN
   unitName?: string;
   customerName?: string;
@@ -196,7 +198,7 @@ export interface Payment {
     bookingId: string;
     amount: number;
     paymentDate: string;
-    paymentType: 'booking' | 'installment' | 'final'; // نوع الدفعة
+    paymentType: 'booking' | 'installment' | 'final' | 'extra'; // نوع الدفعة (extra = دفعة إضافية خارج الخطة)
     accountId?: string;
     accountName?: string;
     notes?: string;

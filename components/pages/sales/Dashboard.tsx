@@ -304,11 +304,17 @@ const Dashboard: React.FC = () => {
                 })
                 : unitSales;
 
-            // Calculate total revenue from payments + bookings amountPaid + unitSales
+            // Calculate total revenue.
+            // NOTE: `bookings.amountPaid` is maintained by DB trigger as SUM(payments.amount) in most setups,
+            // so adding it alongside payments would double-count. To stay compatible with legacy data,
+            // only include booking.amountPaid when no payments rows exist for that booking.
             const paymentsRevenue = filteredPayments.reduce((sum, payment) => sum + payment.amount, 0);
-            const bookingsRevenue = filteredBookings.reduce((sum, booking) => sum + (booking.amountPaid || 0), 0);
+            const bookingIdsWithPayments = new Set(filteredPayments.map(p => p.bookingId));
+            const bookingsRevenueLegacyOnly = filteredBookings
+                .filter(b => !bookingIdsWithPayments.has(b.id))
+                .reduce((sum, booking) => sum + (booking.amountPaid || 0), 0);
             const salesRevenue = filteredUnitSales.reduce((sum, sale) => sum + sale.finalSalePrice, 0);
-            const totalRevenue = paymentsRevenue + bookingsRevenue + salesRevenue;
+            const totalRevenue = paymentsRevenue + bookingsRevenueLegacyOnly + salesRevenue;
             
             const statusCounts = filteredUnits.reduce((acc, unit) => {
                 acc[unit.status] = (acc[unit.status] || 0) + 1;
@@ -382,8 +388,10 @@ const Dashboard: React.FC = () => {
             }
         });
 
-        // Add bookings initial payments revenue
+        // Add bookings legacy revenue only (when booking.amountPaid is not represented in payments rows)
+        const bookingIdsWithPayments = new Set(payments.map(p => p.bookingId));
         bookings.forEach(booking => {
+            if (bookingIdsWithPayments.has(booking.id)) return;
             const bookingDate = new Date(booking.bookingDate);
             if (bookingDate >= sixMonthsAgo && booking.amountPaid) {
                 const monthDiff = (bookingDate.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (bookingDate.getMonth() - sixMonthsAgo.getMonth());

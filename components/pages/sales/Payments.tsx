@@ -13,6 +13,9 @@ import ConfirmModal from '../../shared/ConfirmModal';
 import AmountInput from '../../shared/AmountInput';
 import { PrintReceiptButton } from '../../shared/PrintComponents';
 import { PaymentInfo, generateReceiptNumber } from '../../../utils/printService';
+import ExtraPaymentModal from '../../shared/ExtraPaymentModal';
+import { RefreshCw } from 'lucide-react';
+import { supabase } from '../../../src/lib/supabase';
 
 // نوع لتجميع الدفعات حسب الحجز
 interface BookingPaymentGroup {
@@ -61,6 +64,16 @@ const Payments: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     // الدفعات المجدولة لكل حجز
     const [scheduledPaymentsByBooking, setScheduledPaymentsByBooking] = useState<Map<string, ScheduledPayment[]>>(new Map());
+
+    // Extra payment (with reschedule) from payments page
+    const [showExtraPaymentModal, setShowExtraPaymentModal] = useState(false);
+    const [extraPaymentBookingId, setExtraPaymentBookingId] = useState<string | null>(null);
+    const [savedPaymentAmount, setSavedPaymentAmount] = useState<number>(0); // مبلغ الدفعة المحفوظة لإعادة الاحتساب
+
+    // خيارات إعادة احتساب الأقساط المدمجة في نموذج إضافة الدفعة
+    const [paymentPlanYears, setPaymentPlanYears] = useState<4 | 5>(5);
+    const [paymentFrequencyMonths, setPaymentFrequencyMonths] = useState<1 | 2 | 3 | 4 | 5 | 6 | 12>(1);
+    const [rescheduleStartDate, setRescheduleStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
     // تجميع الدفعات حسب الحجز
     const groupedPayments = useMemo(() => {
@@ -416,6 +429,22 @@ const Payments: React.FC = () => {
                 return;
             }
 
+            // التحقق من وجود خطة دفعات وأقساط غير مدفوعة
+            const scheduled = scheduledPaymentsByBooking.get(booking.id) || [];
+            const pendingCount = scheduled.filter(sp => sp.status !== 'paid').length;
+            const hasPaymentPlan = Boolean(booking.paymentPlanYears) && pendingCount > 0;
+            
+            // ✅ تحديد نوع الدفعة:
+            // - 'final': إذا اكتمل السداد
+            // - 'extra': إذا كانت دفعة إضافية خارج خطة الأقساط (لتجنب trigger الربط التلقائي)
+            // - 'installment': للدفعات العادية بدون خطة أقساط
+            let paymentType: 'booking' | 'installment' | 'final' | 'extra' = 'installment';
+            if (newTotalPaid >= unit.price) {
+                paymentType = 'final';
+            } else if (hasPaymentPlan) {
+                paymentType = 'extra'; // دفعة إضافية - لن يربطها trigger تلقائياً
+            }
+            
             const payment: Omit<Payment, 'id' | 'remainingAmount'> = {
                 bookingId: booking.id,
                 customerId: booking.customerId,
@@ -424,7 +453,7 @@ const Payments: React.FC = () => {
                 unitName: booking.unitName,
                 amount: newPayment.amount,
                 paymentDate: newPayment.paymentDate,
-                paymentType: newTotalPaid >= unit.price ? 'final' : 'installment', // ✅ دفعة نهائية إذا اكتمل السداد
+                paymentType: paymentType,
                 unitPrice: unit.price,
                 accountId: 'account_default_cash',
             };
@@ -471,7 +500,122 @@ const Payments: React.FC = () => {
                 addToast('تم إضافة الدفعة واكتمال سداد الوحدة بنجاح 🎉', 'success');
                 logActivity('Payment Complete', `Booking ${booking.id} completed - Unit ${unit.name} marked as Sold`, 'projects');
             } else {
-                addToast('تم إضافة الدفعة بنجاح', 'success');
+                // التحقق من وجود خطة دفعات وأقساط غير مدفوعة - إذا نعم، نفذ إعادة الجدولة مباشرة
+                const scheduled = scheduledPaymentsByBooking.get(booking.id) || [];
+                const pendingCount = scheduled.filter(sp => sp.status !== 'paid').length;
+                const hasPaymentPlan = Boolean(booking.paymentPlanYears) && pendingCount > 0;
+                
+                if (hasPaymentPlan) {
+                    // تنفيذ إعادة الجدولة مباشرة
+                    try {
+                        const today = new Date().toISOString().split('T')[0];
+                        
+                        // جلب الأقساط الحالية من قاعدة البيانات
+                        const { data: scheduledRows, error: scheduledFetchError } = await supabase
+                            .from('scheduled_payments')
+                            .select('*')
+                            .eq('booking_id', booking.id)
+                            .order('installment_number', { ascending: true });
+                        
+                        if (scheduledFetchError) throw scheduledFetchError;
+                        
+                        const scheduledPayments = (scheduledRows || []) as any[];
+                        const paidInstallments = scheduledPayments.filter(sp => sp.status === 'paid');
+                        const unpaidInstallments = scheduledPayments.filter(sp => sp.status !== 'paid');
+                        const maxPaidInstallmentNumber = paidInstallments.reduce((max, sp) => Math.max(max, Number(sp.installment_number || 0)), 0);
+                        
+                        // حساب الرصيد المتبقي بعد الدفعة
+                        const remainingAfterPayment = remaining - newPayment.amount;
+                        
+                        // إذا تم تسديد كل المبلغ
+                        if (remainingAfterPayment <= 0) {
+                            for (const sp of unpaidInstallments) {
+                                const { error: markPaidError } = await supabase
+                                    .from('scheduled_payments')
+                                    .update({
+                                        status: 'paid',
+                                        paid_amount: 0,
+                                        paid_date: today,
+                                        payment_id: 'extra_payment_covered',
+                                        updated_at: new Date().toISOString(),
+                                    })
+                                    .eq('id', sp.id);
+                                if (markPaidError) throw markPaidError;
+                            }
+                        } else {
+                            // إنشاء خطة جديدة للمتبقي
+                            const newCount = Math.ceil((paymentPlanYears * 12) / paymentFrequencyMonths);
+                            
+                            // حذف الأقساط غير المدفوعة الحالية
+                            if (unpaidInstallments.length > 0) {
+                                const { error: deleteError } = await supabase
+                                    .from('scheduled_payments')
+                                    .delete()
+                                    .eq('booking_id', booking.id)
+                                    .neq('status', 'paid');
+                                if (deleteError) throw deleteError;
+                            }
+                            
+                            const scheduledToInsert: any[] = [];
+                            let currentDate = new Date(rescheduleStartDate);
+                            let totalScheduled = 0;
+                            
+                            for (let i = 1; i <= newCount; i++) {
+                                let installmentAmount = Math.round((remainingAfterPayment / newCount) * 100) / 100;
+                                if (i === newCount) {
+                                    installmentAmount = Math.round((remainingAfterPayment - totalScheduled) * 100) / 100;
+                                }
+                                totalScheduled += installmentAmount;
+                                
+                                scheduledToInsert.push({
+                                    booking_id: booking.id,
+                                    installment_number: maxPaidInstallmentNumber + i,
+                                    due_date: currentDate.toISOString().split('T')[0],
+                                    amount: installmentAmount,
+                                    status: 'pending',
+                                    paid_amount: 0,
+                                    notification_sent: false,
+                                    updated_at: new Date().toISOString(),
+                                });
+                                
+                                currentDate.setMonth(currentDate.getMonth() + paymentFrequencyMonths);
+                            }
+                            
+                            if (scheduledToInsert.length > 0) {
+                                const { error: insError } = await supabase
+                                    .from('scheduled_payments')
+                                    .insert(scheduledToInsert);
+                                if (insError) throw insError;
+                            }
+                            
+                            // تحديث بيانات الخطة على الحجز
+                            const totalMonths = paymentPlanYears * 12;
+                            const monthlyAmount = Math.round((remainingAfterPayment / totalMonths) * 100) / 100;
+                            const installmentAmount = Math.round((monthlyAmount * paymentFrequencyMonths) * 100) / 100;
+                            
+                            const { error: bookingUpdateError } = await supabase
+                                .from('bookings')
+                                .update({
+                                    payment_plan_years: paymentPlanYears,
+                                    payment_frequency_months: paymentFrequencyMonths,
+                                    payment_start_date: rescheduleStartDate,
+                                    monthly_amount: monthlyAmount,
+                                    installment_amount: installmentAmount,
+                                    total_installments: maxPaidInstallmentNumber + newCount,
+                                    updated_at: new Date().toISOString(),
+                                })
+                                .eq('id', booking.id);
+                            if (bookingUpdateError) throw bookingUpdateError;
+                        }
+                        
+                        addToast('تم إضافة الدفعة وإعادة احتساب الأقساط بنجاح ✓', 'success');
+                    } catch (rescheduleError) {
+                        console.error('Error rescheduling payments:', rescheduleError);
+                        addToast('تم حفظ الدفعة لكن فشلت إعادة الجدولة', 'warning');
+                    }
+                } else {
+                    addToast('تم إضافة الدفعة بنجاح', 'success');
+                }
             }
             
             setShowAddPayment(false);
@@ -484,6 +628,10 @@ const Payments: React.FC = () => {
             if (receiptInputRef.current) {
                 receiptInputRef.current.value = '';
             }
+            // إعادة تعيين خيارات إعادة احتساب الأقساط
+            setPaymentPlanYears(5);
+            setPaymentFrequencyMonths(1);
+            setRescheduleStartDate(new Date().toISOString().split('T')[0]);
             await loadAllData();
         } catch (error) {
             console.error('Error saving payment:', error);
@@ -956,7 +1104,32 @@ const Payments: React.FC = () => {
                                     </label>
                                     <select
                                         value={newPayment.bookingId}
-                                        onChange={(e) => setNewPayment({ ...newPayment, bookingId: e.target.value })}
+                                        onChange={(e) => {
+                                            const selectedBookingId = e.target.value;
+                                            setNewPayment({ ...newPayment, bookingId: selectedBookingId });
+                                            
+                                            // تحميل قيم خطة الدفع الحالية من الحجز المختار
+                                            if (selectedBookingId) {
+                                                const selectedBooking = bookings.find(b => b.id === selectedBookingId);
+                                                if (selectedBooking) {
+                                                    // استخدام قيم الخطة الحالية كقيم افتراضية
+                                                    if (selectedBooking.paymentPlanYears) {
+                                                        setPaymentPlanYears(selectedBooking.paymentPlanYears as 4 | 5);
+                                                    }
+                                                    if (selectedBooking.paymentFrequencyMonths) {
+                                                        setPaymentFrequencyMonths(selectedBooking.paymentFrequencyMonths as 1 | 2 | 3 | 4 | 5 | 6 | 12);
+                                                    }
+                                                    // تاريخ البداية: استخدام تاريخ أول قسط متبقي أو التاريخ الحالي
+                                                    const scheduled = scheduledPaymentsByBooking.get(selectedBookingId) || [];
+                                                    const nextPending = scheduled.find(sp => sp.status !== 'paid');
+                                                    if (nextPending?.dueDate) {
+                                                        setRescheduleStartDate(nextPending.dueDate);
+                                                    } else {
+                                                        setRescheduleStartDate(new Date().toISOString().split('T')[0]);
+                                                    }
+                                                }
+                                            }
+                                        }}
                                         className="input-field"
                                     >
                                         <option value="">اختر حجز</option>
@@ -1076,6 +1249,131 @@ const Payments: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* قسم إعادة جدولة الأقساط - يظهر فقط إذا كان للحجز خطة دفعات */}
+                                {newPayment.bookingId && (() => {
+                                    const booking = bookings.find(b => b.id === newPayment.bookingId);
+                                    if (!booking) return null;
+                                    
+                                    const scheduled = scheduledPaymentsByBooking.get(booking.id) || [];
+                                    const pendingCount = scheduled.filter(sp => sp.status !== 'paid').length;
+                                    const hasPaymentPlan = Boolean(booking.paymentPlanYears) && pendingCount > 0;
+                                    
+                                    if (!hasPaymentPlan) return null;
+                                    
+                                    const unit = units.find(u => u.id === booking.unitId);
+                                    const unitPrice = unit?.price || 0;
+                                    const totalPaid = payments.filter(p => p.bookingId === booking.id).reduce((sum, p) => sum + p.amount, 0);
+                                    const paymentAmount = typeof newPayment.amount === 'number' ? newPayment.amount : 0;
+                                    const newRemainingBalance = unitPrice - totalPaid - paymentAmount;
+                                    
+                                    // حسابات المعاينة
+                                    const previewNewPlanInstallments = Math.ceil((paymentPlanYears * 12) / paymentFrequencyMonths);
+                                    const previewNewPlanInstallmentAmount = newRemainingBalance > 0 
+                                        ? newRemainingBalance / previewNewPlanInstallments 
+                                        : 0;
+                                    
+                                    // عرض تكرار الخطة الحالية
+                                    const frequencyLabels: Record<number, string> = {
+                                        1: 'شهري', 2: 'كل شهرين', 3: 'ربع سنوي', 
+                                        4: 'كل 4 أشهر', 5: 'كل 5 أشهر', 6: 'نصف سنوي', 12: 'سنوي'
+                                    };
+                                    const currentFrequencyLabel = frequencyLabels[booking.paymentFrequencyMonths || 1] || 'شهري';
+                                    
+                                    return (
+                                        <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-5 mt-4">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <RefreshCw className="h-5 w-5 text-amber-400" />
+                                                <h4 className="text-lg font-semibold text-amber-300">إعادة احتساب الأقساط</h4>
+                                            </div>
+                                            
+                                            {/* عرض الخطة الحالية */}
+                                            <div className="bg-slate-700/50 rounded-lg p-3 mb-4">
+                                                <div className="text-xs text-slate-400 mb-2">الخطة الحالية للحجز:</div>
+                                                <div className="flex gap-4 text-sm">
+                                                    <span className="text-white">
+                                                        <span className="text-slate-400">المدة:</span> {booking.paymentPlanYears || 5} سنوات
+                                                    </span>
+                                                    <span className="text-white">
+                                                        <span className="text-slate-400">التكرار:</span> {currentFrequencyLabel}
+                                                    </span>
+                                                    <span className="text-white">
+                                                        <span className="text-slate-400">أقساط متبقية:</span> {pendingCount}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            
+                                            <p className="text-slate-400 text-sm mb-4">
+                                                سيتم إعادة توزيع المبلغ المتبقي ({formatCurrency(newRemainingBalance > 0 ? newRemainingBalance : 0)}) على أقساط جديدة. يمكنك تعديل الخطة أدناه:
+                                            </p>
+                                            
+                                            {/* خيارات الخطة الجديدة */}
+                                            <div className="bg-blue-500/10 rounded-lg p-4 space-y-4 mb-4">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-slate-300 text-sm mb-2">مدة الخطة</label>
+                                                        <select
+                                                            value={paymentPlanYears}
+                                                            onChange={(e) => setPaymentPlanYears(Number(e.target.value) as 4 | 5)}
+                                                            className="input-field text-sm"
+                                                        >
+                                                            <option value={4}>4 سنوات</option>
+                                                            <option value={5}>5 سنوات</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-slate-300 text-sm mb-2">التكرار</label>
+                                                        <select
+                                                            value={paymentFrequencyMonths}
+                                                            onChange={(e) => setPaymentFrequencyMonths(Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 | 12)}
+                                                            className="input-field text-sm"
+                                                        >
+                                                            <option value={1}>شهري</option>
+                                                            <option value={2}>كل شهرين</option>
+                                                            <option value={3}>ربع سنوي</option>
+                                                            <option value={4}>كل 4 أشهر</option>
+                                                            <option value={5}>كل 5 أشهر</option>
+                                                            <option value={6}>نصف سنوي</option>
+                                                            <option value={12}>سنوي</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-slate-300 text-sm mb-2">تاريخ بداية الخطة الجديدة</label>
+                                                    <input
+                                                        type="date"
+                                                        value={rescheduleStartDate}
+                                                        onChange={(e) => setRescheduleStartDate(e.target.value)}
+                                                        className="input-field text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                            
+                                            {/* معاينة النتيجة */}
+                                            {paymentAmount > 0 && newRemainingBalance > 0 && (
+                                                <div className="bg-slate-800/50 rounded-lg p-4">
+                                                    <div className="text-sm text-slate-400 mb-2">معاينة النتيجة:</div>
+                                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="text-slate-400">المتبقي بعد الدفعة:</span>
+                                                            <p className="text-amber-400 font-bold">{formatCurrency(newRemainingBalance)}</p>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-slate-400">عدد الأقساط:</span>
+                                                            <p className="text-white font-bold">{previewNewPlanInstallments}</p>
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                            <span className="text-slate-400">مبلغ كل قسط:</span>
+                                                            <p className="text-emerald-400 font-bold text-lg">
+                                                                {formatCurrency(previewNewPlanInstallmentAmount)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
                             <div className="flex gap-3 mt-6">
@@ -1084,8 +1382,9 @@ const Payments: React.FC = () => {
                                     disabled={isUploading}
                                     className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {isUploading ? 'جاري الحفظ...' : 'حفظ'}
+                                    {isUploading ? 'جاري الحفظ...' : 'اكمل'}
                                 </button>
+
                                 <button
                                     onClick={() => {
                                         setShowAddPayment(false);
@@ -1093,6 +1392,15 @@ const Payments: React.FC = () => {
                                         if (receiptInputRef.current) {
                                             receiptInputRef.current.value = '';
                                         }
+                                        // إعادة تعيين خيارات إعادة احتساب الأقساط
+                                        setNewPayment({
+                                            bookingId: '',
+                                            amount: '' as number | '',
+                                            paymentDate: new Date().toISOString().split('T')[0],
+                                        });
+                                        setPaymentPlanYears(5);
+                                        setPaymentFrequencyMonths(1);
+                                        setRescheduleStartDate(new Date().toISOString().split('T')[0]);
                                     }}
                                     className="flex-1 bg-white/10 text-slate-200 px-6 py-2.5 rounded-lg font-semibold hover:bg-white/20 transition-colors border border-white/20"
                                 >
@@ -1103,6 +1411,46 @@ const Payments: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Extra Payment Modal (opened from سجل الدفعات) */}
+            {showExtraPaymentModal && extraPaymentBookingId && (() => {
+                const booking = bookings.find(b => b.id === extraPaymentBookingId);
+                if (!booking) return null;
+
+                const group = groupedPayments.find(g => g.bookingId === extraPaymentBookingId);
+                const scheduled = scheduledPaymentsByBooking.get(extraPaymentBookingId) || [];
+                const pendingCount = scheduled.filter(sp => sp.status !== 'paid').length;
+
+                // For compatibility, pass best-effort remaining; modal computes true remaining from ledger.
+                const fallbackRemaining = group?.remaining ?? 0;
+
+                return (
+                    <ExtraPaymentModal
+                        isOpen={showExtraPaymentModal}
+                        onClose={() => {
+                            setShowExtraPaymentModal(false);
+                            setExtraPaymentBookingId(null);
+                            setSavedPaymentAmount(0);
+                        }}
+                        onPaymentComplete={async () => {
+                            await loadAllData();
+                            addToast('تم إعادة احتساب الأقساط بنجاح', 'success');
+                        }}
+                        bookingId={extraPaymentBookingId}
+                        unitSaleId={booking.unitSaleId || ''}
+                        customerId={booking.customerId}
+                        customerName={booking.customerName}
+                        remainingBalance={fallbackRemaining}
+                        pendingInstallments={pendingCount}
+                        projectId={activeProject?.id}
+                        currentPaymentPlanYears={booking.paymentPlanYears}
+                        currentPaymentFrequencyMonths={booking.paymentFrequencyMonths}
+                        currentPaymentStartDate={booking.paymentStartDate}
+                        skipPaymentCreation={savedPaymentAmount > 0}
+                        prefilledAmount={savedPaymentAmount}
+                    />
+                );
+            })()}
 
             {showCustomerPayments && selectedCustomer ? (
                 <div>
@@ -1376,6 +1724,13 @@ const Payments: React.FC = () => {
                                         {/* تفاصيل الدفعات - تظهر عند التوسيع */}
                                         {isExpanded && (
                                             <div className="border-t border-white/10 bg-white/5">
+                                                {/* جدول الدفعات الرئيسية (حجز + إضافية + نهائية) */}
+                                                <div className="p-3 border-b border-white/10">
+                                                    <h4 className="text-sm font-semibold text-blue-300 flex items-center gap-2">
+                                                        <CreditCardIcon className="h-4 w-4" />
+                                                        الدفعات الرئيسية
+                                                    </h4>
+                                                </div>
                                                 <div className="overflow-x-auto">
                                                     <table className="w-full text-right">
                                                         <thead>
@@ -1384,21 +1739,29 @@ const Payments: React.FC = () => {
                                                                 <th className="p-3 font-semibold text-sm text-slate-300">تاريخ الدفعة</th>
                                                                 <th className="p-3 font-semibold text-sm text-slate-300">نوع الدفعة</th>
                                                                 <th className="p-3 font-semibold text-sm text-slate-300">المبلغ</th>
-                                                                <th className="p-3 font-semibold text-sm text-slate-300">إجمالي المدفوع</th>
                                                                 <th className="p-3 font-semibold text-sm text-slate-300">المتبقي بعد الدفعة</th>
                                                                 <th className="p-3 font-semibold text-sm text-slate-300">إجراءات</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             {(() => {
+                                                                // تصفية الدفعات: إظهار فقط دفعة الحجز والدفعات الإضافية والنهائية
+                                                                // الأقساط (installment) تظهر في جدول الأقساط المجدولة
+                                                                const mainPayments = group.payments.filter(p => 
+                                                                    p.paymentType === 'booking' || 
+                                                                    p.paymentType === 'extra' || 
+                                                                    p.paymentType === 'final'
+                                                                );
+                                                                
                                                                 let runningTotal = 0;
-                                                                return group.payments.map((payment, index) => {
+                                                                return mainPayments.map((payment, index) => {
                                                                     runningTotal += payment.amount;
                                                                     const remainingAfter = group.unitPrice - runningTotal;
                                                                     const isBookingPayment = payment.paymentType === 'booking';
+                                                                    const isExtraPayment = payment.paymentType === 'extra';
                                                                     const paymentTypeLabel = payment.paymentType === 'booking' ? 'دفعة الحجز الأولى' 
                                                                                            : payment.paymentType === 'final' ? 'دفعة نهائية'
-                                                                                           : `قسط ${index}`;
+                                                                                           : 'دفعة إضافية';
                                                                     
                                                                     return (
                                                                         <tr key={payment.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
@@ -1410,13 +1773,14 @@ const Payments: React.FC = () => {
                                                                                         ? 'bg-blue-500/20 text-blue-300' 
                                                                                         : payment.paymentType === 'final'
                                                                                         ? 'bg-purple-500/20 text-purple-300'
+                                                                                        : isExtraPayment
+                                                                                        ? 'bg-amber-500/20 text-amber-300'
                                                                                         : 'bg-emerald-500/20 text-emerald-300'
                                                                                 }`}>
                                                                                     {paymentTypeLabel}
                                                                                 </span>
                                                                             </td>
                                                                             <td className="p-3 font-semibold text-emerald-400">{formatCurrency(payment.amount)}</td>
-                                                                            <td className="p-3 font-semibold text-blue-400">{formatCurrency(runningTotal)}</td>
                                                                             <td className="p-3 font-semibold text-amber-400">{formatCurrency(remainingAfter)}</td>
                                                                             <td className="p-3 flex items-center gap-2">
                                                                                 {/* زر طباعة الإيصال */}
@@ -1536,6 +1900,51 @@ const Payments: React.FC = () => {
                                                                             </div>
                                                                         )}
                                                                         
+                                                                        {/* زر إلغاء التسديد للأقساط المدفوعة */}
+                                                                        {scheduledPayment.status === 'paid' && currentUser?.role === 'Admin' && (
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    if (!confirm(`هل أنت متأكد من إلغاء تسديد القسط رقم ${scheduledPayment.installmentNumber}؟\nسيتم حذف سجل الدفعة المرتبطة.`)) {
+                                                                                        return;
+                                                                                    }
+                                                                                    
+                                                                                    try {
+                                                                                        const today = new Date().toISOString().split('T')[0];
+                                                                                        let newStatus: 'pending' | 'overdue' = 'pending';
+                                                                                        if (new Date(scheduledPayment.dueDate) < new Date(today)) {
+                                                                                            newStatus = 'overdue';
+                                                                                        }
+                                                                                        
+                                                                                        // حذف الدفعة المرتبطة إن وجدت
+                                                                                        if (scheduledPayment.paymentId && scheduledPayment.paymentId !== 'extra_payment_covered') {
+                                                                                            try {
+                                                                                                await paymentsService.delete(scheduledPayment.paymentId);
+                                                                                            } catch (e) {
+                                                                                                console.warn('Could not delete linked payment');
+                                                                                            }
+                                                                                        }
+                                                                                        
+                                                                                        // إعادة القسط لحالة غير مدفوع
+                                                                                        await scheduledPaymentsService.update(scheduledPayment.id, {
+                                                                                            status: newStatus,
+                                                                                            paidAmount: 0,
+                                                                                            paidDate: null,
+                                                                                            paymentId: null,
+                                                                                        });
+                                                                                        
+                                                                                        addToast(`تم إلغاء تسديد القسط رقم ${scheduledPayment.installmentNumber}`, 'success');
+                                                                                        loadAllData();
+                                                                                    } catch (error) {
+                                                                                        console.error('Error unmarking payment:', error);
+                                                                                        addToast('خطأ في إلغاء التسديد', 'error');
+                                                                                    }
+                                                                                }}
+                                                                                className="mt-3 w-full py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30"
+                                                                            >
+                                                                                ↩ إلغاء التسديد
+                                                                            </button>
+                                                                        )}
+                                                                        
                                                                         {/* زر تسديد القسط */}
                                                                         {scheduledPayment.status !== 'paid' && (
                                                                             <button
@@ -1543,13 +1952,24 @@ const Payments: React.FC = () => {
                                                                                     // التحقق من التسلسل
                                                                                     const allScheduledForBooking = scheduledPaymentsByBooking.get(group.bookingId) || [];
                                                                                     const sortedScheduled = allScheduledForBooking.sort((a, b) => a.installmentNumber - b.installmentNumber);
+                                                                                    const today = new Date().toISOString().split('T')[0];
                                                                                     
                                                                                     // إذا كان القسط الأول، يمكن تسديده مباشرة
                                                                                     if (scheduledPayment.installmentNumber === 1) {
                                                                                         try {
+                                                                                            // Create a real payment row so totals/remaining update everywhere
+                                                                                            const createdPayment = await paymentsService.create({
+                                                                                                bookingId: group.bookingId,
+                                                                                                amount: scheduledPayment.amount,
+                                                                                                paymentDate: today,
+                                                                                                paymentType: 'installment',
+                                                                                                notes: `قسط مجدول #${scheduledPayment.installmentNumber}`,
+                                                                                            });
                                                                                             await scheduledPaymentsService.update(scheduledPayment.id, {
                                                                                                 status: 'paid',
-                                                                                                paidDate: new Date().toISOString().split('T')[0]
+                                                                                                paidAmount: scheduledPayment.amount,
+                                                                                                paidDate: today,
+                                                                                                paymentId: createdPayment?.id,
                                                                                             });
                                                                                             addToast('تم تسديد القسط بنجاح ✅', 'success');
                                                                                             loadAllData(); // إعادة تحميل البيانات
@@ -1575,9 +1995,19 @@ const Payments: React.FC = () => {
                                                                                     
                                                                                     // يمكن تسديده
                                                                                     try {
+                                                                                        // Create a real payment row so totals/remaining update everywhere
+                                                                                        const createdPayment = await paymentsService.create({
+                                                                                            bookingId: group.bookingId,
+                                                                                            amount: scheduledPayment.amount,
+                                                                                            paymentDate: today,
+                                                                                            paymentType: 'installment',
+                                                                                            notes: `قسط مجدول #${scheduledPayment.installmentNumber}`,
+                                                                                        });
                                                                                         await scheduledPaymentsService.update(scheduledPayment.id, {
                                                                                             status: 'paid',
-                                                                                            paidDate: new Date().toISOString().split('T')[0]
+                                                                                            paidAmount: scheduledPayment.amount,
+                                                                                            paidDate: today,
+                                                                                            paymentId: createdPayment?.id,
                                                                                         });
                                                                                         addToast('تم تسديد القسط بنجاح ✅', 'success');
                                                                                         loadAllData(); // إعادة تحميل البيانات

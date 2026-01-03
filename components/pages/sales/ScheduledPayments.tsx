@@ -2,10 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ScheduledPayment, PaymentNotification, Booking, Customer } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useProject } from '../../../contexts/ProjectContext';
-import { scheduledPaymentsService, paymentNotificationsService, bookingsService, customersService } from '../../../src/services/supabaseService';
+import { scheduledPaymentsService, paymentNotificationsService, bookingsService, customersService, paymentsService } from '../../../src/services/supabaseService';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import ProjectSelector from '../../shared/ProjectSelector';
 import Modal from '../../shared/Modal';
+import PaymentAttachmentModal from '../../shared/PaymentAttachmentModal';
+import ExtraPaymentModal from '../../shared/ExtraPaymentModal';
 
 export const ScheduledPayments: React.FC = () => {
     const { addToast } = useToast();
@@ -20,6 +22,12 @@ export const ScheduledPayments: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'upcoming' | 'overdue' | 'paid' | 'notifications'>('upcoming');
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<ScheduledPayment | null>(null);
+    
+    // حالات المرفقات والدفع الإضافي
+    const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+    const [showExtraPaymentModal, setShowExtraPaymentModal] = useState(false);
+    const [pendingPayment, setPendingPayment] = useState<ScheduledPayment | null>(null);
+    const [selectedUnitSaleId, setSelectedUnitSaleId] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
@@ -136,17 +144,98 @@ export const ScheduledPayments: React.FC = () => {
 
     // تحديث حالة الدفعة إلى مدفوعة
     const handleMarkAsPaid = async (payment: ScheduledPayment) => {
+        // حفظ الدفعة المعلقة وفتح نافذة رفع المرفق
+        setPendingPayment(payment);
+        setShowAttachmentModal(true);
+    };
+    
+    // إتمام التسديد بعد رفع المرفق
+    const completePaymentProcess = async (attachmentId: string) => {
+        if (!pendingPayment) return;
+        
         try {
-            await scheduledPaymentsService.update(payment.id, {
+            const today = new Date().toISOString().split('T')[0];
+            const amountToPay = Math.max(0, pendingPayment.amount - (pendingPayment.paidAmount || 0));
+
+            // Create a real payment row so totals/remaining are consistent everywhere
+            const createdPayment = await paymentsService.create({
+                bookingId: pendingPayment.bookingId,
+                amount: amountToPay,
+                paymentDate: today,
+                paymentType: 'installment',
+                notes: `قسط مجدول #${pendingPayment.installmentNumber}`,
+            });
+
+            await scheduledPaymentsService.update(pendingPayment.id, {
                 status: 'paid',
-                paidDate: new Date().toISOString().split('T')[0],
+                paidAmount: pendingPayment.amount,
+                paidDate: today,
+                paymentId: createdPayment?.id,
+                attachment_id: attachmentId || null,
             });
             addToast('تم تسجيل الدفعة بنجاح', 'success');
+            setPendingPayment(null);
             await loadData();
         } catch (error) {
             console.error('Error marking payment as paid:', error);
             addToast('خطأ في تسجيل الدفعة', 'error');
         }
+    };
+    
+    // إلغاء تسديد قسط (للمدير فقط)
+    const handleUnmarkAsPaid = async (payment: ScheduledPayment) => {
+        if (!payment || payment.status !== 'paid') {
+            addToast('هذا القسط غير مدفوع أصلاً', 'error');
+            return;
+        }
+        
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const dueDate = payment.dueDate;
+            
+            // تحديد الحالة الجديدة بناءً على تاريخ الاستحقاق
+            let newStatus: 'pending' | 'overdue' = 'pending';
+            if (dueDate && new Date(dueDate) < new Date(today)) {
+                newStatus = 'overdue';
+            }
+            
+            // إذا كان هناك دفعة مرتبطة في جدول payments، احذفها
+            if (payment.paymentId && payment.paymentId !== 'extra_payment_covered') {
+                try {
+                    await paymentsService.delete(payment.paymentId);
+                } catch (deleteErr) {
+                    console.warn('Could not delete linked payment:', deleteErr);
+                    // نستمر حتى لو فشل الحذف
+                }
+            }
+            
+            // إعادة القسط لحالة غير مدفوع
+            await scheduledPaymentsService.update(payment.id, {
+                status: newStatus,
+                paidAmount: 0,
+                paidDate: null,
+                paymentId: null,
+            });
+            
+            addToast(`تم إلغاء تسديد القسط رقم ${payment.installmentNumber} بنجاح`, 'success');
+            await loadData();
+        } catch (error) {
+            console.error('Error unmarking payment:', error);
+            addToast('خطأ في إلغاء تسديد القسط', 'error');
+        }
+    };
+    
+    // فتح نافذة الدفع الإضافي
+    const handleExtraPayment = (bookingId: string) => {
+        const booking = bookingsMap.get(bookingId);
+        if (!booking || !booking.unitSaleId) {
+            addToast('لا يمكن العثور على معلومات البيع', 'error');
+            return;
+        }
+        
+        setSelectedBookingId(bookingId);
+        setSelectedUnitSaleId(booking.unitSaleId);
+        setShowExtraPaymentModal(true);
     };
     
     /**
@@ -340,6 +429,19 @@ export const ScheduledPayments: React.FC = () => {
                             activeProject={activeProject}
                             onSelectProject={(project) => setActiveProject(project)}
                         />
+                    )}
+                    
+                    {/* زر الدفع الإضافي */}
+                    {selectedBookingId && (
+                        <button
+                            onClick={() => handleExtraPayment(selectedBookingId)}
+                            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all flex items-center gap-2 font-medium shadow-lg hover:shadow-xl"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            <span>دفع إضافي</span>
+                        </button>
                     )}
                     
                     {/* Filter by Booking */}
@@ -619,6 +721,18 @@ export const ScheduledPayments: React.FC = () => {
                                                                     {formatDate(payment.paidDate)}
                                                                 </span>
                                                             )}
+                                                            {/* زر إلغاء التسديد */}
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (confirm(`هل أنت متأكد من إلغاء تسديد القسط رقم ${payment.installmentNumber}؟\nسيتم حذف سجل الدفعة المرتبطة.`)) {
+                                                                        handleUnmarkAsPaid(payment);
+                                                                    }
+                                                                }}
+                                                                className="mt-2 px-3 py-1 rounded text-xs bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 transition-colors"
+                                                                title="إلغاء التسديد"
+                                                            >
+                                                                ↩ إلغاء التسديد
+                                                            </button>
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-col items-center gap-1">
@@ -670,6 +784,54 @@ export const ScheduledPayments: React.FC = () => {
                         </div>
                     )}
                 </div>
+            )}
+            
+            {/* Modal لرفع المرفقات */}
+            {showAttachmentModal && pendingPayment && (
+                <PaymentAttachmentModal
+                    isOpen={showAttachmentModal}
+                    onClose={() => {
+                        setShowAttachmentModal(false);
+                        setPendingPayment(null);
+                    }}
+                    onUploadComplete={completePaymentProcess}
+                    paymentId={pendingPayment.id}
+                    paymentAmount={pendingPayment.amount}
+                />
+            )}
+            
+            {/* Modal للدفع الإضافي */}
+            {showExtraPaymentModal && selectedBookingId && selectedUnitSaleId && (
+                <ExtraPaymentModal
+                    isOpen={showExtraPaymentModal}
+                    onClose={() => {
+                        setShowExtraPaymentModal(false);
+                        setSelectedBookingId(null);
+                        setSelectedUnitSaleId(null);
+                    }}
+                    onPaymentComplete={async () => {
+                        await loadData();
+                        addToast('تم تسجيل الدفعة الإضافية بنجاح', 'success');
+                    }}
+                    bookingId={selectedBookingId}
+                    unitSaleId={selectedUnitSaleId}
+                    customerId={bookingsMap.get(selectedBookingId)?.customerId || ''}
+                    customerName={getCustomerInfo(selectedBookingId).name}
+                    remainingBalance={
+                        scheduledPayments
+                            .filter(p => p.bookingId === selectedBookingId && p.status !== 'paid')
+                            .reduce((sum, p) => sum + (p.amount - (p.paidAmount || 0)), 0)
+                    }
+                    pendingInstallments={
+                        scheduledPayments
+                            .filter(p => p.bookingId === selectedBookingId && p.status !== 'paid')
+                            .length
+                    }
+                    projectId={activeProject?.id}
+                    currentPaymentPlanYears={bookingsMap.get(selectedBookingId)?.paymentPlanYears}
+                    currentPaymentFrequencyMonths={bookingsMap.get(selectedBookingId)?.paymentFrequencyMonths}
+                    currentPaymentStartDate={bookingsMap.get(selectedBookingId)?.paymentStartDate}
+                />
             )}
         </div>
     );

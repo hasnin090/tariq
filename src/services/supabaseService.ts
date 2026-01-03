@@ -504,6 +504,14 @@ export const bookingsService = {
       bookingDate: booking.booking_date,
       amountPaid: booking.amount_paid,
       status: booking.status,
+      projectId: booking.project_id,
+      unitSaleId: booking.unit_sale_id,
+      paymentPlanYears: booking.payment_plan_years,
+      paymentFrequencyMonths: booking.payment_frequency_months,
+      paymentStartDate: booking.payment_start_date,
+      monthlyAmount: booking.monthly_amount,
+      installmentAmount: booking.installment_amount,
+      totalInstallments: booking.total_installments,
     }));
   },
 
@@ -639,13 +647,15 @@ export const paymentsService = {
       .select('id, price');
     if (unitsError) throw unitsError;
     
+    const nearlyEqual = (a: number, b: number, epsilon: number = 0.01) => Math.abs(a - b) < epsilon;
+
     // Create maps for efficient lookup
-    const bookingMap = new Map();
+    const bookingMap = new Map<string, any>();
     (bookings || []).forEach((booking: any) => {
       bookingMap.set(booking.id, {
         ...booking,
         customer_name: booking.customers?.name,
-        unit_name: booking.units?.name
+        unit_name: booking.units?.unit_number,
       });
     });
     
@@ -654,15 +664,29 @@ export const paymentsService = {
       unitMap.set(unit.id, unit);
     });
     
-    // Calculate total paid per booking (booking amount + additional payments)
-    const totalPaidPerBooking = new Map();
-    (bookings || []).forEach((booking: any) => {
-      totalPaidPerBooking.set(booking.id, booking.amount_paid || 0);
-    });
-    
+    // Calculate total paid per booking.
+    // IMPORTANT:
+    // - In the current DB, `bookings.amount_paid` is maintained by trigger to be SUM(payments.amount).
+    // - In older data, `bookings.amount_paid` may represent only the booking deposit and payments contain only additional payments.
+    // To stay compatible, we compare both sources and only add when they differ.
+    const sumPaymentsPerBooking = new Map<string, number>();
     (payments || []).forEach((payment: any) => {
-      const current = totalPaidPerBooking.get(payment.booking_id) || 0;
-      totalPaidPerBooking.set(payment.booking_id, current + payment.amount);
+      const current = sumPaymentsPerBooking.get(payment.booking_id) || 0;
+      sumPaymentsPerBooking.set(payment.booking_id, current + (payment.amount || 0));
+    });
+
+    const totalPaidPerBooking = new Map<string, number>();
+    (bookings || []).forEach((booking: any) => {
+      const bookingPaid = Number(booking.amount_paid || 0);
+      const paymentsSum = Number(sumPaymentsPerBooking.get(booking.id) || 0);
+
+      // If trigger is active, bookingPaid ~= paymentsSum (don't double-count).
+      // If they differ (legacy), treat bookingPaid as deposit + paymentsSum.
+      const totalPaid = nearlyEqual(bookingPaid, paymentsSum)
+        ? paymentsSum
+        : bookingPaid + paymentsSum;
+
+      totalPaidPerBooking.set(booking.id, totalPaid);
     });
     
     // Transform payments with enriched booking and unit data
@@ -710,13 +734,15 @@ export const paymentsService = {
       .select('id, price');
     if (unitsError) throw unitsError;
     
+    const nearlyEqual = (a: number, b: number, epsilon: number = 0.01) => Math.abs(a - b) < epsilon;
+
     // Create maps for efficient lookup
-    const bookingMap = new Map();
+    const bookingMap = new Map<string, any>();
     (bookings || []).forEach((booking: any) => {
       bookingMap.set(booking.id, {
         ...booking,
         customer_name: booking.customers?.name,
-        unit_name: booking.units?.name
+        unit_name: booking.units?.unit_number,
       });
     });
     
@@ -725,20 +751,27 @@ export const paymentsService = {
       unitMap.set(unit.id, unit);
     });
     
-    // Calculate total paid per booking (booking amount + additional payments)
-    const totalPaidPerBooking = new Map();
-    (bookings || []).forEach((booking: any) => {
-      if (booking.customer_id === customerId) {
-        totalPaidPerBooking.set(booking.id, booking.amount_paid || 0);
-      }
-    });
-    
+    // Calculate total paid per booking (see getAll() for compatibility notes)
+    const sumPaymentsPerBooking = new Map<string, number>();
     (payments || []).forEach((payment: any) => {
       const booking = bookingMap.get(payment.booking_id);
       if (booking && booking.customer_id === customerId) {
-        const current = totalPaidPerBooking.get(payment.booking_id) || 0;
-        totalPaidPerBooking.set(payment.booking_id, current + payment.amount);
+        const current = sumPaymentsPerBooking.get(payment.booking_id) || 0;
+        sumPaymentsPerBooking.set(payment.booking_id, current + (payment.amount || 0));
       }
+    });
+
+    const totalPaidPerBooking = new Map<string, number>();
+    (bookings || []).forEach((booking: any) => {
+      if (booking.customer_id !== customerId) return;
+
+      const bookingPaid = Number(booking.amount_paid || 0);
+      const paymentsSum = Number(sumPaymentsPerBooking.get(booking.id) || 0);
+      const totalPaid = nearlyEqual(bookingPaid, paymentsSum)
+        ? paymentsSum
+        : bookingPaid + paymentsSum;
+
+      totalPaidPerBooking.set(booking.id, totalPaid);
     });
     
     // Filter payments by customer and enrich with booking and unit data
@@ -2458,6 +2491,7 @@ export const scheduledPaymentsService = {
       notificationSent: sp.notification_sent,
       notificationSentAt: sp.notification_sent_at,
       notes: sp.notes,
+      attachment_id: sp.attachment_id,
       unitName: sp.bookings?.units?.unit_number || '',
       customerName: sp.bookings?.customers?.name || '',
       customerPhone: sp.bookings?.customers?.phone || '',
@@ -2496,6 +2530,7 @@ export const scheduledPaymentsService = {
       notificationSent: sp.notification_sent,
       notificationSentAt: sp.notification_sent_at,
       notes: sp.notes,
+      attachment_id: sp.attachment_id,
       unitName: sp.bookings?.units?.unit_number || '',
       customerName: sp.bookings?.customers?.name || '',
       customerPhone: sp.bookings?.customers?.phone || '',
@@ -2529,6 +2564,7 @@ export const scheduledPaymentsService = {
       notificationSent: sp.notification_sent,
       notificationSentAt: sp.notification_sent_at,
       notes: sp.notes,
+      attachment_id: sp.attachment_id,
       unitName: '',
       customerName: '',
       customerPhone: '',
@@ -2580,6 +2616,7 @@ export const scheduledPaymentsService = {
         paidDate: sp.paid_date,
         paymentId: sp.payment_id,
         notificationSent: sp.notification_sent,
+        attachment_id: sp.attachment_id,
         unitName: sp.bookings?.units?.unit_number || '',
         customerName: sp.bookings?.customers?.name || '',
         customerPhone: sp.bookings?.customers?.phone || '',
@@ -2600,6 +2637,7 @@ export const scheduledPaymentsService = {
     if (data.paymentId) dbData.payment_id = data.paymentId;
     if (data.notificationSent !== undefined) dbData.notification_sent = data.notificationSent;
     if (data.notes !== undefined) dbData.notes = data.notes;
+    if (data.attachment_id !== undefined) dbData.attachment_id = data.attachment_id;
     dbData.updated_at = new Date().toISOString();
     
     const { error } = await supabase
@@ -2637,13 +2675,61 @@ export const scheduledPaymentsService = {
   },
 
   /**
+   * فك ربط دفعة من الدفعات المجدولة (عند حذف الدفعة)
+   * يبحث عن أي قسط مرتبط بهذه الدفعة ويعيده لحالة pending
+   */
+  async unlinkPayment(paymentId: string) {
+    // البحث عن الأقساط المرتبطة بهذه الدفعة
+    const { data: linkedScheduled, error: fetchError } = await supabase
+      .from('scheduled_payments')
+      .select('*')
+      .eq('payment_id', paymentId);
+    
+    if (fetchError) {
+      console.warn('Error fetching linked scheduled payments:', fetchError);
+      return; // لا نرمي خطأ إذا لم نجد شيئاً
+    }
+    
+    if (!linkedScheduled || linkedScheduled.length === 0) {
+      return; // لا توجد أقساط مرتبطة
+    }
+    
+    // إعادة كل قسط مرتبط لحالته الأصلية
+    for (const sp of linkedScheduled) {
+      const today = new Date().toISOString().split('T')[0];
+      const dueDate = sp.due_date;
+      
+      // تحديد الحالة الجديدة بناءً على تاريخ الاستحقاق
+      let newStatus: 'pending' | 'overdue' = 'pending';
+      if (dueDate && new Date(dueDate) < new Date(today)) {
+        newStatus = 'overdue';
+      }
+      
+      const { error: updateError } = await supabase
+        .from('scheduled_payments')
+        .update({
+          status: newStatus,
+          paid_amount: 0,
+          paid_date: null,
+          payment_id: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sp.id);
+      
+      if (updateError) {
+        console.warn('Error unlinking scheduled payment:', updateError);
+      }
+    }
+  },
+
+  /**
    * إنشاء الدفعات المجدولة لحجز جديد
    */
   async generateForBooking(
     bookingId: string,
     unitPrice: number,
     paymentPlanYears: 4 | 5,
-    paymentFrequencyMonths: 1 | 2 | 3 | 4 | 5,
+    paymentFrequencyMonths: 1 | 2 | 3 | 4 | 5 | 6 | 12,
     startDate: string
   ) {
     // حساب المبالغ
