@@ -797,6 +797,10 @@ export const ScheduledPayments: React.FC = () => {
                     onUploadComplete={completePaymentProcess}
                     paymentId={pendingPayment.id}
                     paymentAmount={pendingPayment.amount}
+                    installmentNumber={pendingPayment.installmentNumber}
+                    customerName={getCustomerInfo(pendingPayment.bookingId).name}
+                    unitName={getUnitInfo(pendingPayment.bookingId)}
+                    requireAttachment={true}
                 />
             )}
             

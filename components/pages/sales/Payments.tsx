@@ -14,6 +14,7 @@ import AmountInput from '../../shared/AmountInput';
 import { PrintReceiptButton } from '../../shared/PrintComponents';
 import { PaymentInfo, generateReceiptNumber } from '../../../utils/printService';
 import ExtraPaymentModal from '../../shared/ExtraPaymentModal';
+import PaymentAttachmentModal from '../../shared/PaymentAttachmentModal';
 import { RefreshCw } from 'lucide-react';
 import { supabase } from '../../../src/lib/supabase';
 
@@ -69,6 +70,10 @@ const Payments: React.FC = () => {
     const [showExtraPaymentModal, setShowExtraPaymentModal] = useState(false);
     const [extraPaymentBookingId, setExtraPaymentBookingId] = useState<string | null>(null);
     const [savedPaymentAmount, setSavedPaymentAmount] = useState<number>(0); // مبلغ الدفعة المحفوظة لإعادة الاحتساب
+
+    // نافذة رفع وصل التسديد للأقساط
+    const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+    const [pendingScheduledPayment, setPendingScheduledPayment] = useState<{ payment: ScheduledPayment; bookingId: string; customerName: string; unitName: string } | null>(null);
 
     // خيارات إعادة احتساب الأقساط المدمجة في نموذج إضافة الدفعة
     const [paymentPlanYears, setPaymentPlanYears] = useState<4 | 5>(5);
@@ -1948,35 +1953,21 @@ const Payments: React.FC = () => {
                                                                         {/* زر تسديد القسط */}
                                                                         {scheduledPayment.status !== 'paid' && (
                                                                             <button
-                                                                                onClick={async () => {
+                                                                                onClick={() => {
                                                                                     // التحقق من التسلسل
                                                                                     const allScheduledForBooking = scheduledPaymentsByBooking.get(group.bookingId) || [];
                                                                                     const sortedScheduled = allScheduledForBooking.sort((a, b) => a.installmentNumber - b.installmentNumber);
-                                                                                    const today = new Date().toISOString().split('T')[0];
                                                                                     
                                                                                     // إذا كان القسط الأول، يمكن تسديده مباشرة
                                                                                     if (scheduledPayment.installmentNumber === 1) {
-                                                                                        try {
-                                                                                            // Create a real payment row so totals/remaining update everywhere
-                                                                                            const createdPayment = await paymentsService.create({
-                                                                                                bookingId: group.bookingId,
-                                                                                                amount: scheduledPayment.amount,
-                                                                                                paymentDate: today,
-                                                                                                paymentType: 'installment',
-                                                                                                notes: `قسط مجدول #${scheduledPayment.installmentNumber}`,
-                                                                                            });
-                                                                                            await scheduledPaymentsService.update(scheduledPayment.id, {
-                                                                                                status: 'paid',
-                                                                                                paidAmount: scheduledPayment.amount,
-                                                                                                paidDate: today,
-                                                                                                paymentId: createdPayment?.id,
-                                                                                            });
-                                                                                            addToast('تم تسديد القسط بنجاح ✅', 'success');
-                                                                                            loadAllData(); // إعادة تحميل البيانات
-                                                                                        } catch (error) {
-                                                                                            console.error('Error paying installment:', error);
-                                                                                            addToast('خطأ في تسديد القسط', 'error');
-                                                                                        }
+                                                                                        // فتح نافذة رفع الوصل
+                                                                                        setPendingScheduledPayment({
+                                                                                            payment: scheduledPayment,
+                                                                                            bookingId: group.bookingId,
+                                                                                            customerName: group.customerName,
+                                                                                            unitName: group.unitName
+                                                                                        });
+                                                                                        setShowAttachmentModal(true);
                                                                                         return;
                                                                                     }
                                                                                     
@@ -1993,28 +1984,14 @@ const Payments: React.FC = () => {
                                                                                         return;
                                                                                     }
                                                                                     
-                                                                                    // يمكن تسديده
-                                                                                    try {
-                                                                                        // Create a real payment row so totals/remaining update everywhere
-                                                                                        const createdPayment = await paymentsService.create({
-                                                                                            bookingId: group.bookingId,
-                                                                                            amount: scheduledPayment.amount,
-                                                                                            paymentDate: today,
-                                                                                            paymentType: 'installment',
-                                                                                            notes: `قسط مجدول #${scheduledPayment.installmentNumber}`,
-                                                                                        });
-                                                                                        await scheduledPaymentsService.update(scheduledPayment.id, {
-                                                                                            status: 'paid',
-                                                                                            paidAmount: scheduledPayment.amount,
-                                                                                            paidDate: today,
-                                                                                            paymentId: createdPayment?.id,
-                                                                                        });
-                                                                                        addToast('تم تسديد القسط بنجاح ✅', 'success');
-                                                                                        loadAllData(); // إعادة تحميل البيانات
-                                                                                    } catch (error) {
-                                                                                        console.error('Error paying installment:', error);
-                                                                                        addToast('خطأ في تسديد القسط', 'error');
-                                                                                    }
+                                                                                    // فتح نافذة رفع الوصل
+                                                                                    setPendingScheduledPayment({
+                                                                                        payment: scheduledPayment,
+                                                                                        bookingId: group.bookingId,
+                                                                                        customerName: group.customerName,
+                                                                                        unitName: group.unitName
+                                                                                    });
+                                                                                    setShowAttachmentModal(true);
                                                                                 }}
                                                                                 className={`mt-3 w-full py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                                                                                     scheduledPayment.installmentNumber === 1 || 
@@ -2110,6 +2087,57 @@ const Payments: React.FC = () => {
                     confirmText="حذف"
                     cancelText="إلغاء"
                     type="danger"
+                />
+            )}
+
+            {/* نافذة رفع وصل التسديد */}
+            {showAttachmentModal && pendingScheduledPayment && (
+                <PaymentAttachmentModal
+                    isOpen={showAttachmentModal}
+                    onClose={() => {
+                        setShowAttachmentModal(false);
+                        setPendingScheduledPayment(null);
+                    }}
+                    onUploadComplete={async (attachmentId: string) => {
+                        if (!pendingScheduledPayment) return;
+                        
+                        try {
+                            const today = new Date().toISOString().split('T')[0];
+                            const { payment, bookingId } = pendingScheduledPayment;
+                            
+                            // إنشاء سجل دفعة
+                            const createdPayment = await paymentsService.create({
+                                bookingId: bookingId,
+                                amount: payment.amount,
+                                paymentDate: today,
+                                paymentType: 'installment',
+                                notes: `قسط مجدول #${payment.installmentNumber}`,
+                            });
+                            
+                            // تحديث القسط المجدول
+                            await scheduledPaymentsService.update(payment.id, {
+                                status: 'paid',
+                                paidAmount: payment.amount,
+                                paidDate: today,
+                                paymentId: createdPayment?.id,
+                                attachment_id: attachmentId || null,
+                            });
+                            
+                            addToast('تم تسديد القسط بنجاح ✅', 'success');
+                            setShowAttachmentModal(false);
+                            setPendingScheduledPayment(null);
+                            loadAllData();
+                        } catch (error) {
+                            console.error('Error paying installment:', error);
+                            addToast('خطأ في تسديد القسط', 'error');
+                        }
+                    }}
+                    paymentId={pendingScheduledPayment.payment.id}
+                    paymentAmount={pendingScheduledPayment.payment.amount}
+                    installmentNumber={pendingScheduledPayment.payment.installmentNumber}
+                    customerName={pendingScheduledPayment.customerName}
+                    unitName={pendingScheduledPayment.unitName}
+                    requireAttachment={true}
                 />
             )}
         </div>

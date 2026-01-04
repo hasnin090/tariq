@@ -6,6 +6,8 @@ import { useToast } from '../../../contexts/ToastContext';
 import ProjectSelector from '../../shared/ProjectSelector';
 import Modal from '../../shared/Modal';
 import { customersService, bookingsService, unitsService, documentsService } from '../../../src/services/supabaseService';
+import { storageService, AttachmentMetadata } from '../../../src/services/storageService';
+import { formatCurrency } from '../../../utils/currencyFormatter';
 import gsap from 'gsap';
 
 interface DocumentWithUrl {
@@ -17,6 +19,21 @@ interface DocumentWithUrl {
     publicUrl?: string;
 }
 
+interface InstallmentAttachment {
+    installmentNumber: number;
+    dueDate: string;
+    amount: number;
+    paidDate: string;
+    attachment: AttachmentMetadata | null;
+    publicUrl?: string;
+}
+
+interface BookingWithInstallments {
+    bookingId: string;
+    unitName: string;
+    installments: InstallmentAttachment[];
+}
+
 interface CustomerWithDocuments {
     customer: Customer;
     customerDocs: DocumentWithUrl[];
@@ -24,7 +41,88 @@ interface CustomerWithDocuments {
         booking: Booking;
         bookingDocs: DocumentWithUrl[];
     }[];
+    // مرفقات الأقساط
+    installmentBookings: BookingWithInstallments[];
 }
+
+// مكون القائمة المنسدلة لوصولات الأقساط
+const InstallmentDropdown: React.FC<{
+    unitName: string;
+    customerName: string;
+    installments: InstallmentAttachment[];
+    onPreview: (attachment: AttachmentMetadata | null, publicUrl?: string) => void;
+    formatDate: (date: string) => string;
+}> = ({ unitName, customerName, installments, onPreview, formatDate }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    
+    const totalInstallments = installments.length;
+    const totalAmount = installments.reduce((sum, i) => sum + i.amount, 0);
+    
+    return (
+        <div className="p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
+            {/* Header - عنوان الوحدة والعميل */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between gap-2 text-right"
+            >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <svg className={`w-4 h-4 text-amber-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-white truncate">{unitName}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{customerName}</p>
+                    </div>
+                </div>
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/30 text-amber-300">
+                    {totalInstallments} قسط
+                </span>
+            </button>
+            
+            {/* Installments List */}
+            {isOpen && (
+                <div className="mt-2 pt-2 border-t border-amber-500/20 space-y-1.5">
+                    {installments.map((inst, index) => (
+                        <div 
+                            key={index}
+                            className="flex items-center gap-2 p-1.5 rounded bg-white/5 hover:bg-white/10 transition-colors group"
+                        >
+                            <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                                <span className="text-[10px] font-bold text-emerald-400">#{inst.installmentNumber}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1">
+                                    <span className="text-[10px] text-emerald-400 font-medium">
+                                        {formatCurrency(inst.amount)}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500">•</span>
+                                    <span className="text-[10px] text-slate-400">
+                                        {formatDate(inst.paidDate)}
+                                    </span>
+                                </div>
+                                {inst.attachment && (
+                                    <p className="text-[9px] text-slate-500 truncate">{inst.attachment.file_name}</p>
+                                )}
+                            </div>
+                            {inst.attachment && inst.publicUrl && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onPreview(inst.attachment, inst.publicUrl);
+                                    }}
+                                    className="p-1 rounded hover:bg-primary-500/20 text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="عرض الوصل"
+                                >
+                                    <EyeIcon className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const SalesDocuments: React.FC = () => {
     const { activeProject, availableProjects, setActiveProject } = useProject();
@@ -70,15 +168,49 @@ const SalesDocuments: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [customersData, bookingsData, unitsData] = await Promise.all([
+            console.log('🔄 Loading SalesDocuments data...');
+            
+            const [customersData, bookingsData, unitsData, installmentAttachmentsData] = await Promise.all([
                 customersService.getAll(),
                 bookingsService.getAll(),
-                unitsService.getAll()
+                unitsService.getAll(),
+                storageService.getAllInstallmentAttachments()
             ]);
+            
+            console.log('📥 Installment attachments data:', installmentAttachmentsData);
             
             setCustomers(customersData);
             setBookings(bookingsData);
             setUnits(unitsData);
+            
+            // إنشاء خريطة لمرفقات الأقساط حسب العميل
+            const installmentsByCustomer = new Map<string, BookingWithInstallments[]>();
+            for (const customerData of installmentAttachmentsData) {
+                const bookingsWithUrls: BookingWithInstallments[] = [];
+                for (const booking of customerData.bookings) {
+                    const installmentsWithUrls: InstallmentAttachment[] = [];
+                    for (const inst of booking.installments) {
+                        let publicUrl = '';
+                        if (inst.attachment?.file_path) {
+                            try {
+                                publicUrl = await storageService.getPublicUrl(inst.attachment.file_path, 86400) || '';
+                            } catch (e) {
+                                console.warn('Failed to get signed URL for attachment:', e);
+                            }
+                        }
+                        installmentsWithUrls.push({
+                            ...inst,
+                            publicUrl
+                        });
+                    }
+                    bookingsWithUrls.push({
+                        bookingId: booking.bookingId,
+                        unitName: booking.unitName,
+                        installments: installmentsWithUrls
+                    });
+                }
+                installmentsByCustomer.set(customerData.customerId, bookingsWithUrls);
+            }
             
             // Load documents for each customer and their bookings
             const customersWithDocuments: CustomerWithDocuments[] = [];
@@ -117,20 +249,31 @@ const SalesDocuments: React.FC = () => {
                     bookingsWithDocs.push({ booking, bookingDocs: bookingDocsWithUrls });
                 }
                 
-                // أضف العملاء الذين لديهم حجوزات أو مستندات
+                // الحصول على مرفقات الأقساط لهذا العميل
+                const installmentBookings = installmentsByCustomer.get(customer.id) || [];
+                
+                console.log(`👤 Customer ${customer.name} (${customer.id}):`, {
+                    hasInstallments: installmentBookings.length > 0,
+                    installmentBookings
+                });
+                
+                // أضف العملاء الذين لديهم حجوزات أو مستندات أو مرفقات أقساط
                 const hasBookings = customerBookings.length > 0;
                 const hasDocuments = customerDocsWithUrls.length > 0 || 
                     bookingsWithDocs.some(b => b.bookingDocs.length > 0);
+                const hasInstallmentAttachments = installmentBookings.length > 0;
                 
-                if (hasBookings || hasDocuments) {
+                if (hasBookings || hasDocuments || hasInstallmentAttachments) {
                     customersWithDocuments.push({
                         customer,
                         customerDocs: customerDocsWithUrls,
-                        bookings: bookingsWithDocs
+                        bookings: bookingsWithDocs,
+                        installmentBookings
                     });
                 }
             }
             
+            console.log('✅ Final customersWithDocuments:', customersWithDocuments);
             setCustomersWithDocs(customersWithDocuments);
         } catch (error) {
             console.error('Error loading data:', error);
@@ -156,18 +299,36 @@ const SalesDocuments: React.FC = () => {
                     return unit?.projectId === activeProject.id;
                 });
                 
+                // تحقق أيضاً من وجود مرفقات أقساط
+                // نعرض العميل إذا كان لديه أي بيانات في هذا المشروع
                 return hasBookingInProject;
             });
         }
         
-        // Filter by search term
+        // Filter by search term (اسم العميل، رقم الهاتف، البريد، أو رقم الوحدة)
         if (searchTerm) {
             const search = searchTerm.toLowerCase();
-            result = result.filter(item => 
-                item.customer.name.toLowerCase().includes(search) ||
-                item.customer.phone.includes(search) ||
-                item.customer.email?.toLowerCase().includes(search)
-            );
+            result = result.filter(item => {
+                // البحث في بيانات العميل
+                const matchesCustomer = 
+                    item.customer.name.toLowerCase().includes(search) ||
+                    item.customer.phone.includes(search) ||
+                    item.customer.email?.toLowerCase().includes(search);
+                
+                // البحث في أرقام الوحدات من الحجوزات
+                const matchesUnit = item.bookings.some(b => {
+                    const unit = units.find(u => u.id === b.booking.unitId);
+                    return unit?.name?.toLowerCase().includes(search) || 
+                           unit?.unitNumber?.toLowerCase().includes(search);
+                });
+                
+                // البحث في أرقام الوحدات من وصولات الأقساط
+                const matchesInstallmentUnit = item.installmentBookings?.some(b => 
+                    b.unitName.toLowerCase().includes(search)
+                );
+                
+                return matchesCustomer || matchesUnit || matchesInstallmentUnit;
+            });
         }
         
         return result;
@@ -213,17 +374,25 @@ const SalesDocuments: React.FC = () => {
             
             {/* Search */}
             <div className="mb-6">
-                <div className="relative w-full md:w-80">
+                <div className="relative w-full md:w-96">
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                         <SearchIcon className="h-5 w-5 text-slate-400" />
                     </div>
                     <input
                         type="text"
-                        placeholder="بحث عن عميل..."
+                        placeholder="بحث عن اسم العميل أو رقم الوحدة..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="input-field w-full pr-10 pl-4"
+                        className="input-field w-full pr-10 pl-10"
                     />
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 hover:text-white transition-colors"
+                        >
+                            <CloseIcon className="h-4 w-4" />
+                        </button>
+                    )}
                 </div>
             </div>
             
@@ -293,17 +462,17 @@ const SalesDocuments: React.FC = () => {
                                 </div>
                             )}
                             
-                            {/* Booking Documents */}
-                            {item.bookings.length > 0 && (
+                            {/* Booking Documents - نعرض فقط الحجوزات التي لديها مستندات */}
+                            {item.bookings.filter(({ bookingDocs }) => bookingDocs.length > 0).length > 0 && (
                                 <div>
                                     <h4 className="text-xs font-semibold text-slate-400 mb-1.5 flex items-center gap-1">
                                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
-                                        الحجوزات ({item.bookings.length})
+                                        مستندات الحجوزات ({item.bookings.filter(b => b.bookingDocs.length > 0).length})
                                     </h4>
                                     <div className="space-y-2">
-                                        {item.bookings.map(({ booking, bookingDocs }) => (
+                                        {item.bookings.filter(({ bookingDocs }) => bookingDocs.length > 0).map(({ booking, bookingDocs }) => (
                                             <div key={booking.id} className="p-2 rounded-lg bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20">
                                                 <div className="flex items-center gap-1 mb-1.5 flex-wrap">
                                                     <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-emerald-500/20 text-emerald-400">
@@ -317,9 +486,8 @@ const SalesDocuments: React.FC = () => {
                                                         {booking.status === 'Active' ? 'نشط' : booking.status === 'Completed' ? 'مكتمل' : 'ملغي'}
                                                     </span>
                                                 </div>
-                                                {bookingDocs.length > 0 ? (
-                                                    <div className="space-y-1">
-                                                        {bookingDocs.map(doc => (
+                                                <div className="space-y-1">
+                                                    {bookingDocs.map(doc => (
                                                             <div key={doc.id} className="flex items-center gap-1 p-1 rounded bg-white/5 hover:bg-white/10 transition-colors group">
                                                                 <FileIcon mimeType={doc.fileType} className="h-5 w-5 flex-shrink-0" />
                                                                 <div className="flex-1 min-w-0">
@@ -344,10 +512,42 @@ const SalesDocuments: React.FC = () => {
                                                             </div>
                                                         ))}
                                                     </div>
-                                                ) : (
-                                                    <p className="text-[10px] text-slate-500 text-center py-1">لا توجد مستندات</p>
-                                                )}
-                                            </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            
+                            {/* Installment Receipts / وصولات الأقساط */}
+                            {item.installmentBookings && item.installmentBookings.length > 0 && (
+                                <div className="mt-3">
+                                    <h4 className="text-xs font-semibold text-slate-400 mb-1.5 flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
+                                        وصولات الأقساط ({item.installmentBookings.reduce((sum, b) => sum + b.installments.length, 0)})
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {item.installmentBookings.map((booking) => (
+                                            <InstallmentDropdown 
+                                                key={booking.bookingId}
+                                                unitName={booking.unitName}
+                                                customerName={item.customer.name}
+                                                installments={booking.installments}
+                                                onPreview={(attachment, publicUrl) => {
+                                                    if (attachment && publicUrl) {
+                                                        setPreviewDocument({
+                                                            id: attachment.id,
+                                                            fileName: attachment.file_name,
+                                                            storagePath: attachment.file_path,
+                                                            fileType: attachment.file_type,
+                                                            uploadedAt: attachment.uploaded_at,
+                                                            publicUrl: publicUrl
+                                                        });
+                                                    }
+                                                }}
+                                                formatDate={formatDate}
+                                            />
                                         ))}
                                     </div>
                                 </div>
@@ -355,7 +555,9 @@ const SalesDocuments: React.FC = () => {
                             
                             {/* Total documents count */}
                             <div className="mt-2 pt-2 border-t border-white/10 text-center text-[10px] text-slate-500">
-                                {item.customerDocs.length + item.bookings.reduce((sum, b) => sum + b.bookingDocs.length, 0)} مستند
+                                {item.customerDocs.length + 
+                                 item.bookings.reduce((sum, b) => sum + b.bookingDocs.length, 0) +
+                                 (item.installmentBookings?.reduce((sum, b) => sum + b.installments.filter(i => i.attachment).length, 0) || 0)} مستند
                             </div>
                         </div>
                     ))}

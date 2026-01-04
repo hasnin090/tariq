@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, DollarSign, Calendar, RefreshCw, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../../src/lib/supabase';
+import { formatCurrency } from '../../utils/currencyFormatter';
 
 interface ExtraPaymentModalProps {
   isOpen: boolean;
@@ -466,10 +467,9 @@ const ExtraPaymentModal: React.FC<ExtraPaymentModalProps> = ({
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30 rounded-xl p-4 text-center">
               <p className="text-xs text-blue-300 mb-1">المبلغ المتبقي</p>
-              <p className="text-2xl font-bold text-blue-400">
-                {calculatingRemaining ? '...' : effectiveRemainingBalance.toLocaleString()}
+              <p className="text-xl font-bold text-blue-400">
+                {calculatingRemaining ? '...' : formatCurrency(effectiveRemainingBalance)}
               </p>
-              <p className="text-xs text-blue-300/70">ر.س</p>
             </div>
             <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/30 rounded-xl p-4 text-center">
               <p className="text-xs text-purple-300 mb-1">الأقساط المعلقة</p>
@@ -479,9 +479,8 @@ const ExtraPaymentModal: React.FC<ExtraPaymentModalProps> = ({
             <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-xl p-4 text-center">
               <p className="text-xs text-emerald-300 mb-1">بعد الدفعة</p>
               <p className={`text-2xl font-bold ${newRemainingBalance <= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {paymentAmount > 0 ? newRemainingBalance.toLocaleString() : '—'}
+                {paymentAmount > 0 ? formatCurrency(newRemainingBalance) : '—'}
               </p>
-              <p className="text-xs text-emerald-300/70">ر.س</p>
             </div>
           </div>
 
@@ -565,7 +564,7 @@ const ExtraPaymentModal: React.FC<ExtraPaymentModalProps> = ({
                           </div>
                           <div className="flex justify-between text-sm mt-1">
                             <span className="text-slate-400">القسط الجديد:</span>
-                            <span className="text-amber-400 font-semibold">{previewReduceAmountInstallmentAmount.toLocaleString()} ر.س</span>
+                            <span className="text-amber-400 font-semibold">{formatCurrency(previewReduceAmountInstallmentAmount)}</span>
                           </div>
                         </div>
                       )}
@@ -651,7 +650,7 @@ const ExtraPaymentModal: React.FC<ExtraPaymentModalProps> = ({
                     </div>
                     <div className="flex justify-between text-sm mt-1">
                       <span className="text-blue-300">مبلغ كل قسط:</span>
-                      <span className="text-blue-400 font-semibold">{previewNewPlanInstallmentAmount.toLocaleString()} ر.س</span>
+                      <span className="text-blue-400 font-semibold">{formatCurrency(previewNewPlanInstallmentAmount)}</span>
                     </div>
                   </div>
                 </div>

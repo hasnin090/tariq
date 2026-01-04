@@ -7,6 +7,7 @@ import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { formatCurrency } from './currencyFormatter';
 
 // ==================== Types ====================
 
@@ -62,13 +63,7 @@ export interface PaymentReportItem {
 
 // ==================== Helpers ====================
 
-const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('ar-SA', {
-        style: 'currency',
-        currency: 'SAR',
-        minimumFractionDigits: 2
-    }).format(amount);
-};
+// formatCurrency is imported from currencyFormatter.ts
 
 const formatDate = (date: string): string => {
     return new Date(date).toLocaleDateString('ar-SA', {

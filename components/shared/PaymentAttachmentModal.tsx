@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Upload, FileText, Image, File, Loader2 } from 'lucide-react';
+import { X, Upload, FileText, Image, File, Loader2, AlertCircle } from 'lucide-react';
 import { storageService } from '../../src/services/storageService';
+import { formatCurrency } from '../../utils/currencyFormatter';
 
 interface PaymentAttachmentModalProps {
   isOpen: boolean;
@@ -8,6 +9,10 @@ interface PaymentAttachmentModalProps {
   onUploadComplete: (attachmentId: string) => void;
   paymentId: string;
   paymentAmount: number;
+  installmentNumber?: number;
+  customerName?: string;
+  unitName?: string;
+  requireAttachment?: boolean; // جعل المرفق إجبارياً
 }
 
 const PaymentAttachmentModal: React.FC<PaymentAttachmentModalProps> = ({
@@ -15,7 +20,11 @@ const PaymentAttachmentModal: React.FC<PaymentAttachmentModalProps> = ({
   onClose,
   onUploadComplete,
   paymentId,
-  paymentAmount
+  paymentAmount,
+  installmentNumber,
+  customerName,
+  unitName,
+  requireAttachment = true // المرفق إجباري افتراضياً
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -81,7 +90,11 @@ const PaymentAttachmentModal: React.FC<PaymentAttachmentModalProps> = ({
   };
 
   const handleSkip = () => {
-    // السماح بالتخطي (المرفق اختياري)
+    // السماح بالتخطي فقط إذا لم يكن المرفق إجبارياً
+    if (requireAttachment) {
+      setError('يجب رفع وصل التسديد قبل إتمام العملية');
+      return;
+    }
     onUploadComplete('');
     onClose();
   };
@@ -108,9 +121,14 @@ const PaymentAttachmentModal: React.FC<PaymentAttachmentModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>
-            <h3 className="text-xl font-semibold text-gray-900">رفع مرفق الدفعة</h3>
+            <h3 className="text-xl font-semibold text-gray-900">رفع وصل التسديد</h3>
             <p className="text-sm text-gray-500 mt-1">
-              المبلغ: {paymentAmount.toLocaleString()} ر.س
+              {installmentNumber && `القسط رقم: ${installmentNumber}`}
+              {customerName && ` • ${customerName}`}
+              {unitName && ` • ${unitName}`}
+            </p>
+            <p className="text-sm text-emerald-600 font-medium mt-1">
+              المبلغ: {formatCurrency(paymentAmount)}
             </p>
           </div>
           <button
@@ -190,26 +208,44 @@ const PaymentAttachmentModal: React.FC<PaymentAttachmentModalProps> = ({
           )}
 
           {/* Info */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              💡 رفع المرفق اختياري. يمكنك التخطي والمتابعة بدون رفع ملف.
-            </p>
+          <div className={`mt-4 p-3 border rounded-lg ${requireAttachment ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
+            {requireAttachment ? (
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800">
+                  <strong>مطلوب:</strong> يجب رفع وصل التسديد لإتمام عملية تسديد القسط.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-blue-800">
+                💡 رفع المرفق اختياري. يمكنك التخطي والمتابعة بدون رفع ملف.
+              </p>
+            )}
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+          {!requireAttachment && (
+            <button
+              onClick={handleSkip}
+              className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+              disabled={uploading}
+            >
+              تخطي
+            </button>
+          )}
           <button
-            onClick={handleSkip}
-            className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg transition-colors"
             disabled={uploading}
           >
-            تخطي
+            إلغاء
           </button>
           <button
             onClick={handleUpload}
             disabled={!selectedFile || uploading}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             {uploading ? (
               <>
@@ -219,7 +255,7 @@ const PaymentAttachmentModal: React.FC<PaymentAttachmentModalProps> = ({
             ) : (
               <>
                 <Upload className="w-4 h-4" />
-                رفع والمتابعة
+                رفع وتسديد القسط
               </>
             )}
           </button>
