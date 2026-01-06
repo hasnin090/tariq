@@ -194,8 +194,11 @@ export const Expenses: React.FC = () => {
 
         const fetchRelatedData = async () => {
             try {
+                // جلب الفئات حسب المشروع النشط (بما في ذلك الفئات العامة)
+                const projectIdForCategories = currentUser?.assignedProjectId || activeProject?.id || null;
+                
                 const [categoriesData, projectsData, accountsData] = await Promise.all([
-                    expenseCategoriesService.getAll(),
+                    expenseCategoriesService.getByProject(projectIdForCategories),
                     projectsService.getAll(),
                     accountsService.getAll(),
                 ]);
@@ -220,42 +223,218 @@ export const Expenses: React.FC = () => {
         return () => {
             expenseSubscription.unsubscribe();
         };
-    }, [currentUser, addToast, sortOrder]);
+    }, [currentUser, addToast, sortOrder, activeProject]);
+
+    // ✅ حالة للاحتفاظ بـ ID العنصر المطلوب عرضه من البحث
+    const [searchTargetId, setSearchTargetId] = useState<string | null>(null);
+    
+    // ✅ قراءة searchFocus من sessionStorage عند كل تغيير (باستخدام custom event)
+    useEffect(() => {
+        const checkSearchFocus = () => {
+            const searchFocusStr = sessionStorage.getItem('searchFocus');
+            console.log('🔎 Checking searchFocus in Expenses:', searchFocusStr);
+            if (searchFocusStr) {
+                try {
+                    const searchFocus = JSON.parse(searchFocusStr);
+                    if (searchFocus.page === 'expenses' && searchFocus.id) {
+                        console.log('🎯 Found search target:', searchFocus.id);
+                        setSearchTargetId(searchFocus.id);
+                        setSkipFilters(true); // تجاوز الفلاتر مؤقتاً
+                    }
+                } catch (e) {
+                    console.error('Error parsing searchFocus:', e);
+                }
+            }
+        };
+        
+        // فحص فوري عند التحميل
+        checkSearchFocus();
+        
+        // الاستماع لحدث مخصص يُطلق من Header عند النقر على نتيجة البحث
+        const handleSearchNavigate = (e: CustomEvent) => {
+            console.log('📣 Received searchNavigate event:', e.detail);
+            if (e.detail?.page === 'expenses' && e.detail?.id) {
+                setSearchTargetId(e.detail.id);
+                setSkipFilters(true); // تجاوز الفلاتر مؤقتاً
+            }
+        };
+        
+        window.addEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        
+        return () => {
+            window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        };
+    }, []);
+
+    // ✅ حالة للبحث والتنقل
+    const [pendingScrollId, setPendingScrollId] = useState<string | null>(null);
+    const [skipFilters, setSkipFilters] = useState(false);
 
     useEffect(() => {
-        const filtered = allExpenses.filter(expense => {
-            const expenseDate = new Date(expense.date);
-            const startDate = filters.startDate ? new Date(filters.startDate) : null;
-            const endDate = filters.endDate ? new Date(filters.endDate) : null;
-            
-            if(startDate && expenseDate < startDate) return false;
-            if(endDate && expenseDate > endDate) return false;
-            if(filters.categoryId && expense.categoryId !== filters.categoryId) return false;
-            if(filters.projectId && expense.projectId !== filters.projectId) return false;
-            if(filters.minAmount && expense.amount < parseFloat(filters.minAmount)) return false;
-            if(filters.maxAmount && expense.amount > parseFloat(filters.maxAmount)) return false;
-            
-            // Search filter
-            if(searchQuery && !expense.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-            
-            // Filter by activeProject for non-assigned users, or by assignedProjectId for assigned users
-            if (currentUser?.assignedProjectId) {
-                if (expense.projectId !== currentUser.assignedProjectId) return false;
-            } else if (activeProject && expense.projectId !== activeProject.id) {
-                return false;
-            }
-    
-            return true;
-        });
+        // تطبيق الفلاتر على المصروفات
+        let filtered = allExpenses;
+        
+        // إذا كنا نبحث عن عنصر معين، نتجاوز كل الفلاتر
+        if (searchTargetId && skipFilters) {
+            // نبقي على كل المصروفات للعثور على العنصر
+            console.log('🔍 Skipping filters for search target:', searchTargetId);
+        } else {
+            filtered = allExpenses.filter(expense => {
+                const expenseDate = new Date(expense.date);
+                const startDate = filters.startDate ? new Date(filters.startDate) : null;
+                const endDate = filters.endDate ? new Date(filters.endDate) : null;
+                
+                if(startDate && expenseDate < startDate) return false;
+                if(endDate && expenseDate > endDate) return false;
+                if(filters.categoryId && expense.categoryId !== filters.categoryId) return false;
+                if(filters.projectId && expense.projectId !== filters.projectId) return false;
+                if(filters.minAmount && expense.amount < parseFloat(filters.minAmount)) return false;
+                if(filters.maxAmount && expense.amount > parseFloat(filters.maxAmount)) return false;
+                
+                // Search filter - البحث في حقول متعددة
+                if(searchQuery) {
+                    const term = searchQuery.toLowerCase();
+                    const matchDescription = expense.description?.toLowerCase().includes(term);
+                    const matchCategory = expense.categoryName?.toLowerCase().includes(term);
+                    const matchAmount = expense.amount?.toString().includes(term);
+                    const matchNotes = expense.notes?.toLowerCase().includes(term);
+                    const matchDate = expense.date?.includes(term);
+                    
+                    if (!matchDescription && !matchCategory && !matchAmount && !matchNotes && !matchDate) {
+                        return false;
+                    }
+                }
+                
+                // Filter by activeProject
+                if (currentUser?.assignedProjectId) {
+                    if (expense.projectId !== currentUser.assignedProjectId) return false;
+                } else if (activeProject && expense.projectId !== activeProject.id) {
+                    return false;
+                }
+        
+                return true;
+            });
+        }
+        
         setFilteredExpenses(filtered);
-        setCurrentPage(1); // Reset to first page when filters change
-    }, [filters, allExpenses, activeProject, currentUser, searchQuery]);
+        
+        // لا نعيد تعيين الصفحة إذا كان هناك searchTargetId نشط
+        if (!searchTargetId) {
+            setCurrentPage(1);
+        }
+    }, [filters, allExpenses, activeProject, currentUser, searchQuery, searchTargetId, skipFilters]);
+
+    // ✅ التعامل مع البحث والتنقل للعنصر المحدد
+    
+    useEffect(() => {
+        if (!searchTargetId) return;
+        
+        // انتظار تحميل البيانات أولاً
+        if (allExpenses.length === 0) {
+            console.log('⏳ Waiting for expenses to load...');
+            return;
+        }
+        
+        // البحث في جميع المصروفات
+        const targetExpense = allExpenses.find(e => e.id === searchTargetId);
+        
+        if (!targetExpense) {
+            console.log('❌ Expense not found in allExpenses:', searchTargetId);
+            setSearchTargetId(null);
+            setSkipFilters(false);
+            sessionStorage.removeItem('searchFocus');
+            return;
+        }
+        
+        console.log('✅ Found expense:', targetExpense.description);
+        
+        // إذا skipFilters=true، نبحث في allExpenses مباشرة
+        // وإلا نبحث في filteredExpenses
+        const searchList = skipFilters ? allExpenses : filteredExpenses;
+        const expenseIndex = searchList.findIndex(e => e.id === searchTargetId);
+        
+        if (expenseIndex === -1) {
+            console.log('⚠️ Expense not in current list, skipFilters:', skipFilters);
+            // إذا لم نجده ولم نكن نتجاوز الفلاتر، نفعّل تجاوز الفلاتر
+            if (!skipFilters) {
+                console.log('🔄 Enabling skipFilters...');
+                setSkipFilters(true);
+            }
+            return;
+        }
+        
+        // حساب رقم الصفحة
+        const targetPage = Math.floor(expenseIndex / ITEMS_PER_PAGE) + 1;
+        console.log('✅ Setting page to:', targetPage, 'for expense index:', expenseIndex, 'in list of', searchList.length);
+        setCurrentPage(targetPage);
+        
+        // حفظ ID للتمرير
+        setPendingScrollId(searchTargetId);
+        
+        // مسح searchFocus من sessionStorage
+        sessionStorage.removeItem('searchFocus');
+    }, [searchTargetId, filteredExpenses, allExpenses, skipFilters]);
 
     const totalPages = Math.ceil(filteredExpenses.length / ITEMS_PER_PAGE);
     const paginatedExpenses = useMemo(() => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
         return filteredExpenses.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     }, [currentPage, filteredExpenses]);
+
+    // ✅ المرحلة 2: التمرير للعنصر بعد تحديث الصفحة
+    useEffect(() => {
+        if (!pendingScrollId || paginatedExpenses.length === 0) return;
+        
+        // التأكد من أن العنصر موجود في الصفحة الحالية
+        const targetExpense = paginatedExpenses.find(e => e.id === pendingScrollId);
+        const isInCurrentPage = !!targetExpense;
+        console.log('🎯 Scroll check - pendingScrollId:', pendingScrollId);
+        console.log('🎯 Target expense found:', targetExpense?.description);
+        console.log('🎯 isInCurrentPage:', isInCurrentPage);
+        console.log('🎯 Current page expenses IDs:', paginatedExpenses.slice(0, 5).map(e => e.id));
+        
+        if (!isInCurrentPage) {
+            return;
+        }
+        
+        const scrollToElement = () => {
+            const element = document.getElementById(`item-${pendingScrollId}`) || 
+                           document.querySelector(`[data-id="${pendingScrollId}"]`);
+            console.log('🎯 Trying to scroll to element:', element);
+            console.log('🎯 Element ID searched:', `item-${pendingScrollId}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element.classList.add('search-highlight');
+                setTimeout(() => element.classList.remove('search-highlight'), 3000);
+                // مسح الحالات بعد التمرير بنجاح
+                setSearchTargetId(null);
+                setPendingScrollId(null);
+                setSkipFilters(false); // إعادة تفعيل الفلاتر
+                console.log('✅ Scroll completed successfully to:', targetExpense?.description);
+            } else {
+                // محاولة أخرى بعد وقت أطول
+                setTimeout(() => {
+                    const el = document.getElementById(`item-${pendingScrollId}`) || 
+                               document.querySelector(`[data-id="${pendingScrollId}"]`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.classList.add('search-highlight');
+                        setTimeout(() => el.classList.remove('search-highlight'), 3000);
+                        console.log('✅ Scroll completed on retry!');
+                    } else {
+                        console.log('❌ Element still not found after retry');
+                    }
+                    setSearchTargetId(null);
+                    setPendingScrollId(null);
+                    setSkipFilters(false); // إعادة تفعيل الفلاتر
+                }, 300);
+            }
+        };
+        
+        // انتظار للتأكد من رسم العنصر في DOM
+        const timer = setTimeout(scrollToElement, 200);
+        return () => clearTimeout(timer);
+    }, [pendingScrollId, paginatedExpenses, currentPage]);
 
     useEffect(() => {
         if (!visibleColumns.attachments) return;
@@ -707,15 +886,22 @@ export const Expenses: React.FC = () => {
     
     const FilterBar = () => (
         <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl mb-6 border border-slate-200 dark:border-slate-700">
-            {/* Search Bar */}
+            {/* Search Bar - محسّن */}
             <div className="mb-4">
-                <input 
-                    type="text" 
-                    placeholder="🔍 البحث في الوصف..." 
-                    value={searchQuery} 
-                    onChange={(e) => setSearchQuery(e.target.value)} 
-                    className={`${inputStyle} text-base`}
-                />
+                <div className="relative">
+                    <input 
+                        type="text" 
+                        placeholder="🔍 البحث في الوصف، الفئة، المبلغ، التاريخ..." 
+                        value={searchQuery} 
+                        onChange={(e) => setSearchQuery(e.target.value)} 
+                        className={`${inputStyle} text-base pl-10`}
+                    />
+                    {searchQuery && (
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs bg-primary-500 text-white px-2 py-1 rounded-full">
+                            {filteredExpenses.length} نتيجة
+                        </span>
+                    )}
+                </div>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -804,29 +990,29 @@ export const Expenses: React.FC = () => {
                 <>
                     <div className="glass-card overflow-hidden">
                         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
-                            <table className="w-full text-right min-w-[800px]">
+                            <table className="w-full text-right min-w-[800px] border-collapse">
                             <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                                {visibleColumns.date && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>}
-                                {visibleColumns.description && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوصف</th>}
-                                {visibleColumns.category && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الفئة</th>}
-                                {visibleColumns.project && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المشروع</th>}
-                                {visibleColumns.amount && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>}
-                                {visibleColumns.attachments && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المرفقات</th>}
-                                {visibleColumns.actions && (canEdit || canDelete) && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">إجراءات</th>}
+                                {visibleColumns.date && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">التاريخ</th>}
+                                {visibleColumns.description && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">الوصف</th>}
+                                {visibleColumns.category && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">الفئة</th>}
+                                {visibleColumns.project && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">المشروع</th>}
+                                {visibleColumns.amount && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">المبلغ</th>}
+                                {visibleColumns.attachments && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">المرفقات</th>}
+                                {visibleColumns.actions && (canEdit || canDelete) && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">إجراءات</th>}
                             </tr></thead>
                             <tbody ref={tableBodyRef}>
                                 {paginatedExpenses.map(exp => (
-                                    <tr key={exp.id} className={`border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all duration-300 ${
+                                    <tr key={exp.id} data-id={exp.id} id={`item-${exp.id}`} className={`border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all duration-300 ${
                                         deletingId === exp.id ? 'opacity-0 scale-95 bg-rose-50 dark:bg-rose-900/20' : 'opacity-100 scale-100'
                                     } ${
                                         exp.id.startsWith('temp_') ? 'animate-pulse bg-primary-50 dark:bg-primary-900/20' : ''
                                     }`}>
-                                        {visibleColumns.date && <td className="p-4 text-slate-600 dark:text-slate-300">{exp.date}</td>}
-                                        {visibleColumns.description && <td className="p-4 font-medium text-slate-800 dark:text-slate-100"><div className="max-w-xs truncate" title={exp.description}>{exp.description}</div></td>}
-                                        {visibleColumns.category && <td className="p-4 text-slate-600 dark:text-slate-300">{categories.find(c=>c.id === exp.categoryId)?.name || '-'}</td>}
-                                        {visibleColumns.project && <td className="p-4 text-slate-600 dark:text-slate-300">{projects.find(p=>p.id === exp.projectId)?.name || '-'}</td>}
-                                        {visibleColumns.amount && <td className="p-4 font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(exp.amount)}</td>}
-                                        {visibleColumns.attachments && <td className="p-4 text-center">
+                                        {visibleColumns.date && <td className="p-4 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0">{exp.date}</td>}
+                                        {visibleColumns.description && <td className="p-4 font-medium text-slate-800 dark:text-slate-100 border-l border-slate-200 dark:border-slate-700 first:border-l-0"><div className="max-w-xs truncate" title={exp.description}>{exp.description}</div></td>}
+                                        {visibleColumns.category && <td className="p-4 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0">{categories.find(c=>c.id === exp.categoryId)?.name || '-'}</td>}
+                                        {visibleColumns.project && <td className="p-4 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0">{projects.find(p=>p.id === exp.projectId)?.name || '-'}</td>}
+                                        {visibleColumns.amount && <td className="p-4 font-semibold text-rose-600 dark:text-rose-400 border-l border-slate-200 dark:border-slate-700 first:border-l-0">{formatCurrency(exp.amount)}</td>}
+                                        {visibleColumns.attachments && <td className="p-4 text-center border-l border-slate-200 dark:border-slate-700 first:border-l-0">
                                             {((exp.documents && exp.documents.length > 0) || expenseHasDocumentsById[exp.id]) && (
                                                 <button onClick={() => handleViewFirstAttachment(exp)} className="text-primary-600 hover:text-primary-800 p-2 rounded-full hover:bg-primary-100 dark:hover:bg-primary-500/10" title="عرض المرفق">
                                                     <PaperClipIcon className="h-5 w-5" />
@@ -834,7 +1020,7 @@ export const Expenses: React.FC = () => {
                                             )}
                                         </td>}
                                         {visibleColumns.actions && (canEdit || canDelete) && (
-                                        <td className="p-4 whitespace-nowrap">
+                                        <td className="p-4 whitespace-nowrap border-l border-slate-200 dark:border-slate-700 first:border-l-0">
                                             {canEdit && (
                                                 <button onClick={() => handleOpenModal(exp)} className="text-primary-600 dark:text-primary-400 hover:underline font-semibold ml-4">تعديل</button>
                                             )}

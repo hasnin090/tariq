@@ -386,7 +386,6 @@ class StorageService {
 
   /**
    * الحصول على جميع مرفقات الأقساط مجمعة حسب العميل والحجز
-   * نبدأ من جدول payment_attachments لأن المرفقات مرتبطة بـ payment_id
    */
   async getAllInstallmentAttachments(): Promise<{
     customerId: string;
@@ -404,27 +403,7 @@ class StorageService {
     }[];
   }[]> {
     try {
-      // أولاً: جلب جميع المرفقات
-      const { data: attachments, error: attachmentsError } = await supabase
-        .from('payment_attachments')
-        .select('*')
-        .order('uploaded_at', { ascending: false });
-
-      if (attachmentsError) {
-        console.error('Error fetching payment attachments:', attachmentsError);
-        return [];
-      }
-
-      console.log('Fetched payment attachments:', attachments);
-
-      if (!attachments || attachments.length === 0) {
-        console.log('No payment attachments found');
-        return [];
-      }
-
-      // ثانياً: جلب الأقساط المرتبطة
-      const paymentIds = attachments.map(a => a.payment_id);
-      const { data: scheduledPayments, error: paymentsError } = await supabase
+      const { data, error } = await supabase
         .from('scheduled_payments')
         .select(`
           id,
@@ -432,46 +411,32 @@ class StorageService {
           due_date,
           amount,
           paid_date,
-          status,
-          booking_id
+          attachment_id,
+          booking_id,
+          bookings (
+            id,
+            customer_id,
+            customers (id, name),
+            units (unit_number)
+          ),
+          payment_attachments (
+            id,
+            payment_id,
+            file_name,
+            file_path,
+            file_size,
+            file_type,
+            uploaded_at
+          )
         `)
-        .in('id', paymentIds);
+        .eq('status', 'paid')
+        .not('attachment_id', 'is', null)
+        .order('booking_id', { ascending: true })
+        .order('installment_number', { ascending: true });
 
-      if (paymentsError) {
-        console.error('Error fetching scheduled payments:', paymentsError);
+      if (error) {
+        console.error('Error fetching all installment attachments:', error);
         return [];
-      }
-
-      console.log('Fetched scheduled payments:', scheduledPayments);
-
-      // ثالثاً: جلب الحجوزات المرتبطة
-      const bookingIds = [...new Set(scheduledPayments?.map(sp => sp.booking_id) || [])];
-      const { data: bookings, error: bookingsError } = await supabase
-        .from('bookings')
-        .select(`
-          id,
-          customer_id,
-          customers (id, name),
-          units (unit_number)
-        `)
-        .in('id', bookingIds);
-
-      if (bookingsError) {
-        console.error('Error fetching bookings:', bookingsError);
-        return [];
-      }
-
-      console.log('Fetched bookings:', bookings);
-
-      // إنشاء خرائط للوصول السريع
-      const paymentsMap = new Map<string, any>();
-      for (const sp of scheduledPayments || []) {
-        paymentsMap.set(sp.id, sp);
-      }
-
-      const bookingsMap = new Map<string, any>();
-      for (const b of bookings || []) {
-        bookingsMap.set(b.id, b);
       }
 
       // تجميع البيانات حسب العميل والحجز
@@ -485,25 +450,18 @@ class StorageService {
         }>;
       }>();
 
-      for (const attachment of attachments) {
-        const scheduledPayment = paymentsMap.get(attachment.payment_id);
-        if (!scheduledPayment) {
-          console.log('No scheduled payment found for attachment:', attachment.id, 'payment_id:', attachment.payment_id);
-          continue;
-        }
-
-        const booking = bookingsMap.get(scheduledPayment.booking_id);
-        if (!booking) {
-          console.log('No booking found for scheduled payment:', scheduledPayment.id, 'booking_id:', scheduledPayment.booking_id);
-          continue;
-        }
-
-        const customerId = booking.customer_id;
-        const customer = booking.customers;
-        const unit = booking.units;
+      for (const sp of (data || [])) {
+        // Supabase يُرجع علاقة واحدة كـ object وليس array
+        const booking = sp.bookings as any;
+        const customerId = booking?.customer_id;
+        const customer = booking?.customers;
+        const unit = booking?.units;
         const customerName = customer?.name || 'غير معروف';
-        const bookingId = scheduledPayment.booking_id;
+        const bookingId = sp.booking_id;
         const unitName = unit?.unit_number || 'غير معروف';
+        
+        // الحصول على المرفق (علاقة واحدة)
+        const attachment = sp.payment_attachments as any;
 
         if (!customerId) continue;
 
@@ -526,11 +484,11 @@ class StorageService {
         }
 
         customerData.bookingsMap.get(bookingId)!.installments.push({
-          installmentNumber: scheduledPayment.installment_number,
-          dueDate: scheduledPayment.due_date,
-          amount: scheduledPayment.amount,
-          paidDate: scheduledPayment.paid_date,
-          attachment: {
+          installmentNumber: sp.installment_number,
+          dueDate: sp.due_date,
+          amount: sp.amount,
+          paidDate: sp.paid_date,
+          attachment: attachment ? {
             id: attachment.id,
             payment_id: attachment.payment_id,
             file_name: attachment.file_name,
@@ -539,19 +497,16 @@ class StorageService {
             file_type: attachment.file_type,
             uploaded_by: '',
             uploaded_at: attachment.uploaded_at
-          }
+          } : null
         });
       }
 
       // تحويل Map إلى Array
-      const result = Array.from(customersMap.values()).map(customer => ({
+      return Array.from(customersMap.values()).map(customer => ({
         customerId: customer.customerId,
         customerName: customer.customerName,
         bookings: Array.from(customer.bookingsMap.values())
       }));
-
-      console.log('Processed installment attachments result:', result);
-      return result;
     } catch (error) {
       console.error('Unexpected error:', error);
       return [];

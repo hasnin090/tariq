@@ -29,7 +29,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
     
     return (
         <li 
-            className="mb-1"
+            className="mb-0.5 sm:mb-1"
             draggable={isEditMode}
             onDragStart={onDragStart}
             onDragOver={onDragOver}
@@ -39,7 +39,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                 onClick={() => !isEditMode && onClick(page)}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                className={`w-full flex items-center gap-4 px-4 py-3.5 mx-auto rounded-xl text-sm font-medium transition-all duration-500 group relative overflow-hidden ${
+                className={`w-full flex items-center gap-2 sm:gap-4 px-2 sm:px-4 py-2.5 sm:py-3.5 mx-auto rounded-xl text-xs sm:text-sm font-medium transition-all duration-500 group relative overflow-hidden ${
                     isDragging ? 'opacity-30 scale-95' : ''
                 } ${
                     isEditMode ? 'cursor-move border-2 border-dashed border-amber-500/50' : 'cursor-pointer'
@@ -63,13 +63,13 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
                 )}
                 
-                <div className={`p-2 rounded-lg transition-all duration-500 transform flex items-center justify-center flex-shrink-0 ${
+                <div className={`p-1.5 sm:p-2 rounded-lg transition-all duration-500 transform flex items-center justify-center flex-shrink-0 ${
                     isActive 
                     ? 'bg-white/25 shadow-lg rotate-0 scale-105' 
                     : 'bg-white/5 group-hover:bg-white/15 group-hover:scale-105 group-hover:rotate-3'
                 }`}>
                     {React.cloneElement<{ className: string }>(icon, { 
-                        className: `h-5 w-5 flex-shrink-0 transition-all duration-500 ${
+                        className: `h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 transition-all duration-500 ${
                             isActive 
                             ? 'text-white drop-shadow-lg' 
                             : 'text-slate-400 group-hover:text-white group-hover:drop-shadow-md'
@@ -382,34 +382,34 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
             ></div>
             
             {/* Sidebar Container */}
-            <aside ref={sidebarRef} className={`fixed lg:relative inset-y-0 right-0 w-72 backdrop-blur-2xl bg-white/10 border-l border-white/20 flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-out shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
+            <aside ref={sidebarRef} className={`fixed lg:relative inset-y-0 right-0 w-64 sm:w-72 backdrop-blur-2xl bg-white/10 border-l border-white/20 flex-shrink-0 flex flex-col h-screen z-40 transition-transform duration-300 ease-out shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
                 
                 {/* Logo Area */}
-                <div ref={logoRef} className="h-24 flex items-center justify-center relative overflow-hidden border-b border-white/20">
+                <div ref={logoRef} className="h-16 sm:h-24 flex items-center justify-center relative overflow-hidden border-b border-white/20">
                     <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-transparent opacity-30"></div>
-                    <div className="relative z-10 text-center px-4">
-                        <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 tracking-tight">{systemTitle}</h1>
+                    <div className="relative z-10 text-center px-2 sm:px-4">
+                        <h1 className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 tracking-tight">{systemTitle}</h1>
                     </div>
                 </div>
 
                 {/* Edit Mode Toggle */}
                 {isAdmin && (
-                    <div className="px-4 pb-3">
-                        <div className="flex gap-2">
+                    <div className="px-2 sm:px-4 pb-2 sm:pb-3">
+                        <div className="flex gap-1 sm:gap-2">
                             <button
                                 onClick={() => setIsEditMode(!isEditMode)}
-                                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                                className={`flex-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-1 sm:gap-2 ${
                                     isEditMode 
                                     ? 'bg-accent/20 text-accent border border-accent/50' 
                                     : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
                                 }`}
                             >
-                                {isEditMode ? '✓ حفظ الترتيب' : '⚙ تعديل الترتيب'}
+                                {isEditMode ? '✓ حفظ' : '⚙ ترتيب'}
                             </button>
                             {isEditMode && (
                                 <button
                                     onClick={resetOrder}
-                                    className="px-3 py-2 rounded-lg text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/50 hover:bg-rose-500/30 transition-all duration-300"
+                                    className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/50 hover:bg-rose-500/30 transition-all duration-300"
                                     title="إعادة تعيين الترتيب الافتراضي"
                                 >
                                     ↺
@@ -421,13 +421,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                 )}
 
                 {/* Navigation */}
-                <nav ref={navRef} className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                    <div className="mb-6">
-                        <h2 className="px-4 pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full dot-accent"></span>
+                <nav ref={navRef} className="flex-1 overflow-y-auto p-2 sm:p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                    <div className="mb-4 sm:mb-6">
+                        <h2 className="px-2 sm:px-4 pb-2 sm:pb-3 text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 sm:gap-2">
+                            <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full dot-accent"></span>
                             {sectionTitle}
                         </h2>
-                        <ul ref={linksRef} className="space-y-1">
+                        <ul ref={linksRef} className="space-y-0.5 sm:space-y-1">
                             {linksToShow.filter(link => {
                                 // إذا توجد صلاحيات مخصصة، تجاوز adminOnly
                                 const hasCustomPermissions = (currentUser as any)?.customMenuAccess?.length > 0;

@@ -31,6 +31,50 @@ import {
     ResponsiveContainer
 } from 'recharts';
 
+// دالة لتنظيف النصوص من الرموز الغريبة
+const cleanText = (text: string | null | undefined): string => {
+    if (!text) return '';
+    
+    let result = text;
+    
+    // فك تشفير URL encoded characters
+    try {
+        if (result.includes('%') || result.includes('x2F') || result.includes('x2f')) {
+            result = result.replace(/x2[Ff]/g, '/');
+            try { result = decodeURIComponent(result); } catch {}
+        }
+    } catch {}
+    
+    return result
+        .replace(/[\u200B-\u200D\uFEFF\u00A0\u2028\u2029]/g, '')
+        .replace(/[\u0600-\u0605\u06DD\u070F\u08E2]/g, '')
+        .replace(/\(\s*\)/g, '')
+        .replace(/\[\s*\]/g, '')
+        .replace(/\{\s*\}/g, '')
+        .replace(/^\s*[-–—]\s*$/g, '')
+        .replace(/\(\s*(\d+)\s*\)$/g, ' ($1)')
+        .replace(/[,،]{2,}/g, '،')
+        .replace(/^[,،\s]+|[,،\s]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+};
+
+// دالة لتنسيق النص للعرض
+const formatDescriptionForDisplay = (text: string | null | undefined): { main: string; details: string } => {
+    const cleaned = cleanText(text);
+    if (!cleaned) return { main: '-', details: '' };
+    
+    const parts = cleaned.split('/').map(p => p.trim()).filter(p => p);
+    
+    if (parts.length === 0) return { main: '-', details: '' };
+    if (parts.length === 1) return { main: parts[0], details: '' };
+    
+    return {
+        main: parts[0],
+        details: parts.slice(1).join(' • ')
+    };
+};
+
 // Icons
 const DownloadIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
 const PrintIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>;
@@ -471,24 +515,34 @@ const FinancialReports: React.FC = () => {
                             المصروفات ({reportData.expenses.length})
                         </h2>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-right">
+                            <table className="w-full text-right table-fixed min-w-[700px]">
                                 <thead>
-                                    <tr className="border-b-2 border-slate-200 dark:border-slate-600">
-                                        <th className="p-3 text-sm font-bold">التاريخ</th>
-                                        <th className="p-3 text-sm font-bold">الفئة</th>
-                                        <th className="p-3 text-sm font-bold">الوصف</th>
-                                        <th className="p-3 text-sm font-bold">المبلغ</th>
+                                    <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50">
+                                        <th className="p-3 text-sm font-bold text-slate-700 dark:text-slate-200 w-[100px]">التاريخ</th>
+                                        <th className="p-3 text-sm font-bold text-slate-700 dark:text-slate-200 w-[160px]">الفئة</th>
+                                        <th className="p-3 text-sm font-bold text-slate-700 dark:text-slate-200">الوصف</th>
+                                        <th className="p-3 text-sm font-bold text-slate-700 dark:text-slate-200 w-[120px]">المبلغ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {reportData.expenses.slice(0, 20).map((expense) => (
-                                        <tr key={expense.id} className="border-b border-slate-200 dark:border-slate-700">
-                                            <td className="p-3">{expense.date}</td>
-                                            <td className="p-3">{expense.category}</td>
-                                            <td className="p-3">{expense.description}</td>
-                                            <td className="p-3 text-rose-600">{formatCurrency(expense.amount)}</td>
+                                    {reportData.expenses.slice(0, 20).map((expense) => {
+                                        const descText = cleanText(expense.description) || '-';
+                                        const catText = cleanText(expense.category) || '-';
+                                        return (
+                                        <tr key={expense.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/20">
+                                            <td className="p-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">{expense.date}</td>
+                                            <td className="p-3 overflow-hidden">
+                                                <div className="truncate text-slate-600 dark:text-slate-300" title={catText}>{catText}</div>
+                                            </td>
+                                            <td className="p-3 overflow-hidden">
+                                                <div className="truncate font-medium text-slate-800 dark:text-slate-100 cursor-default" title={descText}>
+                                                    {descText}
+                                                </div>
+                                            </td>
+                                            <td className="p-3 font-semibold text-rose-600 dark:text-rose-400 whitespace-nowrap">{formatCurrency(expense.amount)}</td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                             {reportData.expenses.length > 20 && (

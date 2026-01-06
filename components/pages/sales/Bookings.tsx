@@ -98,6 +98,42 @@ export const Bookings: React.FC = () => {
         };
     }, []);
 
+    // ✅ التعامل مع البحث والتنقل للعنصر المحدد
+    useEffect(() => {
+        const handleSearchNavigate = (e: CustomEvent) => {
+            if (e.detail?.page !== 'bookings' || !e.detail?.id) return;
+            
+            setTimeout(() => {
+                const element = document.getElementById(`item-${e.detail.id}`) || 
+                               document.querySelector(`[data-id="${e.detail.id}"]`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.classList.add('search-highlight');
+                    setTimeout(() => element.classList.remove('search-highlight'), 3000);
+                }
+                sessionStorage.removeItem('searchFocus');
+            }, 300);
+        };
+        
+        // فحص عند التحميل
+        const searchFocusStr = sessionStorage.getItem('searchFocus');
+        if (searchFocusStr && bookings.length > 0) {
+            try {
+                const searchFocus = JSON.parse(searchFocusStr);
+                if (searchFocus.page === 'bookings') {
+                    handleSearchNavigate({ detail: searchFocus } as CustomEvent);
+                }
+            } catch (e) {
+                console.error('Error parsing searchFocus:', e);
+                sessionStorage.removeItem('searchFocus');
+            }
+        }
+        
+        // الاستماع للحدث المخصص
+        window.addEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        return () => window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+    }, [bookings]);
+
     const loadData = async () => {
         try {
             setLoading(true);
@@ -453,7 +489,7 @@ export const Bookings: React.FC = () => {
                             const remainingAmount = unitPrice - totalPaid;
                             const paymentProgress = unitPrice > 0 ? (totalPaid / unitPrice) * 100 : 0;
                             return (
-                            <tr key={booking.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                            <tr key={booking.id} data-id={booking.id} id={`item-${booking.id}`} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
                                 <td className="p-4 font-medium text-slate-800 dark:text-slate-200">{booking.unitName}</td>
                                 <td className="p-4 text-slate-600 dark:text-slate-300">{booking.customerName}</td>
                                 <td className="p-4 text-slate-600 dark:text-slate-300">{booking.bookingDate}</td>

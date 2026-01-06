@@ -907,7 +907,7 @@
 
     /* Reduce padding on mobile */
     .glass-card {
-      padding: 1rem;
+      padding: 0.75rem;
     }
 
     /* Stack buttons vertically on mobile */
@@ -919,19 +919,107 @@
     .modal-mobile {
       width: 95vw !important;
       max-width: 95vw !important;
-      margin: 1rem auto;
+      margin: 0.5rem auto;
     }
 
     /* Adjust stat cards for mobile */
     .stat-card-mobile {
       min-width: 100%;
     }
+
+    /* Reduce header height on mobile */
+    header {
+      height: auto !important;
+      min-height: 56px;
+    }
+
+    /* Smaller text sizes on mobile */
+    .text-responsive {
+      font-size: 0.875rem;
+    }
+
+    /* Hide less important elements on very small screens */
+    .hide-on-mobile {
+      display: none !important;
+    }
+
+    /* Full width inputs on mobile */
+    input, select, textarea {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+
+    /* Reduce gaps on mobile */
+    .gap-responsive {
+      gap: 0.5rem;
+    }
+
+    /* Smaller buttons on mobile */
+    button {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    /* Reduce chart height on mobile */
+    svg.chart-responsive {
+      max-height: 200px;
+    }
+  }
+
+  /* Very small screens (320px - 480px) */
+  @media (max-width: 480px) {
+    .glass-card {
+      padding: 0.5rem;
+      border-radius: 0.75rem;
+    }
+
+    /* Even smaller text */
+    h1, .text-3xl {
+      font-size: 1.25rem !important;
+    }
+
+    h2, .text-2xl {
+      font-size: 1.125rem !important;
+    }
+
+    h3, .text-xl {
+      font-size: 1rem !important;
+    }
+
+    /* Reduce icon sizes */
+    .icon-responsive {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    /* Stack everything */
+    .flex-responsive {
+      flex-direction: column;
+    }
   }
 
   /* Tablet optimizations */
   @media (min-width: 641px) and (max-width: 1024px) {
     .glass-card {
-      padding: 1.5rem;
+      padding: 1.25rem;
+    }
+
+    /* Adjust grid columns for tablets */
+    .grid-responsive {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* Medium sized sidebar on tablet */
+    aside {
+      width: 16rem !important;
+    }
+  }
+
+  /* Large screens optimization */
+  @media (min-width: 1025px) and (max-width: 1440px) {
+    .container-responsive {
+      max-width: 1200px;
+      margin: 0 auto;
     }
   }
 
@@ -939,7 +1027,51 @@
   @media (pointer: coarse) {
     button, a, input, select, textarea {
       min-height: 44px;
-      min-width: 44px;
+    }
+    
+    /* Better spacing for touch */
+    .touch-spacing > * {
+      margin-bottom: 0.75rem;
+    }
+  }
+
+  /* Landscape mobile optimization */
+  @media (max-height: 500px) and (orientation: landscape) {
+    header {
+      height: 48px !important;
+      min-height: 48px;
+    }
+
+    aside {
+      width: 14rem !important;
+    }
+
+    .modal-safe-area {
+      padding-top: 1rem;
+      max-height: calc(100vh - 2rem);
+    }
+  }
+
+  /* Print styles - hide navigation */
+  @media print {
+    aside, header, .no-print {
+      display: none !important;
+    }
+
+    main {
+      width: 100% !important;
+      padding: 0 !important;
+    }
+  }
+
+  /* Safe area insets for notched devices */
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .safe-area-bottom {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .safe-area-top {
+      padding-top: env(safe-area-inset-top);
     }
   }
 
@@ -1028,5 +1160,22 @@
     @apply focus:ring-4 focus:ring-white/20;
     @apply transition-all duration-300;
     @apply hover:scale-105 active:scale-95;
+  }
+
+  /* Search Highlight Animation */
+  .search-highlight {
+    animation: search-pulse 0.5s ease-in-out 3;
+    @apply ring-4 ring-primary-500 ring-opacity-70;
+  }
+
+  @keyframes search-pulse {
+    0%, 100% {
+      @apply ring-opacity-70;
+      transform: scale(1);
+    }
+    50% {
+      @apply ring-opacity-100;
+      transform: scale(1.01);
+    }
   }
 }

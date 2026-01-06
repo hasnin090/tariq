@@ -1,9 +1,10 @@
 /**
  * 🔔 useNotifications Hook
  * React Hook لإدارة الإشعارات
+ * مع حماية من memory leaks
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useProject } from '../contexts/ProjectContext';
 import { notificationService, type Notification } from '../utils/notificationService';
@@ -16,6 +17,16 @@ export const useNotifications = () => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // للتحقق من أن المكون لا يزال mounted
+  const isMounted = useRef(true);
+  
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   /**
    * تحميل الإشعارات
@@ -31,14 +42,22 @@ export const useNotifications = () => {
         currentUser.id,
         currentProject?.id
       );
-      setNotifications(data);
       
-      const count = data.filter(n => !n.isRead).length;
-      setUnreadCount(count);
-    } catch (err: any) {
-      setError(err.message || 'فشل تحميل الإشعارات');
+      // التحقق من mounted قبل تحديث الحالة
+      if (isMounted.current) {
+        setNotifications(data);
+        const count = data.filter(n => !n.isRead).length;
+        setUnreadCount(count);
+      }
+    } catch (err: unknown) {
+      if (isMounted.current) {
+        const message = err instanceof Error ? err.message : 'فشل تحميل الإشعارات';
+        setError(message);
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   }, [currentUser, currentProject]);
 
@@ -49,15 +68,19 @@ export const useNotifications = () => {
     try {
       await notificationService.markAsRead(notificationId);
       
-      setNotifications(prev =>
-        prev.map(n =>
-          n.id === notificationId ? { ...n, isRead: true } : n
-        )
-      );
-      
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (err: any) {
-      setError(err.message || 'فشل تحديث الإشعار');
+      if (isMounted.current) {
+        setNotifications(prev =>
+          prev.map(n =>
+            n.id === notificationId ? { ...n, isRead: true } : n
+          )
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (err: unknown) {
+      if (isMounted.current) {
+        const message = err instanceof Error ? err.message : 'فشل تحديث الإشعار';
+        setError(message);
+      }
     }
   }, []);
 
@@ -73,13 +96,17 @@ export const useNotifications = () => {
         currentProject?.id
       );
       
-      setNotifications(prev =>
-        prev.map(n => ({ ...n, isRead: true }))
-      );
-      
-      setUnreadCount(0);
-    } catch (err: any) {
-      setError(err.message || 'فشل تحديث الإشعارات');
+      if (isMounted.current) {
+        setNotifications(prev =>
+          prev.map(n => ({ ...n, isRead: true }))
+        );
+        setUnreadCount(0);
+      }
+    } catch (err: unknown) {
+      if (isMounted.current) {
+        const message = err instanceof Error ? err.message : 'فشل تحديث الإشعارات';
+        setError(message);
+      }
     }
   }, [currentUser, currentProject]);
 
@@ -90,17 +117,22 @@ export const useNotifications = () => {
     try {
       await notificationService.delete(notificationId);
       
-      const notification = notifications.find(n => n.id === notificationId);
-      
-      setNotifications(prev =>
-        prev.filter(n => n.id !== notificationId)
-      );
-      
-      if (notification && !notification.isRead) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
+      if (isMounted.current) {
+        const notification = notifications.find(n => n.id === notificationId);
+        
+        setNotifications(prev =>
+          prev.filter(n => n.id !== notificationId)
+        );
+        
+        if (notification && !notification.isRead) {
+          setUnreadCount(prev => Math.max(0, prev - 1));
+        }
       }
-    } catch (err: any) {
-      setError(err.message || 'فشل حذف الإشعار');
+    } catch (err: unknown) {
+      if (isMounted.current) {
+        const message = err instanceof Error ? err.message : 'فشل حذف الإشعار';
+        setError(message);
+      }
     }
   }, [notifications]);
 
@@ -116,11 +148,16 @@ export const useNotifications = () => {
         currentProject?.id
       );
       
-      setNotifications(prev =>
-        prev.filter(n => !n.isRead)
-      );
-    } catch (err: any) {
-      setError(err.message || 'فشل حذف الإشعارات');
+      if (isMounted.current) {
+        setNotifications(prev =>
+          prev.filter(n => !n.isRead)
+        );
+      }
+    } catch (err: unknown) {
+      if (isMounted.current) {
+        const message = err instanceof Error ? err.message : 'فشل حذف الإشعارات';
+        setError(message);
+      }
     }
   }, [currentUser, currentProject]);
 
@@ -138,8 +175,11 @@ export const useNotifications = () => {
       
       // إعادة تحميل الإشعارات
       await loadNotifications();
-    } catch (err: any) {
-      setError(err.message || 'فشل فحص الدفعات');
+    } catch (err: unknown) {
+      if (isMounted.current) {
+        const message = err instanceof Error ? err.message : 'فشل فحص الدفعات';
+        setError(message);
+      }
     }
   }, [currentUser, currentProject, loadNotifications]);
 
@@ -155,8 +195,10 @@ export const useNotifications = () => {
    */
   useEffect(() => {
     const interval = setInterval(() => {
-      loadNotifications();
-      checkPayments();
+      if (isMounted.current) {
+        loadNotifications();
+        checkPayments();
+      }
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);

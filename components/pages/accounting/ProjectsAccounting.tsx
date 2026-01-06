@@ -5,6 +5,50 @@ import { formatCurrency } from '../../../utils/currencyFormatter';
 import { BriefcaseIcon, ArrowLeftIcon } from '../../shared/Icons';
 import { bookingsService, paymentsService, unitsService, customersService, expensesService } from '../../../src/services/supabaseService';
 
+// دالة لتنظيف النصوص من الرموز الغريبة
+const cleanText = (text: string | null | undefined): string => {
+    if (!text) return '';
+    
+    let result = text;
+    
+    // فك تشفير URL encoded characters
+    try {
+        if (result.includes('%') || result.includes('x2F') || result.includes('x2f')) {
+            result = result.replace(/x2[Ff]/g, '/');
+            try { result = decodeURIComponent(result); } catch {}
+        }
+    } catch {}
+    
+    return result
+        .replace(/[\u200B-\u200D\uFEFF\u00A0\u2028\u2029]/g, '')
+        .replace(/[\u0600-\u0605\u06DD\u070F\u08E2]/g, '')
+        .replace(/\(\s*\)/g, '')
+        .replace(/\[\s*\]/g, '')
+        .replace(/\{\s*\}/g, '')
+        .replace(/^\s*[-–—]\s*$/g, '')
+        .replace(/\(\s*(\d+)\s*\)$/g, ' ($1)')
+        .replace(/[,،]{2,}/g, '،')
+        .replace(/^[,،\s]+|[,،\s]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+};
+
+// دالة لتنسيق النص للعرض
+const formatDescriptionForDisplay = (text: string | null | undefined): { main: string; details: string } => {
+    const cleaned = cleanText(text);
+    if (!cleaned) return { main: '-', details: '' };
+    
+    const parts = cleaned.split('/').map(p => p.trim()).filter(p => p);
+    
+    if (parts.length === 0) return { main: '-', details: '' };
+    if (parts.length === 1) return { main: parts[0], details: '' };
+    
+    return {
+        main: parts[0],
+        details: parts.slice(1).join(' • ')
+    };
+};
+
 type ViewMode = 'projects' | 'project-details' | 'revenues' | 'expenses';
 
 const ProjectsAccounting: React.FC = () => {
@@ -419,26 +463,36 @@ const ProjectsAccounting: React.FC = () => {
                     </div>
                     {selectedProjectExpenses.length > 0 ? (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-right">
+                            <table className="w-full text-right table-fixed min-w-[700px]">
                                 <thead>
                                     <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50">
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">التاريخ</th>
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الوصف</th>
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">الفئة</th>
-                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المبلغ</th>
+                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 w-[100px]">التاريخ</th>
+                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 w-[45%]">الوصف</th>
+                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 w-[180px]">الفئة</th>
+                                        <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 w-[120px]">المبلغ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {selectedProjectExpenses.map(expense => (
+                                    {selectedProjectExpenses.map(expense => {
+                                        const descText = cleanText(expense.description) || '-';
+                                        const catName = cleanText(categoryMap.get(expense.categoryId)) || '-';
+                                        return (
                                         <tr key={expense.id} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700/20">
                                             <td className="p-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">{expense.date}</td>
-                                            <td className="p-4 font-medium text-slate-800 dark:text-slate-100">{expense.description}</td>
-                                            <td className="p-4 text-slate-600 dark:text-slate-300">{categoryMap.get(expense.categoryId) || '-'}</td>
+                                            <td className="p-4 overflow-hidden">
+                                                <div className="truncate font-medium text-slate-800 dark:text-slate-100 cursor-default" title={descText}>
+                                                    {descText}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 overflow-hidden">
+                                                <div className="truncate text-slate-600 dark:text-slate-300" title={catName}>{catName}</div>
+                                            </td>
                                             <td className="p-4 font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
                                                 {formatCurrency(expense.amount)}
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

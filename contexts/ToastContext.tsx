@@ -13,11 +13,14 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+// Counter to ensure unique IDs even when multiple toasts are added in the same millisecond
+let toastIdCounter = 0;
+
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const addToast = useCallback((message: string, type: ToastMessage['type']) => {
-    const id = Date.now();
+    const id = Date.now() * 1000 + (toastIdCounter++ % 1000);
     setToasts(prevToasts => [...prevToasts, { id, message, type }]);
   }, []);
 

@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { UnitType, UnitStatus, ExpenseCategory } from '../../../types';
+import { UnitType, UnitStatus, ExpenseCategory, Project } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useProject } from '../../../contexts/ProjectContext';
 import logActivity from '../../../utils/activityLogger';
-import { unitTypesService, unitStatusesService, expenseCategoriesService, settingsService, userMenuAccessService } from '../../../src/services/supabaseService';
+import { unitTypesService, unitStatusesService, expenseCategoriesService, settingsService, userMenuAccessService, projectsService } from '../../../src/services/supabaseService';
 import { refreshCurrencyCache } from '../../../utils/currencyFormatter';
 import { PlusIcon, TrashIcon } from '../../shared/Icons';
+import ProjectSelector from '../../shared/ProjectSelector';
 
 interface EditableListItem {
   id: string;
   name: string;
   isSystem?: boolean;
+  projectId?: string | null;
 }
 
 const CustomizationSection: React.FC<{
@@ -18,10 +21,13 @@ const CustomizationSection: React.FC<{
     items: EditableListItem[];
     storageKey: 'unitTypes' | 'unitStatuses' | 'expenseCategories';
     onUpdate: (items: any[]) => void;
-}> = ({ title, items, storageKey, onUpdate }) => {
+    projects?: Project[];
+    activeProjectId?: string | null;
+}> = ({ title, items, storageKey, onUpdate, projects, activeProjectId }) => {
     const { addToast } = useToast();
     const [newItemName, setNewItemName] = useState('');
     const [isExpanded, setIsExpanded] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(activeProjectId || null);
 
     const services = {
         unitTypes: unitTypesService,
@@ -31,18 +37,38 @@ const CustomizationSection: React.FC<{
 
     const service = services[storageKey];
 
+    // تحديث المشروع المحدد عند تغيير المشروع النشط
+    useEffect(() => {
+        if (storageKey === 'expenseCategories' && activeProjectId !== undefined) {
+            setSelectedProjectId(activeProjectId);
+        }
+    }, [activeProjectId, storageKey]);
+
     const handleAddItem = async () => {
         if (!newItemName.trim()) {
             addToast('الاسم لا يمكن أن يكون فارغًا.', 'error');
             return;
         }
         try {
-            const newItem = await service.create({ name: newItemName });
+            let newItem;
+            if (storageKey === 'expenseCategories') {
+                // إضافة فئة مصروفات مرتبطة بالمشروع المحدد
+                newItem = await (service as typeof expenseCategoriesService).create({ 
+                    name: newItemName,
+                    projectId: selectedProjectId
+                });
+            } else {
+                newItem = await service.create({ name: newItemName });
+            }
+            
             if (newItem) {
                 const updatedItems = [...items, newItem];
                 onUpdate(updatedItems);
                 setNewItemName('');
-                logActivity(`Add ${storageKey}`, `Added new item: ${newItemName}`, 'projects');
+                const projectName = selectedProjectId 
+                    ? projects?.find(p => p.id === selectedProjectId)?.name || 'مشروع'
+                    : 'عام';
+                logActivity(`Add ${storageKey}`, `Added new item: ${newItemName} (${projectName})`, 'projects');
                 addToast('تمت الإضافة بنجاح', 'success');
             }
         } catch (error) {
@@ -88,6 +114,24 @@ const CustomizationSection: React.FC<{
                 <div className="border-t border-white/10">
                     {/* Add New Item */}
                     <div className="p-4 bg-white/5 border-b border-white/10">
+                        {/* Project selector for expense categories */}
+                        {storageKey === 'expenseCategories' && projects && projects.length > 0 && (
+                            <div className="mb-3">
+                                <label className="block text-sm font-medium text-slate-300 mb-1">
+                                    المشروع (اترك فارغاً للفئة العامة)
+                                </label>
+                                <select
+                                    value={selectedProjectId || ''}
+                                    onChange={(e) => setSelectedProjectId(e.target.value || null)}
+                                    className="input-field"
+                                >
+                                    <option value="">فئة عامة (لجميع المشاريع)</option>
+                                    {projects.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         <div className="flex gap-2">
                             <input 
                                 type="text" 
@@ -111,22 +155,39 @@ const CustomizationSection: React.FC<{
                     <div className="max-h-96 overflow-y-auto">
                         {items.length > 0 ? (
                             <ul className="divide-y divide-white/10">
-                                {items.map(item => (
-                                    <li key={item.id} className="p-3 flex justify-between items-center hover:bg-white/5 transition-colors">
-                                        <span className="font-medium text-slate-200">{item.name}</span>
-                                        {!item.isSystem ? (
-                                            <button 
-                                                onClick={() => handleDeleteItem(item.id, item.name)} 
-                                                className="text-rose-400 hover:text-rose-300 p-2 rounded-lg hover:bg-rose-500/10 transition-colors"
-                                                title="حذف"
-                                            >
-                                                <TrashIcon className="h-4 w-4" />
-                                            </button>
-                                        ) : (
-                                            <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded">نظام</span>
-                                        )}
-                                    </li>
-                                ))}
+                                {items.map(item => {
+                                    const itemProject = storageKey === 'expenseCategories' && item.projectId
+                                        ? projects?.find(p => p.id === item.projectId)
+                                        : null;
+                                    
+                                    return (
+                                        <li key={item.id} className="p-3 flex justify-between items-center hover:bg-white/5 transition-colors">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium text-slate-200">{item.name}</span>
+                                                {storageKey === 'expenseCategories' && (
+                                                    <span className={`text-xs px-2 py-0.5 rounded ${
+                                                        itemProject 
+                                                            ? 'bg-blue-500/20 text-blue-300' 
+                                                            : 'bg-green-500/20 text-green-300'
+                                                    }`}>
+                                                        {itemProject ? itemProject.name : 'عام'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {!item.isSystem ? (
+                                                <button 
+                                                    onClick={() => handleDeleteItem(item.id, item.name)} 
+                                                    className="text-rose-400 hover:text-rose-300 p-2 rounded-lg hover:bg-rose-500/10 transition-colors"
+                                                    title="حذف"
+                                                >
+                                                    <TrashIcon className="h-4 w-4" />
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded">نظام</span>
+                                            )}
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         ) : (
                             <div className="p-8 text-center text-slate-400">
@@ -144,9 +205,11 @@ const CustomizationSection: React.FC<{
 const Customization: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
+    const { activeProject, availableProjects, setActiveProject } = useProject();
     const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
     const [unitStatuses, setUnitStatuses] = useState<UnitStatus[]>([]);
     const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
     const [currency, setCurrency] = useState('IQD');
     const [decimalPlaces, setDecimalPlaces] = useState(2);
     const [accentColor, setAccentColor] = useState('amber');
@@ -198,13 +261,15 @@ const Customization: React.FC = () => {
                     unitTypesData, 
                     unitStatusesData, 
                     expenseCategoriesData,
+                    projectsData,
                     currencyData,
                     decimalPlacesData,
                     accentColorData
                 ] = await Promise.all([
                     unitTypesService.getAll(),
                     unitStatusesService.getAll(),
-                    expenseCategoriesService.getAll(),
+                    expenseCategoriesService.getAll(), // جلب جميع الفئات لعرضها في صفحة التخصيص
+                    projectsService.getAll(),
                     settingsService.get('systemCurrency'),
                     settingsService.get('systemDecimalPlaces'),
                     settingsService.get('accentColor')
@@ -212,6 +277,7 @@ const Customization: React.FC = () => {
                 setUnitTypes(unitTypesData as UnitType[]);
                 setUnitStatuses(unitStatusesData as UnitStatus[]);
                 setExpenseCategories(expenseCategoriesData as ExpenseCategory[]);
+                setProjects(projectsData as Project[]);
                 
                 // Validate and clean currency data
                 let validCurrency = 'IQD';
@@ -428,7 +494,14 @@ const Customization: React.FC = () => {
                 )}
                 {/* حالات الوحدات مخفية لأنها ثوابت نظام (متاح، محجوز، مباع) ولا يجب تعديلها */}
                 {sectionPermissions.expenseCategories && (
-                    <CustomizationSection title="فئات المصروفات" items={expenseCategories} storageKey="expenseCategories" onUpdate={setExpenseCategories} />
+                    <CustomizationSection 
+                        title="فئات المصروفات" 
+                        items={expenseCategories} 
+                        storageKey="expenseCategories" 
+                        onUpdate={setExpenseCategories}
+                        projects={projects}
+                        activeProjectId={activeProject?.id || null}
+                    />
                 )}
                 {!sectionPermissions.unitTypes && !sectionPermissions.expenseCategories && (
                     <p className="text-slate-400 text-center py-4">لا توجد صلاحيات لتخصيص البيانات</p>

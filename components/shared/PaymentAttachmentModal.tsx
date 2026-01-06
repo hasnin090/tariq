@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X, Upload, FileText, Image, File, Loader2, AlertCircle } from 'lucide-react';
 import { storageService } from '../../src/services/storageService';
-import { formatCurrency } from '../../utils/currencyFormatter';
 
 interface PaymentAttachmentModalProps {
   isOpen: boolean;
@@ -128,7 +127,7 @@ const PaymentAttachmentModal: React.FC<PaymentAttachmentModalProps> = ({
               {unitName && ` • ${unitName}`}
             </p>
             <p className="text-sm text-emerald-600 font-medium mt-1">
-              المبلغ: {formatCurrency(paymentAmount)}
+              المبلغ: {paymentAmount.toLocaleString()} ر.س
             </p>
           </div>
           <button

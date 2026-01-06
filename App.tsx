@@ -154,34 +154,35 @@ const App: React.FC = () => {
     setActivePage(mode === 'projects' ? 'dashboard' : 'expense_dashboard');
   };
 
-  const renderPage = () => {
-    // التحقق من صلاحية الوصول للصفحة
-    // أولاً: التحقق من الصلاحيات المخصصة
+  // التحقق من صلاحية الوصول للصفحة وإعادة التوجيه إذا لزم الأمر
+  useEffect(() => {
+    if (!currentUser) return;
+    
     const customMenuAccess = (currentUser as any)?.customMenuAccess;
+    let shouldRedirect = false;
+    
     if (customMenuAccess && customMenuAccess.length > 0) {
       const menuItem = customMenuAccess.find((m: any) => m.menuKey === activePage);
       if (menuItem !== undefined) {
-        // إذا الصفحة موجودة في الصلاحيات المخصصة
         if (!menuItem.isVisible) {
-          // إذا غير مسموح، أعد التوجيه
-          const defaultPage = getDefaultPage(currentUser!.role);
-          setActivePage(defaultPage);
-          return null;
+          shouldRedirect = true;
         }
-        // إذا مسموح، استمر للعرض
-      } else if (currentUser?.role !== 'Admin') {
-        // الصفحة غير موجودة في التخصيص وليس مدير
-        const defaultPage = getDefaultPage(currentUser!.role);
-        setActivePage(defaultPage);
-        return null;
+      } else if (currentUser.role !== 'Admin') {
+        shouldRedirect = true;
       }
-    } else if (currentUser && !canAccessPage(currentUser.role, activePage)) {
-      // لا توجد صلاحيات مخصصة، استخدم الافتراضية
-      const defaultPage = getDefaultPage(currentUser.role);
-      setActivePage(defaultPage);
-      return null;
+    } else if (!canAccessPage(currentUser.role, activePage)) {
+      shouldRedirect = true;
     }
+    
+    if (shouldRedirect) {
+      const defaultPage = getDefaultPage(currentUser.role);
+      if (defaultPage !== activePage) {
+        setActivePage(defaultPage);
+      }
+    }
+  }, [activePage, currentUser]);
 
+  const renderPage = () => {
     switch (activePage) {
       // Projects
       case 'dashboard': return <Dashboard />;
@@ -264,8 +265,8 @@ const App: React.FC = () => {
         <div className="absolute inset-0 opacity-20 z-0" style={{backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')"}}></div>
         
         {/* Decorative Glow Effects - exactly like Login */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none z-0"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none z-0"></div>
+        <div className="absolute top-1/4 left-1/4 w-48 sm:w-96 h-48 sm:h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none z-0"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-48 sm:w-96 h-48 sm:h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none z-0"></div>
         {/* Scroll Progress Bar */}
         <div 
           className="scroll-progress" 
@@ -286,7 +287,7 @@ const App: React.FC = () => {
           onClose={() => setIsSidebarOpen(false)}
         />
         
-        <main className="flex-1 flex flex-col h-screen relative z-0">
+        <main className="flex-1 flex flex-col h-screen min-w-0 relative z-0">
           {/* Background Pattern Overlay */}
           <div className="absolute inset-0 opacity-40 dark:opacity-20 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwgMCwgMCwgMC4wNSkiLz48L3N2Zz4=')]"></div>
           
@@ -297,7 +298,7 @@ const App: React.FC = () => {
             setActivePage={setActivePage}
             onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
           />
-          <div className="flex-1 overflow-y-auto p-6 relative z-10 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 relative z-10 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
             {renderPage()}
           </div>
         </main>

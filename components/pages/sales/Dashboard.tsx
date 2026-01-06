@@ -412,8 +412,8 @@ const Dashboard: React.FC = () => {
     }, [payments, bookings]);
 
     return (
-        <div className="container mx-auto">
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-6">لوحة التحكم الرئيسية</h2>
+        <div className="container mx-auto px-1 sm:px-0">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-4 sm:mb-6">لوحة التحكم الرئيسية</h2>
             
             {/* Project Selector */}
             {!currentUser?.assignedProjectId && (
@@ -424,25 +424,25 @@ const Dashboard: React.FC = () => {
                 />
             )}
             
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${currentUser?.role === 'Admin' ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-6 mb-6`}>
-                <StatCard title="إجمالي الوحدات" value={stats.totalUnits} icon={<BuildingIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" delay={0} />
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${currentUser?.role === 'Admin' ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6`}>
+                <StatCard title="إجمالي الوحدات" value={stats.totalUnits} icon={<BuildingIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white"/>} color="stat-card-amber" delay={0} />
                 {currentUser?.role === 'Admin' && (
-                    <StatCard title="إجمالي العملاء" value={stats.totalCustomers} icon={<UsersIcon className="h-8 w-8 text-white"/>} color="stat-card-amber-600" delay={1} />
+                    <StatCard title="إجمالي العملاء" value={stats.totalCustomers} icon={<UsersIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white"/>} color="stat-card-amber-600" delay={1} />
                 )}
                 {currentUser?.role === 'Admin' && (
-                    <StatCard title="إجمالي الإيرادات" value={formatCurrency(stats.totalRevenue)} icon={<TrendingUpIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" delay={2} />
+                    <StatCard title="إجمالي الإيرادات" value={formatCurrency(stats.totalRevenue)} icon={<TrendingUpIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white"/>} color="stat-card-amber" delay={2} />
                 )}
-                <StatCard title="الوحدات المتاحة" value={stats.unitsAvailable} icon={<CreditCardIcon className="h-8 w-8 text-white"/>} color="stat-card-amber" delay={3} />
+                <StatCard title="الوحدات المتاحة" value={stats.unitsAvailable} icon={<CreditCardIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white"/>} color="stat-card-amber" delay={3} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-3">اتجاه المبيعات والإيرادات</h3>
-                    <div className="h-72">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-slate-200 mb-2 sm:mb-3">اتجاه المبيعات والإيرادات</h3>
+                    <div className="h-48 sm:h-64 lg:h-72">
                         <LineChart data={salesTrendData} />
                     </div>
                 </div>
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">
                      <DonutChart data={unitStatusData} title="حالة الوحدات" centerLabel="الإجمالي" />
                 </div>
             </div>

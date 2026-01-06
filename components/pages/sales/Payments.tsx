@@ -206,6 +206,83 @@ const Payments: React.FC = () => {
         };
     }, []);
 
+    // ✅ التعامل مع البحث والتنقل للعنصر المحدد
+    useEffect(() => {
+        const handleSearchNavigate = (e: CustomEvent) => {
+            if (e.detail?.page !== 'payments' || !e.detail?.id) return;
+            
+            const paymentId = e.detail.id;
+            console.log('🔍 Searching for payment:', paymentId);
+            
+            // البحث عن الدفعة للحصول على bookingId
+            const targetPayment = payments.find(p => p.id === paymentId);
+            
+            if (targetPayment && targetPayment.bookingId) {
+                console.log('✅ Found payment, bookingId:', targetPayment.bookingId);
+                
+                // توسيع مجموعة الحجز التي تحتوي على الدفعة
+                setExpandedBookings(prev => {
+                    const newSet = new Set(prev);
+                    newSet.add(targetPayment.bookingId);
+                    return newSet;
+                });
+                
+                // مسح البحث الحالي لإظهار جميع الدفعات
+                setSearchTerm('');
+                
+                // إزالة فلتر المشروع مؤقتاً إذا لزم الأمر
+                // يمكن إضافة هذا لاحقاً إذا كانت الدفعة في مشروع مختلف
+                
+                // التمرير إلى الحجز أولاً ثم إلى الدفعة المحددة
+                setTimeout(() => {
+                    // أولاً التمرير إلى مجموعة الحجز
+                    const bookingElement = document.getElementById(`booking-group-${targetPayment.bookingId}`) || 
+                                          document.querySelector(`[data-booking-id="${targetPayment.bookingId}"]`);
+                    
+                    if (bookingElement) {
+                        bookingElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        bookingElement.classList.add('search-highlight');
+                        setTimeout(() => bookingElement.classList.remove('search-highlight'), 3000);
+                    }
+                    
+                    // ثم بعد تأخير قصير، التمرير إلى الدفعة المحددة وإبرازها
+                    setTimeout(() => {
+                        const paymentElement = document.getElementById(`item-${paymentId}`) || 
+                                              document.querySelector(`[data-id="${paymentId}"]`);
+                        if (paymentElement) {
+                            paymentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            paymentElement.classList.add('search-highlight');
+                            setTimeout(() => paymentElement.classList.remove('search-highlight'), 3000);
+                        }
+                    }, 500);
+                    
+                }, 100);
+            } else {
+                console.log('❌ Payment not found:', paymentId);
+            }
+            
+            sessionStorage.removeItem('searchFocus');
+        };
+        
+        // فحص عند التحميل
+        const searchFocusStr = sessionStorage.getItem('searchFocus');
+        if (searchFocusStr && payments.length > 0) {
+            try {
+                const searchFocus = JSON.parse(searchFocusStr);
+                if (searchFocus.page === 'payments') {
+                    handleSearchNavigate({ detail: searchFocus } as CustomEvent);
+                }
+            } catch (e) {
+                console.error('Error parsing searchFocus:', e);
+                sessionStorage.removeItem('searchFocus');
+            }
+        }
+        
+        // الاستماع للحدث المخصص
+        window.addEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        return () => window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+    }, [payments]);
+
     const loadAllData = async () => {
         try {
             setLoading(true);
@@ -1542,7 +1619,7 @@ const Payments: React.FC = () => {
                                     </thead>
                                     <tbody>
                                         {customerPayments.map(payment => (
-                                            <tr key={payment.id} className="border-b border-white/10 hover:bg-white/5">
+                                            <tr key={payment.id} data-id={payment.id} id={`item-${payment.id}`} className="border-b border-white/10 hover:bg-white/5">
                                                 <td className="p-4 text-slate-300">
                                                     <input
                                                         type="checkbox"
@@ -1624,7 +1701,12 @@ const Payments: React.FC = () => {
                                 const progressPercent = group.unitPrice > 0 ? (group.totalPaid / group.unitPrice) * 100 : 0;
                                 
                                 return (
-                                    <div key={group.bookingId} className="glass-card overflow-hidden">
+                                    <div 
+                                        key={group.bookingId} 
+                                        id={`booking-group-${group.bookingId}`}
+                                        data-booking-id={group.bookingId}
+                                        className="glass-card overflow-hidden"
+                                    >
                                         {/* الصف الرئيسي - ملخص الحجز */}
                                         <div 
                                             className="p-4 cursor-pointer hover:bg-white/5 transition-colors"
@@ -1769,7 +1851,7 @@ const Payments: React.FC = () => {
                                                                                            : 'دفعة إضافية';
                                                                     
                                                                     return (
-                                                                        <tr key={payment.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                                                        <tr key={payment.id} data-id={payment.id} id={`item-${payment.id}`} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                                                                             <td className="p-3 text-slate-400">{index + 1}</td>
                                                                             <td className="p-3 text-slate-300">{payment.paymentDate}</td>
                                                                             <td className="p-3">

@@ -84,6 +84,42 @@ const Customers: React.FC = () => {
         };
     }, []);
 
+    // ✅ التعامل مع البحث والتنقل للعنصر المحدد
+    useEffect(() => {
+        const handleSearchNavigate = (e: CustomEvent) => {
+            if (e.detail?.page !== 'customers' || !e.detail?.id) return;
+            
+            setTimeout(() => {
+                const element = document.getElementById(`item-${e.detail.id}`) || 
+                               document.querySelector(`[data-id="${e.detail.id}"]`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.classList.add('search-highlight');
+                    setTimeout(() => element.classList.remove('search-highlight'), 3000);
+                }
+                sessionStorage.removeItem('searchFocus');
+            }, 300);
+        };
+        
+        // فحص عند التحميل
+        const searchFocusStr = sessionStorage.getItem('searchFocus');
+        if (searchFocusStr && customers.length > 0) {
+            try {
+                const searchFocus = JSON.parse(searchFocusStr);
+                if (searchFocus.page === 'customers') {
+                    handleSearchNavigate({ detail: searchFocus } as CustomEvent);
+                }
+            } catch (e) {
+                console.error('Error parsing searchFocus:', e);
+                sessionStorage.removeItem('searchFocus');
+            }
+        }
+        
+        // الاستماع للحدث المخصص
+        window.addEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        return () => window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+    }, [customers]);
+
     const loadData = async () => {
         try {
             setLoading(true);
@@ -241,7 +277,7 @@ const Customers: React.FC = () => {
                         </tr></thead>
                         <tbody ref={tableBodyRef}>
                             {filteredCustomers.map(customer => (
-                                <tr key={customer.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
+                                <tr key={customer.id} data-id={customer.id} id={`item-${customer.id}`} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-100">
                                         <button 
                                             onClick={() => handleViewCustomerPayments(customer)}

@@ -72,8 +72,9 @@ export function validateUsername(username: string): { valid: boolean; error?: st
 
 /**
  * التحقق من كلمة المرور
+ * متطلبات: 8 أحرف على الأقل، حرف كبير، حرف صغير، رقم
  */
-export function validatePassword(password: string): { valid: boolean; error?: string } {
+export function validatePassword(password: string): { valid: boolean; error?: string; strength?: 'weak' | 'medium' | 'strong' } {
   if (!password) {
     return { valid: false, error: 'كلمة المرور مطلوبة' };
   }
@@ -86,7 +87,38 @@ export function validatePassword(password: string): { valid: boolean; error?: st
     return { valid: false, error: 'كلمة المرور طويلة جداً' };
   }
 
-  return { valid: true };
+  // التحقق من وجود حرف كبير
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل (A-Z)' };
+  }
+
+  // التحقق من وجود حرف صغير
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'كلمة المرور يجب أن تحتوي على حرف صغير واحد على الأقل (a-z)' };
+  }
+
+  // التحقق من وجود رقم
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'كلمة المرور يجب أن تحتوي على رقم واحد على الأقل (0-9)' };
+  }
+
+  // التحقق من كلمات المرور الشائعة الضعيفة
+  const weakPasswords = ['12345678', 'password', 'Password1', 'Qwerty123', 'Admin123', 'admin123'];
+  if (weakPasswords.includes(password)) {
+    return { valid: false, error: 'كلمة المرور شائعة جداً وسهلة التخمين' };
+  }
+
+  // حساب قوة كلمة المرور
+  let strength: 'weak' | 'medium' | 'strong' = 'weak';
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  
+  if (password.length >= 12 && hasSpecialChar) {
+    strength = 'strong';
+  } else if (password.length >= 10 || hasSpecialChar) {
+    strength = 'medium';
+  }
+
+  return { valid: true, strength };
 }
 
 /**

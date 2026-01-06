@@ -97,9 +97,19 @@ export const usersService = {
     // Extract fields
     const { password, projectAssignments, permissions, ...userWithoutPassword } = user as any;
     
-    // Hash password before storing (use default password if not provided)
-    const plainPassword = password || '123456';
-    const hashedPassword = await hashPassword(plainPassword);
+    // التحقق من وجود كلمة مرور - لا يوجد كلمة مرور افتراضية لأسباب أمنية
+    if (!password) {
+      throw new ValidationError('كلمة المرور مطلوبة عند إنشاء مستخدم جديد');
+    }
+    
+    // التحقق من قوة كلمة المرور
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      throw new ValidationError(passwordValidation.error!);
+    }
+    
+    // Hash password before storing
+    const hashedPassword = await hashPassword(password);
     
     // Only include valid database columns (permissions is not stored in DB, derived from role)
     const cleanUserData = {
@@ -1630,17 +1640,136 @@ export const expenseCategoriesService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    return (data || []).map((cat: any) => ({
+      id: cat.id,
+      name: cat.name,
+      description: cat.description,
+      projectId: cat.project_id
+    }));
+  },
+
+  async getByProject(projectId: string | null) {
+    // جلب فئات المشروع المحدد + الفئات العامة (التي ليس لها مشروع)
+    let query = supabase
+      .from('expense_categories')
+      .select('*')
+      .order('name', { ascending: true });
+    
+    if (projectId) {
+      // جلب فئات هذا المشروع أو الفئات العامة
+      query = query.or(`project_id.eq.${projectId},project_id.is.null`);
+    } else {
+      // جلب الفئات العامة فقط
+      query = query.is('project_id', null);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map((cat: any) => ({
+      id: cat.id,
+      name: cat.name,
+      description: cat.description,
+      projectId: cat.project_id
+    }));
+  },
+
+  async findByName(name: string, projectId: string | null) {
+    // البحث عن فئة بالاسم ضمن المشروع أو الفئات العامة
+    let query = supabase
+      .from('expense_categories')
+      .select('*')
+      .eq('name', name.trim());
+    
+    if (projectId) {
+      query = query.or(`project_id.eq.${projectId},project_id.is.null`);
+    } else {
+      query = query.is('project_id', null);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      const cat = data[0];
+      return {
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        projectId: cat.project_id
+      };
+    }
+    return null;
+  },
+
+  async findOrCreate(name: string, projectId: string | null) {
+    // البحث عن فئة موجودة أولاً
+    const existing = await this.findByName(name, projectId);
+    if (existing) {
+      return existing;
+    }
+    
+    // إنشاء فئة جديدة للمشروع المحدد
+    const id = generateUniqueId('cat');
+    const { data, error } = await supabase
+      .from('expense_categories')
+      .insert([{ 
+        id, 
+        name: name.trim(), 
+        description: `فئة تم إنشاؤها تلقائياً`,
+        project_id: projectId 
+      }])
+      .select();
+    if (error) throw error;
+    
+    const cat = data?.[0];
+    return cat ? {
+      id: cat.id,
+      name: cat.name,
+      description: cat.description,
+      projectId: cat.project_id
+    } : null;
   },
 
   async create(item: Omit<ExpenseCategory, 'id'>) {
     const id = generateUniqueId('cat');
     const { data, error } = await supabase
       .from('expense_categories')
-      .insert([{ ...item, id }])
+      .insert([{ 
+        id, 
+        name: item.name,
+        description: item.description,
+        project_id: item.projectId || null
+      }])
       .select();
     if (error) throw error;
-    return data?.[0];
+    const cat = data?.[0];
+    return cat ? {
+      id: cat.id,
+      name: cat.name,
+      description: cat.description,
+      projectId: cat.project_id
+    } : null;
+  },
+
+  async update(id: string, item: Partial<ExpenseCategory>) {
+    const updateData: any = {};
+    if (item.name !== undefined) updateData.name = item.name;
+    if (item.description !== undefined) updateData.description = item.description;
+    if (item.projectId !== undefined) updateData.project_id = item.projectId;
+    
+    const { data, error } = await supabase
+      .from('expense_categories')
+      .update(updateData)
+      .eq('id', id)
+      .select();
+    if (error) throw error;
+    const cat = data?.[0];
+    return cat ? {
+      id: cat.id,
+      name: cat.name,
+      description: cat.description,
+      projectId: cat.project_id
+    } : null;
   },
 
   async delete(id: string) {
@@ -1750,24 +1879,35 @@ export const documentsService = {
   },
 
   // Function to get a signed URL for a document
-  async getSignedUrl(storagePath: string, expiresIn: number = 3600) {
+  async getSignedUrl(storagePath: string, expiresIn: number = 3600): Promise<string | null> {
     if (!storagePath) {
-      throw new Error('Storage path is required');
+      return null;
     }
     
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .createSignedUrl(storagePath, expiresIn);
-    
-    if (error) throw error;
-    return data.signedUrl;
+    try {
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(storagePath, expiresIn);
+      
+      if (error) {
+        // لا نرمي خطأ، فقط نُرجع null للملفات غير الموجودة
+        return null;
+      }
+      return data.signedUrl;
+    } catch {
+      return null;
+    }
   },
 
   // Function to upload a file and create a document record
-  async upload(file: File, linkedTo: { customer_id?: string; booking_id?: string; sale_id?: string; expense_id?: string }) {
-    if (!linkedTo.customer_id && !linkedTo.booking_id && !linkedTo.sale_id && !linkedTo.expense_id) {
+  async upload(file: File, linkedTo: { customer_id?: string; booking_id?: string; sale_id?: string; expense_id?: string; project_id?: string | null; allow_unlinked?: boolean }) {
+    // السماح بالمستندات غير المرتبطة إذا تم تمرير allow_unlinked = true
+    if (!linkedTo.allow_unlinked && !linkedTo.customer_id && !linkedTo.booking_id && !linkedTo.sale_id && !linkedTo.expense_id) {
       throw new Error('Document must be linked to a customer, booking, sale, or expense.');
     }
+
+    // استخراج الحقول الفعلية فقط (بدون allow_unlinked)
+    const { allow_unlinked, ...dbFields } = linkedTo;
 
     const fileExt = file.name.split('.').pop();
     const timestamp = Date.now();
@@ -1794,7 +1934,7 @@ export const documentsService = {
       .from('documents')
       .insert({
         id,
-        ...linkedTo,
+        ...dbFields,
         file_name: file.name,
         storage_path: filePath,
         file_type: file.type,
@@ -1815,6 +1955,7 @@ export const documentsService = {
       bookingId: data.booking_id,
       saleId: data.sale_id,
       expenseId: data.expense_id,
+      projectId: data.project_id,
       fileName: data.file_name,
       storagePath: data.storage_path,
       fileType: data.file_type,
@@ -1899,12 +2040,18 @@ export const documentsService = {
   },
 
   // Function to get all accounting documents (linked and unlinked)
-  async getAllAccountingDocuments() {
-    const { data, error } = await supabase
+  async getAllAccountingDocuments(projectId?: string | null) {
+    let query = supabase
       .from('documents')
       .select('*')
-      .or('expense_id.not.is.null,and(customer_id.is.null,booking_id.is.null,sale_id.is.null)')
-      .order('uploaded_at', { ascending: false });
+      .or('expense_id.not.is.null,and(customer_id.is.null,booking_id.is.null,sale_id.is.null)');
+    
+    // Filter by project if specified
+    if (projectId) {
+      query = query.eq('project_id', projectId);
+    }
+    
+    const { data, error } = await query.order('uploaded_at', { ascending: false });
     if (error) throw error;
     
     // Map snake_case to camelCase
@@ -1914,6 +2061,7 @@ export const documentsService = {
       bookingId: doc.booking_id,
       saleId: doc.sale_id,
       expenseId: doc.expense_id,
+      projectId: doc.project_id,
       fileName: doc.file_name,
       storagePath: doc.storage_path,
       fileType: doc.file_type,
@@ -1935,6 +2083,22 @@ export const documentsService = {
 
     // Upload using existing method
     return this.upload(file, { expense_id: expenseId });
+  },
+
+  // Function to upload an unlinked document (for accounting documents archive)
+  async uploadUnlinkedDocument(fileName: string, base64Content: string, mimeType: string, projectId?: string | null) {
+    // Convert base64 to blob
+    const byteCharacters = atob(base64Content);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    const file = new File([blob], fileName, { type: mimeType });
+
+    // Upload without linking to any entity - allow unlinked, with optional project_id
+    return this.upload(file, { allow_unlinked: true, project_id: projectId || null });
   },
 
   // Function to link an existing document to an expense

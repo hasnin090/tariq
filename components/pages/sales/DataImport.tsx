@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useProject } from '../../../contexts/ProjectContext';
 import { 
@@ -7,7 +8,8 @@ import {
   unitsService, 
   paymentsService, 
   employeesService, 
-  vendorsService 
+  vendorsService,
+  expenseCategoriesService
 } from '../../../src/services/supabaseService';
 import { UploadIcon, DocumentTextIcon, CheckCircleIcon, XCircleIcon, RefreshIcon, EyeIcon } from '../../shared/Icons';
 import ProjectSelector from '../../shared/ProjectSelector';
@@ -44,7 +46,7 @@ const IMPORT_TARGETS: ImportTarget[] = [
       { name: 'expense_date', arabicName: 'التاريخ', type: 'date', required: true },
       { name: 'description', arabicName: 'الوصف', type: 'text', required: true },
       { name: 'amount', arabicName: 'المبلغ', type: 'number', required: true },
-      { name: 'category_id', arabicName: 'معرف الفئة', type: 'text', required: false },
+      { name: 'category_name', arabicName: 'نوع المصروف', type: 'text', required: false },
       { name: 'project_id', arabicName: 'معرف المشروع', type: 'text', required: false },
     ]
   },
@@ -117,6 +119,7 @@ const ARABIC_COLUMN_MAPPINGS: Record<string, string[]> = {
   'type': ['النوع', 'نوع', 'type', 'kind'],
   'status': ['الحالة', 'حالة', 'status', 'state'],
   'price': ['السعر', 'سعر', 'price', 'cost', 'التكلفة'],
+  'category_name': ['نوع المصروف', 'الفئة', 'فئة', 'التصنيف', 'category', 'نوع', 'البند', 'بند'],
   'salary': ['الراتب', 'راتب', 'salary', 'wage'],
   'position': ['المسمى', 'الوظيفة', 'المنصب', 'position', 'job', 'title'],
   'address': ['العنوان', 'عنوان', 'address', 'location'],
@@ -136,11 +139,27 @@ const DataImport: React.FC = () => {
   const [csvData, setCsvData] = useState<CSVData | null>(null);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [fileType, setFileType] = useState<'csv' | 'excel'>('csv');
   const [importResults, setImportResults] = useState<{
     success: number;
     failed: number;
     errors: string[];
   } | null>(null);
+  
+  // حالة مؤشر التقدم
+  const [importProgress, setImportProgress] = useState<{
+    current: number;
+    total: number;
+    percentage: number;
+    currentItem: string;
+    status: 'idle' | 'processing' | 'done';
+  }>({
+    current: 0,
+    total: 0,
+    percentage: 0,
+    currentItem: '',
+    status: 'idle'
+  });
 
   // Check admin permission
   if (currentUser?.role !== 'Admin') {
@@ -212,22 +231,78 @@ const DataImport: React.FC = () => {
     });
   };
 
+  // Parse Excel file
+  const parseExcel = (buffer: ArrayBuffer): CSVData => {
+    try {
+      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Convert to JSON with header
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+      
+      if (jsonData.length === 0) {
+        return { headers: [], rows: [] };
+      }
+      
+      // First row is headers
+      const headers = jsonData[0].map((h: any) => String(h || '').trim());
+      
+      // Rest are data rows
+      const rows = jsonData.slice(1).map(row => 
+        row.map((cell: any) => {
+          if (cell instanceof Date) {
+            // Format date as YYYY-MM-DD
+            return cell.toISOString().split('T')[0];
+          }
+          return String(cell || '').trim();
+        })
+      ).filter(row => row.some(cell => cell !== '')); // Remove empty rows
+      
+      return { headers, rows };
+    } catch (error) {
+      console.error('Error parsing Excel file:', error);
+      return { headers: [], rows: [] };
+    }
+  };
+
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !selectedTarget) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const data = parseCSV(text);
-      setCsvData(data);
-      
-      // Auto-detect field mappings
-      const mappings = autoDetectMapping(data.headers, selectedTarget);
-      setFieldMappings(mappings);
-      setStep('map');
-    };
-    reader.readAsText(file, 'UTF-8');
+    const fileName = file.name.toLowerCase();
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+    setFileType(isExcel ? 'excel' : 'csv');
+
+    if (isExcel) {
+      // Handle Excel file
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const buffer = e.target?.result as ArrayBuffer;
+        const data = parseExcel(buffer);
+        setCsvData(data);
+        
+        // Auto-detect field mappings
+        const mappings = autoDetectMapping(data.headers, selectedTarget);
+        setFieldMappings(mappings);
+        setStep('map');
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // Handle CSV file
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const data = parseCSV(text);
+        setCsvData(data);
+        
+        // Auto-detect field mappings
+        const mappings = autoDetectMapping(data.headers, selectedTarget);
+        setFieldMappings(mappings);
+        setStep('map');
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
   }, [selectedTarget]);
 
   const handleMappingChange = (dbField: string, csvColumn: string) => {
@@ -291,11 +366,32 @@ const DataImport: React.FC = () => {
     if (!csvData || !selectedTarget) return;
 
     setIsImporting(true);
+    const totalRows = csvData.rows.length;
+    
+    // تهيئة مؤشر التقدم
+    setImportProgress({
+      current: 0,
+      total: totalRows,
+      percentage: 0,
+      currentItem: 'جاري التحضير...',
+      status: 'processing'
+    });
+    
     const results = { success: 0, failed: 0, errors: [] as string[] };
 
     try {
       for (let rowIndex = 0; rowIndex < csvData.rows.length; rowIndex++) {
         const row = csvData.rows[rowIndex];
+        
+        // تحديث مؤشر التقدم
+        const percentage = Math.round(((rowIndex + 1) / totalRows) * 100);
+        setImportProgress({
+          current: rowIndex + 1,
+          total: totalRows,
+          percentage,
+          currentItem: `معالجة الصف ${rowIndex + 2} من ${totalRows + 1}`,
+          status: 'processing'
+        });
         const record: Record<string, any> = {
           id: `${selectedTarget.id.slice(0, 3)}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${rowIndex}`,
         };
@@ -325,13 +421,30 @@ const DataImport: React.FC = () => {
           // Insert to database based on target
           switch (selectedTarget.id) {
             case 'expenses':
+              // التعرف على نوع المصروف وإنشاؤه تلقائياً إذا لم يكن موجوداً
+              let categoryId: string | null = null;
+              const categoryName = record.category_name?.trim();
+              
+              if (categoryName) {
+                try {
+                  // البحث عن الفئة أو إنشاؤها (مخصصة للمشروع الحالي)
+                  const category = await expenseCategoriesService.findOrCreate(
+                    categoryName, 
+                    activeProject?.id || null
+                  );
+                  categoryId = category?.id || null;
+                } catch (catError) {
+                  console.warn(`تعذر إنشاء فئة "${categoryName}":`, catError);
+                }
+              }
+              
               await expensesService.create({
                 date: record.expense_date || new Date().toISOString().split('T')[0],
                 description: record.description || '',
                 amount: record.amount || 0,
-                categoryId: null, // Ignore category from CSV for now
+                categoryId: categoryId,
                 projectId: activeProject?.id || null,  // Use selected project
-                accountId: null,  // Ignore account from CSV for now
+                accountId: null,
               });
               break;
             case 'customers':
@@ -384,6 +497,14 @@ const DataImport: React.FC = () => {
       results.errors.push(`خطأ عام: ${error.message}`);
     }
 
+    // تحديث مؤشر التقدم عند الانتهاء
+    setImportProgress(prev => ({
+      ...prev,
+      percentage: 100,
+      currentItem: 'تم الانتهاء!',
+      status: 'done'
+    }));
+    
     setImportResults(results);
     setStep('result');
     setIsImporting(false);
@@ -395,6 +516,14 @@ const DataImport: React.FC = () => {
     setCsvData(null);
     setFieldMappings([]);
     setImportResults(null);
+    // إعادة تعيين مؤشر التقدم
+    setImportProgress({
+      current: 0,
+      total: 0,
+      percentage: 0,
+      currentItem: '',
+      status: 'idle'
+    });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -427,7 +556,7 @@ const DataImport: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">استيراد البيانات</h1>
-            <p className="text-slate-600 dark:text-slate-300">رفع ملفات CSV واستيرادها إلى النظام</p>
+            <p className="text-slate-600 dark:text-slate-300">رفع ملفات CSV أو Excel واستيرادها إلى النظام</p>
           </div>
         </div>
 
@@ -508,7 +637,7 @@ const DataImport: React.FC = () => {
 
           {selectedTarget && (
             <>
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">2. رفع ملف CSV</h2>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">2. رفع ملف CSV أو Excel</h2>
               
               <div 
                 className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-8 text-center hover:border-primary-400 transition-colors cursor-pointer"
@@ -516,11 +645,19 @@ const DataImport: React.FC = () => {
               >
                 <UploadIcon className="h-12 w-12 text-slate-400 mx-auto mb-4" />
                 <p className="text-slate-600 dark:text-slate-400 mb-2">اسحب الملف هنا أو انقر للاختيار</p>
-                <p className="text-sm text-slate-500">يدعم ملفات CSV بترميز UTF-8</p>
+                <p className="text-sm text-slate-500">يدعم ملفات CSV و Excel (xlsx, xls)</p>
+                <div className="flex justify-center gap-4 mt-4">
+                  <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
+                    📊 Excel
+                  </span>
+                  <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
+                    📄 CSV
+                  </span>
+                </div>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
@@ -552,8 +689,17 @@ const DataImport: React.FC = () => {
       {/* Step 2: Map Fields */}
       {step === 'map' && csvData && selectedTarget && (
         <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-2xl shadow-lg p-6 border border-white/20 dark:border-white/10">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">ربط الأعمدة</h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-6">اختر عمود CSV المناسب لكل حقل في النظام</p>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">ربط الأعمدة</h2>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              fileType === 'excel' 
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
+                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+            }`}>
+              {fileType === 'excel' ? '📊 Excel' : '📄 CSV'}
+            </span>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 mb-6">اختر عمود {fileType === 'excel' ? 'Excel' : 'CSV'} المناسب لكل حقل في النظام</p>
           
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -693,6 +839,50 @@ const DataImport: React.FC = () => {
               )}
             </button>
           </div>
+          
+          {/* مؤشر التقدم الحقيقي */}
+          {isImporting && (
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-10 h-10 border-4 border-blue-200 dark:border-blue-700 rounded-full"></div>
+                    <div className="absolute top-0 left-0 w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-blue-700 dark:text-blue-300">
+                      {importProgress.currentItem}
+                    </p>
+                    <p className="text-sm text-blue-600 dark:text-blue-400">
+                      {importProgress.current} من {importProgress.total} صف
+                    </p>
+                  </div>
+                </div>
+                <div className="text-left">
+                  <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {importProgress.percentage}%
+                  </span>
+                </div>
+              </div>
+              
+              {/* شريط التقدم */}
+              <div className="relative h-4 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
+                <div 
+                  className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${importProgress.percentage}%` }}
+                >
+                  <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                </div>
+              </div>
+              
+              {/* تفاصيل إضافية */}
+              <div className="flex justify-between mt-2 text-xs text-blue-600 dark:text-blue-400">
+                <span>البداية</span>
+                <span>جاري المعالجة...</span>
+                <span>النهاية</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -741,10 +931,11 @@ const DataImport: React.FC = () => {
       <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-6 border border-amber-200 dark:border-amber-700">
         <h3 className="font-semibold text-amber-800 dark:text-amber-300 mb-3">تعليمات هامة:</h3>
         <ul className="space-y-2 text-sm text-amber-700 dark:text-amber-400">
-          <li>• تأكد من أن ملف CSV بترميز UTF-8 لدعم اللغة العربية</li>
+          <li>• <strong>ملفات Excel:</strong> يدعم النظام ملفات xlsx و xls - سيتم قراءة الورقة الأولى تلقائياً</li>
+          <li>• <strong>ملفات CSV:</strong> تأكد من أن الملف بترميز UTF-8 لدعم اللغة العربية</li>
           <li>• يجب أن يحتوي الصف الأول على أسماء الأعمدة</li>
-          <li>• صيغة التاريخ المدعومة: YYYY-MM-DD أو DD/MM/YYYY</li>
-          <li>• الأرقام يجب أن تكون بدون فواصل الآلاف</li>
+          <li>• صيغة التاريخ المدعومة: YYYY-MM-DD أو DD/MM/YYYY أو تنسيق التاريخ في Excel</li>
+          <li>• الأرقام يجب أن تكون بدون فواصل الآلاف (أو استخدم Excel للتنسيق الصحيح)</li>
           <li>• النظام سيحاول التعرف تلقائياً على الأعمدة بناءً على أسمائها العربية أو الإنجليزية</li>
           <li>• يمكنك تعديل ربط الأعمدة يدوياً إذا لم يتم التعرف عليها بشكل صحيح</li>
         </ul>

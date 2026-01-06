@@ -235,8 +235,14 @@ export interface SaleDocument {
     content?: string;
     mimeType?: string;
     expenseId?: string;
+    projectId?: string;
     sale_id?: string;
     uploadedAt?: string;
+    storagePath?: string;
+    signedUrl?: string | null;
+    hasError?: boolean;
+    isLoadingUrl?: boolean;
+    isDuplicate?: boolean;
 }
 
 export interface UnitSaleRecord {
@@ -258,6 +264,8 @@ export interface UnitSaleRecord {
 export interface ExpenseCategory {
     id: string;
     name: string;
+    description?: string;
+    projectId?: string | null;  // إذا كان null فهي فئة عامة مشتركة
 }
 
 export interface Vendor {
