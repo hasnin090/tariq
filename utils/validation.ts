@@ -12,6 +12,7 @@ export class ValidationError extends Error {
 
 /**
  * تنظيف النصوص من HTML/JavaScript خطير
+ * ملاحظة: نحتفظ بالحروف العادية مثل / لأنها تستخدم في النصوص العربية
  */
 export function sanitizeText(text: string): string {
   if (!text) return '';
@@ -19,9 +20,8 @@ export function sanitizeText(text: string): string {
   return text
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;')
+    // لا نشفر " و ' و / لأنها تستخدم بشكل طبيعي في النصوص
+    // الحماية الحقيقية تأتي من استخدام parameterized queries في Supabase
     .trim();
 }
 

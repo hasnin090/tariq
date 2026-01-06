@@ -231,31 +231,74 @@ const DataImport: React.FC = () => {
     });
   };
 
+  // Helper function to clean and normalize text from Excel
+  const cleanExcelText = (text: string): string => {
+    if (!text) return '';
+    
+    let result = String(text);
+    
+    // Remove BOM (Byte Order Mark)
+    result = result.replace(/^\uFEFF/, '');
+    
+    // Remove invisible Unicode characters (Arabic formatting marks, zero-width chars, etc.)
+    result = result.replace(/[\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u200B\u200C\u200D\uFEFF]/g, '');
+    
+    // Replace non-breaking spaces with regular spaces
+    result = result.replace(/\u00A0/g, ' ');
+    
+    // Fix common encoding issues with Arabic text
+    // Replace wrongly encoded characters
+    result = result.replace(/Ø/g, '');  // Common garbage character
+    result = result.replace(/Â/g, '');  // Another common garbage
+    result = result.replace(/â€/g, ''); // UTF-8 encoding issue
+    result = result.replace(/Ù/g, '');  // Another encoding artifact
+    
+    // Clean up multiple spaces
+    result = result.replace(/\s+/g, ' ');
+    
+    // Trim whitespace
+    result = result.trim();
+    
+    return result;
+  };
+
   // Parse Excel file
   const parseExcel = (buffer: ArrayBuffer): CSVData => {
     try {
-      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+      // Read with codepage support for better encoding
+      const workbook = XLSX.read(buffer, { 
+        type: 'array', 
+        cellDates: true,
+        codepage: 65001, // UTF-8
+        raw: false // Process values
+      });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       
       // Convert to JSON with header
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+        header: 1, 
+        defval: '',
+        raw: false, // Get formatted strings
+        blankrows: false
+      }) as any[][];
       
       if (jsonData.length === 0) {
         return { headers: [], rows: [] };
       }
       
-      // First row is headers
-      const headers = jsonData[0].map((h: any) => String(h || '').trim());
+      // First row is headers - clean them
+      const headers = jsonData[0].map((h: any) => cleanExcelText(String(h || '')));
       
-      // Rest are data rows
+      // Rest are data rows - clean each cell
       const rows = jsonData.slice(1).map(row => 
         row.map((cell: any) => {
           if (cell instanceof Date) {
             // Format date as YYYY-MM-DD
             return cell.toISOString().split('T')[0];
           }
-          return String(cell || '').trim();
+          // Clean and normalize text
+          return cleanExcelText(String(cell || ''));
         })
       ).filter(row => row.some(cell => cell !== '')); // Remove empty rows
       
@@ -333,11 +376,18 @@ const DataImport: React.FC = () => {
   const convertValue = (value: string, type: 'text' | 'number' | 'date' | 'boolean'): any => {
     if (!value || value.trim() === '') return null;
     
-    // Convert Arabic numerals to English first
-    const normalizedValue = arabicToEnglishNumerals(value);
+    // Clean the value first (remove invisible chars and encoding artifacts)
+    let cleanedValue = value;
+    cleanedValue = cleanedValue.replace(/[\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u200B\u200C\u200D\uFEFF]/g, '');
+    cleanedValue = cleanedValue.replace(/\u00A0/g, ' ');
+    cleanedValue = cleanedValue.trim();
+    
+    // Convert Arabic numerals to English
+    const normalizedValue = arabicToEnglishNumerals(cleanedValue);
     
     switch (type) {
       case 'number':
+        // Remove all non-numeric characters except decimal point and minus
         const num = parseFloat(normalizedValue.replace(/[^\d.-]/g, ''));
         return isNaN(num) ? null : num;
       case 'date':
@@ -355,10 +405,10 @@ const DataImport: React.FC = () => {
         }
         return dateStr;
       case 'boolean':
-        const lower = value.toLowerCase();
+        const lower = cleanedValue.toLowerCase();
         return lower === 'true' || lower === '1' || lower === 'نعم' || lower === 'yes';
       default:
-        return value.trim();
+        return cleanedValue;
     }
   };
 

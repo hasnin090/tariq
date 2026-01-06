@@ -990,15 +990,15 @@ export const Expenses: React.FC = () => {
                 <>
                     <div className="glass-card overflow-hidden">
                         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
-                            <table className="w-full text-right min-w-[800px] border-collapse">
+                            <table className="w-full text-right min-w-[900px] border-collapse table-fixed text-sm">
                             <thead><tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                                {visibleColumns.date && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">التاريخ</th>}
-                                {visibleColumns.description && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">الوصف</th>}
-                                {visibleColumns.category && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">الفئة</th>}
-                                {visibleColumns.project && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">المشروع</th>}
-                                {visibleColumns.amount && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">المبلغ</th>}
-                                {visibleColumns.attachments && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">المرفقات</th>}
-                                {visibleColumns.actions && (canEdit || canDelete) && <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0">إجراءات</th>}
+                                {visibleColumns.date && <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0 w-32 whitespace-nowrap">التاريخ</th>}
+                                {visibleColumns.description && <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0 w-[38%]">تفاصيل الحركة المالية</th>}
+                                {visibleColumns.category && <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0 w-44">الفئة</th>}
+                                {visibleColumns.project && <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0 w-48">المشروع</th>}
+                                {visibleColumns.amount && <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0 w-40 whitespace-nowrap">المبلغ</th>}
+                                {visibleColumns.attachments && <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0 w-28 text-center">المرفقات</th>}
+                                {visibleColumns.actions && (canEdit || canDelete) && <th className="p-3 font-bold text-sm text-slate-700 dark:text-slate-200 border-l border-slate-200 dark:border-slate-600 first:border-l-0 w-32">إجراءات</th>}
                             </tr></thead>
                             <tbody ref={tableBodyRef}>
                                 {paginatedExpenses.map(exp => (
@@ -1007,12 +1007,33 @@ export const Expenses: React.FC = () => {
                                     } ${
                                         exp.id.startsWith('temp_') ? 'animate-pulse bg-primary-50 dark:bg-primary-900/20' : ''
                                     }`}>
-                                        {visibleColumns.date && <td className="p-4 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0">{exp.date}</td>}
-                                        {visibleColumns.description && <td className="p-4 font-medium text-slate-800 dark:text-slate-100 border-l border-slate-200 dark:border-slate-700 first:border-l-0"><div className="max-w-xs truncate" title={exp.description}>{exp.description}</div></td>}
-                                        {visibleColumns.category && <td className="p-4 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0">{categories.find(c=>c.id === exp.categoryId)?.name || '-'}</td>}
-                                        {visibleColumns.project && <td className="p-4 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0">{projects.find(p=>p.id === exp.projectId)?.name || '-'}</td>}
-                                        {visibleColumns.amount && <td className="p-4 font-semibold text-rose-600 dark:text-rose-400 border-l border-slate-200 dark:border-slate-700 first:border-l-0">{formatCurrency(exp.amount)}</td>}
-                                        {visibleColumns.attachments && <td className="p-4 text-center border-l border-slate-200 dark:border-slate-700 first:border-l-0">
+                                        {visibleColumns.date && <td className="p-3 text-sm text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0 whitespace-nowrap align-top">{exp.date}</td>}
+                                        {visibleColumns.description && (
+                                            <td className="p-3 text-xs text-slate-800 dark:text-slate-100 border-l border-slate-200 dark:border-slate-700 first:border-l-0 align-top">
+                                                <div
+                                                    className="w-full whitespace-normal break-words leading-5 max-h-16 overflow-hidden"
+                                                    title={exp.description}
+                                                >
+                                                    {exp.description}
+                                                </div>
+                                            </td>
+                                        )}
+                                        {visibleColumns.category && (
+                                            <td className="p-3 text-sm text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0 align-top">
+                                                <div className="truncate" title={categories.find(c=>c.id === exp.categoryId)?.name || '-'}>
+                                                    {categories.find(c=>c.id === exp.categoryId)?.name || '-'}
+                                                </div>
+                                            </td>
+                                        )}
+                                        {visibleColumns.project && (
+                                            <td className="p-3 text-sm text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0 align-top">
+                                                <div className="truncate" title={projects.find(p=>p.id === exp.projectId)?.name || '-'}>
+                                                    {projects.find(p=>p.id === exp.projectId)?.name || '-'}
+                                                </div>
+                                            </td>
+                                        )}
+                                        {visibleColumns.amount && <td className="p-3 text-sm font-semibold text-rose-600 dark:text-rose-400 border-l border-slate-200 dark:border-slate-700 first:border-l-0 whitespace-nowrap align-top">{formatCurrency(exp.amount)}</td>}
+                                        {visibleColumns.attachments && <td className="p-3 text-center border-l border-slate-200 dark:border-slate-700 first:border-l-0 align-top">
                                             {((exp.documents && exp.documents.length > 0) || expenseHasDocumentsById[exp.id]) && (
                                                 <button onClick={() => handleViewFirstAttachment(exp)} className="text-primary-600 hover:text-primary-800 p-2 rounded-full hover:bg-primary-100 dark:hover:bg-primary-500/10" title="عرض المرفق">
                                                     <PaperClipIcon className="h-5 w-5" />
@@ -1020,7 +1041,7 @@ export const Expenses: React.FC = () => {
                                             )}
                                         </td>}
                                         {visibleColumns.actions && (canEdit || canDelete) && (
-                                        <td className="p-4 whitespace-nowrap border-l border-slate-200 dark:border-slate-700 first:border-l-0">
+                                        <td className="p-3 whitespace-nowrap border-l border-slate-200 dark:border-slate-700 first:border-l-0 align-top">
                                             {canEdit && (
                                                 <button onClick={() => handleOpenModal(exp)} className="text-primary-600 dark:text-primary-400 hover:underline font-semibold ml-4">تعديل</button>
                                             )}
