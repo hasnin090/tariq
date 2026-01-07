@@ -174,12 +174,17 @@ export const Expenses: React.FC = () => {
         setVisibleColumns((prev: any) => ({ ...prev, [column]: !prev[column] }));
     };
 
+    // ✅ المشروع المخصص للمستخدم (يُحفظ في متغير لاستخدامه في الفلترة)
+    const userAssignedProjectId = currentUser?.assignedProjectId;
+
     useEffect(() => {
         const fetchExpenses = async () => {
             try {
                 let expensesData = await expensesService.getAll();
-                if (currentUser?.assignedProjectId) {
-                    expensesData = expensesData.filter(e => e.projectId === currentUser.assignedProjectId);
+                
+                // ✅ فلترة صارمة: إذا المستخدم مخصص لمشروع، يرى فقط حركات مشروعه
+                if (userAssignedProjectId) {
+                    expensesData = expensesData.filter(e => e.projectId === userAssignedProjectId);
                 }
 
                 // Sort based on sortOrder
@@ -195,7 +200,7 @@ export const Expenses: React.FC = () => {
         const fetchRelatedData = async () => {
             try {
                 // جلب الفئات حسب المشروع النشط (بما في ذلك الفئات العامة)
-                const projectIdForCategories = currentUser?.assignedProjectId || activeProject?.id || null;
+                const projectIdForCategories = userAssignedProjectId || activeProject?.id || null;
                 
                 const [categoriesData, projectsData, accountsData] = await Promise.all([
                     expenseCategoriesService.getByProject(projectIdForCategories),
@@ -214,10 +219,10 @@ export const Expenses: React.FC = () => {
         fetchRelatedData();
 
         const expenseSubscription = expensesService.subscribe((newExpenses) => {
-            // ✅ فلترة حسب المشروع المخصص للمستخدم
+            // ✅ فلترة صارمة حسب المشروع المخصص للمستخدم
             let filtered = newExpenses;
-            if (currentUser?.assignedProjectId) {
-                filtered = newExpenses.filter(e => e.projectId === currentUser.assignedProjectId);
+            if (userAssignedProjectId) {
+                filtered = newExpenses.filter(e => e.projectId === userAssignedProjectId);
             }
             
             const sorted = sortOrder === 'newest'
@@ -229,7 +234,7 @@ export const Expenses: React.FC = () => {
         return () => {
             expenseSubscription.unsubscribe();
         };
-    }, [currentUser, addToast, sortOrder, activeProject]);
+    }, [userAssignedProjectId, addToast, sortOrder, activeProject]);
 
     // ✅ حالة للاحتفاظ بـ ID العنصر المطلوب عرضه من البحث
     const [searchTargetId, setSearchTargetId] = useState<string | null>(null);
@@ -280,12 +285,17 @@ export const Expenses: React.FC = () => {
         // تطبيق الفلاتر على المصروفات
         let filtered = allExpenses;
         
-        // إذا كنا نبحث عن عنصر معين، نتجاوز كل الفلاتر
+        // ✅ دائماً نفلتر حسب المشروع المخصص للمستخدم (لا يُتجاوز أبداً)
+        if (userAssignedProjectId) {
+            filtered = filtered.filter(expense => expense.projectId === userAssignedProjectId);
+        }
+        
+        // إذا كنا نبحث عن عنصر معين، نتجاوز الفلاتر الأخرى (لكن ليس فلتر المشروع)
         if (searchTargetId && skipFilters) {
-            // نبقي على كل المصروفات للعثور على العنصر
-            console.log('🔍 Skipping filters for search target:', searchTargetId);
+            // نبقي على المصروفات المفلترة حسب المشروع فقط
+            console.log('🔍 Skipping other filters for search target:', searchTargetId);
         } else {
-            filtered = allExpenses.filter(expense => {
+            filtered = filtered.filter(expense => {
                 const expenseDate = new Date(expense.date);
                 const startDate = filters.startDate ? new Date(filters.startDate) : null;
                 const endDate = filters.endDate ? new Date(filters.endDate) : null;
@@ -311,10 +321,8 @@ export const Expenses: React.FC = () => {
                     }
                 }
                 
-                // Filter by activeProject
-                if (currentUser?.assignedProjectId) {
-                    if (expense.projectId !== currentUser.assignedProjectId) return false;
-                } else if (activeProject && expense.projectId !== activeProject.id) {
+                // Filter by activeProject (للمستخدمين غير المخصصين)
+                if (!userAssignedProjectId && activeProject && expense.projectId !== activeProject.id) {
                     return false;
                 }
         
@@ -328,7 +336,7 @@ export const Expenses: React.FC = () => {
         if (!searchTargetId) {
             setCurrentPage(1);
         }
-    }, [filters, allExpenses, activeProject, currentUser, searchQuery, searchTargetId, skipFilters]);
+    }, [filters, allExpenses, activeProject, userAssignedProjectId, searchQuery, searchTargetId, skipFilters]);
 
     // ✅ التعامل مع البحث والتنقل للعنصر المحدد
     
