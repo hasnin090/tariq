@@ -214,9 +214,15 @@ export const Expenses: React.FC = () => {
         fetchRelatedData();
 
         const expenseSubscription = expensesService.subscribe((newExpenses) => {
+            // ✅ فلترة حسب المشروع المخصص للمستخدم
+            let filtered = newExpenses;
+            if (currentUser?.assignedProjectId) {
+                filtered = newExpenses.filter(e => e.projectId === currentUser.assignedProjectId);
+            }
+            
             const sorted = sortOrder === 'newest'
-                ? newExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                : newExpenses.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                ? filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                : filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             setAllExpenses(sorted);
         });
 
