@@ -1,14 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
+// ✅ قراءة المتغيرات بشكل آمن مع قيم افتراضية
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://dlxtduzxlwogpwxjeqxm.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
+// ✅ التحقق قبل التهيئة
+if (!supabaseAnonKey) {
+  console.error('❌ VITE_SUPABASE_ANON_KEY is missing!');
   throw new Error(
-    'Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local'
+    'Missing VITE_SUPABASE_ANON_KEY environment variable. Please configure it in Netlify environment variables.'
   );
 }
 
+// ✅ التهيئة المباشرة بدون const منفصل
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
