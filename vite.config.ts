@@ -12,8 +12,15 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false, // ✅ تعطيل sourcemaps لتقليل الحجم في Production
     cssCodeSplit: true,
+    minify: 'terser', // ✅ استخدام terser لضغط أفضل
+    terserOptions: {
+      compress: {
+        drop_console: true, // ✅ حذف console.log في Production
+        drop_debugger: true
+      }
+    },
     // ✅ إزالة code splitting تمامًا لتجنب مشاكل الترتيب
     rollupOptions: {
       output: {

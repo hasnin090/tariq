@@ -10,13 +10,10 @@ import { useScrollProgress } from './utils/scrollAnimations';
 import { canAccessPage, getDefaultPage } from './utils/permissions';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
 
-// ✅ Loading Component للصفحات
+// ✅ Loading Component للصفحات - نسخة محسّنة للأداء
 const PageLoader = () => (
   <div className="flex items-center justify-center h-full">
-    <div className="flex flex-col items-center gap-4">
-      <div className="w-12 h-12 border-4 border-primary-500/30 border-t-primary-500 rounded-full animate-spin"></div>
-      <span className="text-slate-400 text-sm">جارٍ التحميل...</span>
-    </div>
+    <div className="w-8 h-8 border-3 border-primary-500/20 border-t-primary-500 rounded-full animate-spin" style={{ animationDuration: '0.6s' }}></div>
   </div>
 );
 
@@ -97,6 +94,22 @@ const App: React.FC = () => {
         // Save to localStorage if not there
         if (!localStorage.getItem('accentColor')) {
           localStorage.setItem('accentColor', colorToUse);
+        }
+
+        // ✅ Prefetch commonly used pages للتحميل المسبق
+        if (currentUser) {
+          const role = currentUser.role;
+          if (role === 'Sales' || role === 'Admin') {
+            // Prefetch sales pages
+            import('./components/pages/sales/Dashboard');
+            import('./components/pages/sales/Units');
+            import('./components/pages/sales/Bookings');
+          }
+          if (role === 'Accounting' || role === 'Admin') {
+            // Prefetch accounting pages
+            import('./components/pages/accounting/Expenses');
+            import('./components/pages/accounting/Treasury');
+          }
         }
       } catch (error) {
         console.error('❌ Failed to load accent color:', error);
