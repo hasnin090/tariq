@@ -14,27 +14,17 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     cssCodeSplit: true,
+    // ✅ إزالة code splitting تمامًا لتجنب مشاكل الترتيب
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // كل مكتبات node_modules تُجمع معًا لضمان الترتيب الصحيح
-          if (id.includes('node_modules/')) {
-            return 'vendor';
-          }
-          // صفحات المبيعات
-          if (id.includes('/components/pages/sales/')) {
-            return 'pages-sales';
-          }
-          // صفحات المحاسبة
-          if (id.includes('/components/pages/accounting/')) {
-            return 'pages-accounting';
-          }
-        },
+        manualChunks: undefined, // ✅ كل شيء في ملف واحد
+        inlineDynamicImports: false,
         entryFileNames: `assets/[name]-[hash].js`,
         chunkFileNames: `assets/[name]-[hash].js`,
         assetFileNames: `assets/[name]-[hash].[ext]`
       }
-    }
+    },
+    chunkSizeWarningLimit: 3000 // ✅ رفع الحد لتجنب التحذيرات
   },
   server: {
     port: 3000,
