@@ -6,6 +6,10 @@ export default defineConfig({
   css: {
     postcss: './postcss.config.cjs'
   },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'lucide-react'],
+    force: false
+  },
   build: {
     outDir: 'dist',
     sourcemap: true,
@@ -13,8 +17,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // مكتبات React الأساسية
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+          // مكتبات React الأساسية + الأيقونات (معًا لضمان الترتيب)
+          if (id.includes('node_modules/react/') || 
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/lucide-react/')) {
             return 'vendor-react';
           }
           // مكتبات Supabase
@@ -28,10 +34,6 @@ export default defineConfig({
           // مكتبات PDF
           if (id.includes('node_modules/jspdf/')) {
             return 'vendor-pdf';
-          }
-          // مكتبات الأيقونات
-          if (id.includes('node_modules/lucide-react/')) {
-            return 'vendor-icons';
           }
           // مكتبات الرسوم المتحركة
           if (id.includes('node_modules/framer-motion/') || id.includes('node_modules/gsap/')) {
