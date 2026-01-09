@@ -780,7 +780,10 @@ const BookingPanel: React.FC<PanelProps> = ({ booking, units, customers, account
         if (!booking && uploadFiles.length > 0 && savedBooking) {
             try {
                 for (const file of uploadFiles) {
-                    await documentsService.upload(file, { booking_id: savedBooking.id });
+                    await documentsService.upload(file, { 
+                        booking_id: savedBooking.id,
+                        project_id: savedBooking.projectId 
+                    });
                 }
                 addToast('تم رفع المستندات بنجاح', 'success');
             } catch (error) {

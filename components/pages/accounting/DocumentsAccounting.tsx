@@ -188,7 +188,7 @@ const LinkExpenseModal: React.FC<{
     );
 };
 
-const UploadDocumentPanel: React.FC<{ onClose: () => void; onSave: (documents: SaleDocument[]) => void; existingDocumentNames: Set<string> }> = ({ onClose, onSave, existingDocumentNames }) => {
+const UploadDocumentPanel: React.FC<{ onClose: () => void; onSave: (documents: SaleDocument[]) => void }> = ({ onClose, onSave }) => {
     const { addToast } = useToast();
     const [files, setFiles] = useState<File[]>([]);
     const [isDragging, setIsDragging] = useState(false);
@@ -197,7 +197,7 @@ const UploadDocumentPanel: React.FC<{ onClose: () => void; onSave: (documents: S
     const [uploadedCount, setUploadedCount] = useState(0);
     const [currentFileName, setCurrentFileName] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
     const MAX_FILES = 100; // زيادة الحد الأقصى
 
     const formatFileSize = (bytes: number): string => {
@@ -212,52 +212,36 @@ const UploadDocumentPanel: React.FC<{ onClose: () => void; onSave: (documents: S
         const validFiles: File[] = [];
         const errors: string[] = [];
 
-        console.log('Validating files:', filesToValidate.map(f => f.name));
-        console.log('Existing document names:', Array.from(existingDocumentNames));
-        console.log('Current files in state:', files.map(f => f.name));
-
         filesToValidate.forEach((file: File) => {
-            // Check for duplicates in current selection
+            console.log(`📝 Validating file: ${file.name}, Size: ${file.size} bytes (${formatFileSize(file.size)}), Type: ${file.type}`);
+            
+            // ✅ فقط التحقق من التكرار في نفس الجلسة (نفس الاختيار)
             if (files.some(f => f.name === file.name && f.size === file.size)) {
-                errors.push(`${file.name}: الملف مضاف بالفعل`);
+                console.log(`❌ Rejected: Duplicate in current selection`);
+                errors.push(`${file.name}: الملف مضاف بالفعل في الاختيار الحالي`);
                 return;
             }
 
-            // Check if file already exists in database
-            const normalizedFileName = file.name.toLowerCase().trim();
-            if (existingDocumentNames.has(normalizedFileName)) {
-                errors.push(`${file.name}: مستند بنفس الاسم موجود مسبقاً`);
-                return;
-            }
-
-            // Check size for non-compressible files
+            // ✅ التحقق من حجم الملف فقط (بدون التحقق من التكرار في القاعدة)
             const isCompressibleImage = file.type.startsWith('image/') && !file.type.includes('svg');
+            console.log(`🖼️ Is compressible image: ${isCompressibleImage}, Max size: ${formatFileSize(MAX_FILE_SIZE)}`);
+            
             if (!isCompressibleImage && file.size > MAX_FILE_SIZE) {
+                console.log(`❌ Rejected: File too large (${formatFileSize(file.size)} > ${formatFileSize(MAX_FILE_SIZE)})`);
                 errors.push(`${file.name}: حجم الملف أكبر من ${formatFileSize(MAX_FILE_SIZE)}`);
                 return;
             }
 
+            console.log(`✅ File accepted: ${file.name}`);
             validFiles.push(file);
         });
 
-        // Show consolidated error messages
+        // عرض رسائل الأخطاء
         if (errors.length > 0) {
-            // Group duplicates vs other errors
-            const duplicateErrors = errors.filter(e => e.includes('موجود مسبقاً') || e.includes('مضاف بالفعل'));
-            const otherErrors = errors.filter(e => !e.includes('موجود مسبقاً') && !e.includes('مضاف بالفعل'));
-            
-            if (duplicateErrors.length > 0) {
-                if (duplicateErrors.length === 1) {
-                    addToast(duplicateErrors[0], 'warning');
-                } else {
-                    addToast(`${duplicateErrors.length} ملفات مكررة تم تجاهلها (موجودة مسبقاً في النظام)`, 'warning');
-                }
-            }
-            
-            otherErrors.forEach(err => addToast(err, 'error'));
+            errors.forEach(err => addToast(err, 'error'));
         }
 
-        console.log('Valid files after validation:', validFiles.map(f => f.name));
+        console.log(`📊 Validation complete: ${validFiles.length} valid files out of ${filesToValidate.length}`);
         return validFiles;
     };
 
@@ -634,6 +618,9 @@ const DocumentsAccounting: React.FC = () => {
     // حالة التبويبات (Pagination)
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 100;
+    // ✅ حالات التحديد المتعدد للحذف
+    const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
+    const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
@@ -812,32 +799,38 @@ const DocumentsAccounting: React.FC = () => {
 
     const handleSaveUploads = async (newDocs: SaleDocument[]) => {
         try {
-            // الحصول على أسماء المستندات الموجودة حالياً
-            const existingNames = new Set(allDocuments.map(d => (d.fileName || d.name).toLowerCase().trim()));
+            // ✅ التحقق من التكرار فقط في نفس المشروع
+            const currentProjectDocs = allDocuments.filter(d => 
+                d.projectId === projectIdToFilter
+            );
+            const existingNamesInProject = new Set(
+                currentProjectDocs.map(d => (d.fileName || d.name).toLowerCase().trim())
+            );
             
-            // فصل المستندات المكررة عن غير المكررة
+            // فصل المستندات المكررة في نفس المشروع فقط
             const duplicateDocs: string[] = [];
             const uniqueDocs: SaleDocument[] = [];
             
             for (const doc of newDocs) {
                 const docName = (doc.fileName || doc.name).toLowerCase().trim();
-                if (existingNames.has(docName)) {
+                if (existingNamesInProject.has(docName)) {
+                    // ⚠️ مكرر في نفس المشروع
                     duplicateDocs.push(doc.fileName || doc.name);
                 } else {
+                    // ✅ غير مكرر في المشروع الحالي
                     uniqueDocs.push(doc);
-                    // إضافة الاسم لمنع تكرار الأسماء في نفس الدفعة
-                    existingNames.add(docName);
+                    existingNamesInProject.add(docName);
                 }
             }
             
-            // إظهار تحذير للملفات المكررة
+            // إظهار تحذير للملفات المكررة في نفس المشروع
             if (duplicateDocs.length > 0) {
-                addToast(`تم تجاهل ${duplicateDocs.length} ملف(ات) مكررة`, 'warning');
+                addToast(`تم تجاهل ${duplicateDocs.length} ملف(ات) مكررة في المشروع الحالي`, 'warning');
             }
             
             // إذا لم يكن هناك ملفات فريدة للرفع
             if (uniqueDocs.length === 0) {
-                addToast('جميع الملفات المحددة موجودة مسبقاً!', 'info');
+                addToast('جميع الملفات المحددة موجودة مسبقاً في المشروع الحالي!', 'info');
                 setIsUploadModalOpen(false);
                 return;
             }
@@ -985,6 +978,59 @@ const DocumentsAccounting: React.FC = () => {
         }
     };
 
+    // ✅ حذف متعدد للمستندات المحددة
+    const handleDeleteMultiple = async () => {
+        if (selectedDocuments.size === 0) return;
+        
+        const docsToDelete = Array.from(selectedDocuments);
+        setIsDeletingMultiple(true);
+        
+        // حذف فوري من الواجهة
+        setAllDocuments(prev => prev.filter(d => !selectedDocuments.has(d.id)));
+        setSelectedDocuments(new Set());
+        
+        try {
+            // حذف من الخادم بشكل متوازي
+            const deletePromises = docsToDelete.map(id => documentsService.delete(id));
+            await Promise.all(deletePromises);
+            
+            addToast(`تم حذف ${docsToDelete.length} مستند بنجاح!`, 'success');
+            logActivity('Delete Multiple Documents', `Deleted ${docsToDelete.length} documents`, 'expenses');
+        } catch (error) {
+            console.error('Error deleting documents:', error);
+            // إعادة تحميل البيانات في حالة الفشل
+            await loadData();
+            addToast('حدث خطأ أثناء حذف بعض المستندات', 'error');
+        } finally {
+            setIsDeletingMultiple(false);
+        }
+    };
+
+    // ✅ تحديد/إلغاء تحديد مستند
+    const toggleSelectDocument = (docId: string) => {
+        setSelectedDocuments(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(docId)) {
+                newSet.delete(docId);
+            } else {
+                newSet.add(docId);
+            }
+            return newSet;
+        });
+    };
+
+    // ✅ تحديد/إلغاء تحديد الكل في الصفحة الحالية
+    const toggleSelectAll = () => {
+        if (selectedDocuments.size === paginatedDocuments.length) {
+            // إلغاء تحديد الكل
+            setSelectedDocuments(new Set());
+        } else {
+            // تحديد الكل في الصفحة الحالية
+            const allIds = new Set(paginatedDocuments.map(d => d.id));
+            setSelectedDocuments(allIds);
+        }
+    };
+
     // مودال تأكيد الحذف
     const DeleteConfirmationModal = () => {
         const overlayRef = useRef<HTMLDivElement>(null);
@@ -1114,14 +1160,46 @@ const DocumentsAccounting: React.FC = () => {
 
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">مستودع المستندات</h2>
-                <button
-                    onClick={() => setIsUploadModalOpen(true)}
-                    disabled={isServerUploading}
-                    className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <UploadIcon className="h-5 w-5" />
-                    <span>رفع مستندات</span>
-                </button>
+                <div className="flex items-center gap-3">
+                    {selectedDocuments.size > 0 && (
+                        <>
+                            <button
+                                onClick={() => setSelectedDocuments(new Set())}
+                                className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors shadow-sm"
+                            >
+                                إلغاء التحديد
+                            </button>
+                            <button
+                                onClick={handleDeleteMultiple}
+                                disabled={isDeletingMultiple}
+                                className="bg-rose-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-rose-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isDeletingMultiple ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        جاري الحذف...
+                                    </>
+                                ) : (
+                                    <>
+                                        <TrashIcon className="h-5 w-5" />
+                                        <span>حذف المحددة ({selectedDocuments.size})</span>
+                                    </>
+                                )}
+                            </button>
+                        </>
+                    )}
+                    <button
+                        onClick={() => setIsUploadModalOpen(true)}
+                        disabled={isServerUploading}
+                        className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <UploadIcon className="h-5 w-5" />
+                        <span>رفع مستندات</span>
+                    </button>
+                </div>
             </div>
 
             {/* اختيار المشروع */}
@@ -1141,11 +1219,18 @@ const DocumentsAccounting: React.FC = () => {
                         </button>
                     ))}
                 </div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">
-                    إجمالي المستندات: <span className="font-bold text-primary-600">{filteredDocuments.length}</span>
-                    {totalPages > 1 && (
-                        <span className="mr-2">| الصفحة {currentPage} من {totalPages}</span>
+                <div className="text-sm text-slate-600 dark:text-slate-400 flex items-center gap-4">
+                    {selectedDocuments.size > 0 && (
+                        <span className="font-bold text-primary-600 bg-primary-50 dark:bg-primary-900/20 px-3 py-1 rounded-full">
+                            محدد: {selectedDocuments.size}
+                        </span>
                     )}
+                    <span>
+                        إجمالي المستندات: <span className="font-bold text-primary-600">{filteredDocuments.length}</span>
+                        {totalPages > 1 && (
+                            <span className="mr-2">| الصفحة {currentPage} من {totalPages}</span>
+                        )}
+                    </span>
                 </div>
             </div>
 
@@ -1154,6 +1239,15 @@ const DocumentsAccounting: React.FC = () => {
                     <table className="w-full text-right">
                         <thead>
                             <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
+                                <th className="p-4 w-12">
+                                    <input
+                                        type="checkbox"
+                                        checked={paginatedDocuments.length > 0 && selectedDocuments.size === paginatedDocuments.length}
+                                        onChange={toggleSelectAll}
+                                        className="w-4 h-4 text-primary-600 bg-white border-slate-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600 cursor-pointer"
+                                        title="تحديد/إلغاء تحديد الكل"
+                                    />
+                                </th>
                                 <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 w-16">#</th>
                                 <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المستند</th>
                                 <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الرفع</th>
@@ -1172,9 +1266,19 @@ const DocumentsAccounting: React.FC = () => {
                                 
                                 return (
                                 <tr key={doc.id} className={`border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-200 ${
+                                    selectedDocuments.has(doc.id) ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-700' :
                                     hasError ? 'bg-rose-50 dark:bg-rose-900/10' : 
                                     isDuplicate ? 'bg-amber-50 dark:bg-amber-900/10' : ''
                                 }`}>
+                                    <td className="p-4">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedDocuments.has(doc.id)}
+                                            onChange={() => toggleSelectDocument(doc.id)}
+                                            className="w-4 h-4 text-primary-600 bg-white border-slate-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600 cursor-pointer"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </td>
                                     <td className="p-4 text-sm font-medium text-slate-500 dark:text-slate-400">{rowNumber}</td>
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-100">
                                         <button 
@@ -1329,7 +1433,7 @@ const DocumentsAccounting: React.FC = () => {
                 />
             )}
 
-            {isUploadModalOpen && <UploadDocumentPanel onClose={() => setIsUploadModalOpen(false)} onSave={handleSaveUploads} existingDocumentNames={new Set(allDocuments.map(d => (d.fileName || d.name).toLowerCase().trim()))} />}
+            {isUploadModalOpen && <UploadDocumentPanel onClose={() => setIsUploadModalOpen(false)} onSave={handleSaveUploads} />}
             {isLinkModalOpen && documentToLink && (
                 <LinkExpenseModal
                     documentToLink={documentToLink}

@@ -555,7 +555,10 @@ const Payments: React.FC = () => {
             // رفع إيصال الدفع إذا تم اختياره
             if (receiptFile && savedPayment?.id) {
                 try {
-                    await documentsService.upload(receiptFile, { booking_id: booking.id });
+                    await documentsService.upload(receiptFile, { 
+                        booking_id: booking.id,
+                        project_id: booking.projectId 
+                    });
                     addToast('تم رفع إيصال الدفع بنجاح', 'success');
                 } catch (uploadError) {
                     console.error('Error uploading receipt:', uploadError);

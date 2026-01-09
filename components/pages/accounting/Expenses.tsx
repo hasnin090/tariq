@@ -938,7 +938,8 @@ export const Expenses: React.FC = () => {
                             newExpense.id,
                             documents[0].fileName || documents[0].name,
                             documents[0].content,
-                            documents[0].mimeType
+                            documents[0].mimeType,
+                            newExpense.projectId
                         );
                         // Add document to the new expense
                         newExpense.documents = documents;

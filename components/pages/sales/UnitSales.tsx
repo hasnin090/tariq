@@ -161,7 +161,10 @@ const UnitSales: React.FC = () => {
             // 4. Upload documents to Supabase Storage
             if (documents.length > 0) {
                 for (const doc of documents) {
-                    await documentsService.upload(doc, { sale_id: newSale.id });
+                    await documentsService.upload(doc, { 
+                        sale_id: newSale.id,
+                        project_id: unit.projectId 
+                    });
                 }
                 addToast(`تم رفع ${documents.length} مستندات بنجاح.`, 'success');
                 

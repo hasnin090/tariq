@@ -208,7 +208,10 @@ const Customers: React.FC = () => {
 
             if (savedCustomer && documents && documents.length > 0) {
                 for (const doc of documents) {
-                    await documentsService.upload(doc, { customer_id: savedCustomer.id });
+                    await documentsService.upload(doc, { 
+                        customer_id: savedCustomer.id,
+                        project_id: savedCustomer.projectId 
+                    });
                 }
                 addToast(`تم رفع ${documents.length} مستندات بنجاح`, 'success');
             }

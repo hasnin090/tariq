@@ -2016,8 +2016,14 @@ export const documentsService = {
     const fileExt = file.name.split('.').pop();
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 15);
-    const fileName = `${timestamp}_${randomStr}.${fileExt}`;
-    const filePath = fileName;
+    
+    // ✅ تنظيم الملفات في مجلدات حسب المشروع
+    const projectFolder = linkedTo.project_id || 'general';
+    
+    // ✅ استخدام اسم الملف الأصلي مع timestamp لتجنب التداخل
+    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const fileName = `${timestamp}_${sanitizedFileName}`;
+    const filePath = `${projectFolder}/${fileName}`;
 
     // 1. Upload file to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -2145,10 +2151,14 @@ export const documentsService = {
 
   // Function to get all accounting documents (linked and unlinked)
   async getAllAccountingDocuments(projectId?: string | null) {
+    // ✅ جلب كل مستندات الحسابات (المرتبطة وغير المرتبطة)
+    // الشرط: ليس لها booking_id أو customer_id أو sale_id (أي ليست مستندات مبيعات/حجوزات/عملاء)
     let query = supabase
       .from('documents')
       .select('*')
-      .or('expense_id.not.is.null,and(customer_id.is.null,booking_id.is.null,sale_id.is.null)');
+      .is('customer_id', null)
+      .is('booking_id', null)
+      .is('sale_id', null);
     
     // Filter by project if specified
     if (projectId) {
@@ -2174,7 +2184,7 @@ export const documentsService = {
   },
 
   // Function to upload a file for an expense (Base64)
-  async uploadForExpense(expenseId: string, fileName: string, base64Content: string, mimeType: string) {
+  async uploadForExpense(expenseId: string, fileName: string, base64Content: string, mimeType: string, projectId?: string | null) {
     // Convert base64 to blob
     const byteCharacters = atob(base64Content);
     const byteNumbers = new Array(byteCharacters.length);
@@ -2185,8 +2195,8 @@ export const documentsService = {
     const blob = new Blob([byteArray], { type: mimeType });
     const file = new File([blob], fileName, { type: mimeType });
 
-    // Upload using existing method
-    return this.upload(file, { expense_id: expenseId });
+    // Upload using existing method with project_id
+    return this.upload(file, { expense_id: expenseId, project_id: projectId });
   },
 
   // Function to upload an unlinked document (for accounting documents archive)
