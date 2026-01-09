@@ -431,6 +431,30 @@ export function canShowButton(
   
   // إذا توجد صلاحيات مخصصة للأزرار
   if (customButtonAccess && customButtonAccess.length > 0) {
+    const isDeleteLike = (key: string) =>
+      key === 'delete' ||
+      key.startsWith('delete-') ||
+      key.startsWith('delete_') ||
+      key.endsWith('-delete') ||
+      key.endsWith('_delete');
+
+    // ✅ صلاحية رئيسية: منع الحذف يتغلب على أي صلاحيات حذف فرعية
+    if (isDeleteLike(buttonKey)) {
+      const globalDelete = customButtonAccess.find(
+        b => b.pageKey === '*' && b.buttonKey === 'delete'
+      );
+      if (globalDelete && globalDelete.isVisible === false) {
+        return false;
+      }
+
+      const pageDelete = customButtonAccess.find(
+        b => (b.pageKey === pageKey || b.pageKey === '*') && b.buttonKey === 'delete'
+      );
+      if (pageDelete && pageDelete.isVisible === false) {
+        return false;
+      }
+    }
+
     // ابحث عن الزر المحدد أو الزر العام (*)
     const buttonAccess = customButtonAccess.find(
       b => (b.pageKey === pageKey || b.pageKey === '*') && b.buttonKey === buttonKey
@@ -438,6 +462,17 @@ export function canShowButton(
     if (buttonAccess) {
       return buttonAccess.isVisible;
     }
+
+    // ✅ fallback: مفاتيح مثل delete-expense تُعامل كـ delete
+    if (buttonKey.startsWith('delete-') || buttonKey.startsWith('delete_')) {
+      const genericDelete = customButtonAccess.find(
+        b => (b.pageKey === pageKey || b.pageKey === '*') && b.buttonKey === 'delete'
+      );
+      if (genericDelete) {
+        return genericDelete.isVisible;
+      }
+    }
+
     // إذا لم يوجد تخصيص، افتراضياً مخفي
     return false;
   }

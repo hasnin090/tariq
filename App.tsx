@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { InterfaceMode } from './types';
@@ -10,37 +10,47 @@ import { useScrollProgress } from './utils/scrollAnimations';
 import { canAccessPage, getDefaultPage } from './utils/permissions';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
 
-// Projects (Sales) Interface Pages
-import Dashboard from './components/pages/sales/Dashboard';
-import Units from './components/pages/sales/Units';
-import Customers from './components/pages/sales/Customers';
-import { Bookings } from './components/pages/sales/Bookings';
-import Payments from './components/pages/sales/Payments';
-import UnitSales from './components/pages/sales/UnitSales';
-import SalesDocuments from './components/pages/sales/SalesDocuments';
-import Customization from './components/pages/sales/Customization';
-import Users from './components/pages/sales/Users';
-import Notifications from './components/pages/sales/Notifications';
-import ProjectsManagement from './components/pages/sales/ProjectsManagement';
-import BookingsArchive from './components/pages/sales/BookingsArchive';
-import GeneralArchive from './components/pages/sales/GeneralArchive';
-import DataImport from './components/pages/sales/DataImport';
-import SalesActivityLog from './components/pages/sales/ActivityLog';
+// ✅ Loading Component للصفحات
+const PageLoader = () => (
+  <div className="flex items-center justify-center h-full">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-12 h-12 border-4 border-primary-500/30 border-t-primary-500 rounded-full animate-spin"></div>
+      <span className="text-slate-400 text-sm">جارٍ التحميل...</span>
+    </div>
+  </div>
+);
 
-// Accounting Interface Pages
-import FinancialDashboard from './components/pages/accounting/FinancialDashboard';
-import { Expenses } from './components/pages/accounting/Expenses';
-import Treasury from './components/pages/accounting/Treasury';
-import DeferredPayments from './components/pages/accounting/DeferredPayments';
-import Employees from './components/pages/accounting/Employees';
-import Projects from './components/pages/accounting/Projects';
-import ProjectsAccounting from './components/pages/accounting/ProjectsAccounting';
-import CategoryAccounting from './components/pages/accounting/CategoryAccounting';
-import DocumentsAccounting from './components/pages/accounting/DocumentsAccounting';
-import ActivityLog from './components/pages/accounting/ActivityLog';
-import Budgets from './components/pages/accounting/Budgets';
-import FinancialReports from './components/pages/accounting/FinancialReports';
-import NotificationCenter from './components/pages/accounting/NotificationCenter';
+// ✅ Lazy Loading - صفحات المبيعات
+const Dashboard = lazy(() => import('./components/pages/sales/Dashboard'));
+const Units = lazy(() => import('./components/pages/sales/Units'));
+const Customers = lazy(() => import('./components/pages/sales/Customers'));
+const Bookings = lazy(() => import('./components/pages/sales/Bookings').then(m => ({ default: m.Bookings })));
+const Payments = lazy(() => import('./components/pages/sales/Payments'));
+const UnitSales = lazy(() => import('./components/pages/sales/UnitSales'));
+const SalesDocuments = lazy(() => import('./components/pages/sales/SalesDocuments'));
+const Customization = lazy(() => import('./components/pages/sales/Customization'));
+const Users = lazy(() => import('./components/pages/sales/Users'));
+const Notifications = lazy(() => import('./components/pages/sales/Notifications'));
+const ProjectsManagement = lazy(() => import('./components/pages/sales/ProjectsManagement'));
+const BookingsArchive = lazy(() => import('./components/pages/sales/BookingsArchive'));
+const GeneralArchive = lazy(() => import('./components/pages/sales/GeneralArchive'));
+const DataImport = lazy(() => import('./components/pages/sales/DataImport'));
+const SalesActivityLog = lazy(() => import('./components/pages/sales/ActivityLog'));
+
+// ✅ Lazy Loading - صفحات المحاسبة
+const FinancialDashboard = lazy(() => import('./components/pages/accounting/FinancialDashboard'));
+const Expenses = lazy(() => import('./components/pages/accounting/Expenses').then(m => ({ default: m.Expenses })));
+const Treasury = lazy(() => import('./components/pages/accounting/Treasury'));
+const DeferredPayments = lazy(() => import('./components/pages/accounting/DeferredPayments'));
+const Employees = lazy(() => import('./components/pages/accounting/Employees'));
+const Projects = lazy(() => import('./components/pages/accounting/Projects'));
+const ProjectsAccounting = lazy(() => import('./components/pages/accounting/ProjectsAccounting'));
+const CategoryAccounting = lazy(() => import('./components/pages/accounting/CategoryAccounting'));
+const DocumentsAccounting = lazy(() => import('./components/pages/accounting/DocumentsAccounting'));
+const ActivityLog = lazy(() => import('./components/pages/accounting/ActivityLog'));
+const Budgets = lazy(() => import('./components/pages/accounting/Budgets'));
+const FinancialReports = lazy(() => import('./components/pages/accounting/FinancialReports'));
+const NotificationCenter = lazy(() => import('./components/pages/accounting/NotificationCenter'));
 
 
 const App: React.FC = () => {
@@ -299,7 +309,9 @@ const App: React.FC = () => {
             onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
           />
           <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 relative z-10 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
-            {renderPage()}
+            <Suspense fallback={<PageLoader />}>
+              {renderPage()}
+            </Suspense>
           </div>
         </main>
       </div>

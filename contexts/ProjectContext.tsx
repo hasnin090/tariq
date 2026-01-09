@@ -35,35 +35,57 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
             if (currentUser.role === 'Admin') {
                 // Admin sees all projects
                 userProjects = allProjects;
-            } else if (currentUser.role === 'Sales') {
-                // Sales users see only assigned projects
-                userProjects = allProjects.filter(p => p.salesUserId === currentUser.id);
-            } else if (currentUser.role === 'Accounting') {
-                // Accounting users see only assigned projects
-                userProjects = allProjects.filter(p => p.accountingUserId === currentUser.id);
+            } else {
+                // ✅ فلترة صارمة: المستخدمون غير Admin يرون فقط المشروع المخصص لهم
+                // نستخدم assignedProjectId من AuthContext أولاً، ثم نتحقق من assigned_user_id في المشروع
+                const assignedProjectId = currentUser.assignedProjectId;
+                
+                if (assignedProjectId) {
+                    // المستخدم لديه مشروع مخصص - نعرض هذا المشروع فقط
+                    userProjects = allProjects.filter(p => p.id === assignedProjectId);
+                } else {
+                    // البحث في المشاريع عن المشروع المخصص لهذا المستخدم
+                    userProjects = allProjects.filter(p => 
+                        p.assignedUserId === currentUser.id ||
+                        p.salesUserId === currentUser.id ||
+                        p.accountingUserId === currentUser.id
+                    );
+                }
+                
+                console.log('📊 ProjectContext - User filtering:', {
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    role: currentUser.role,
+                    assignedProjectId,
+                    foundProjects: userProjects.map(p => ({ id: p.id, name: p.name }))
+                });
             }
             
             setAvailableProjects(userProjects);
             
-            // Set active project from sessionStorage or first available
-            const savedProjectId = sessionStorage.getItem('activeProjectId');
-            if (savedProjectId) {
-                const savedProject = userProjects.find(p => p.id === savedProjectId);
-                if (savedProject) {
-                    setActiveProjectState(savedProject);
-                } else if (currentUser.role !== 'Admin' && userProjects.length > 0) {
-                    // Non-admin users default to first project
+            // ✅ للمستخدمين غير Admin: دائماً استخدام المشروع المخصص (لا يمكن التغيير)
+            if (currentUser.role !== 'Admin') {
+                if (userProjects.length > 0) {
                     setActiveProjectState(userProjects[0]);
+                    sessionStorage.setItem('activeProjectId', userProjects[0].id);
+                } else {
+                    setActiveProjectState(null);
+                    console.warn('⚠️ No project assigned to user:', currentUser.name);
+                }
+            } else {
+                // Admin: يمكنه اختيار المشروع أو رؤية الكل
+                const savedProjectId = sessionStorage.getItem('activeProjectId');
+                if (savedProjectId) {
+                    const savedProject = userProjects.find(p => p.id === savedProjectId);
+                    if (savedProject) {
+                        setActiveProjectState(savedProject);
+                    } else {
+                        setActiveProjectState(null);
+                    }
                 } else {
                     // Admin defaults to null (all projects)
                     setActiveProjectState(null);
                 }
-            } else if (currentUser.role === 'Admin') {
-                // Admin defaults to null (all projects) - shows all projects by default
-                setActiveProjectState(null);
-            } else if (userProjects.length > 0) {
-                // Non-admin users default to first project
-                setActiveProjectState(userProjects[0]);
             }
         } catch (error) {
             console.error('Error loading projects:', error);

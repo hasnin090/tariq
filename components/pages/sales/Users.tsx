@@ -281,9 +281,30 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
     const handleSave = async () => {
         setSaving(true);
         try {
+            const isDeleteLike = (key: string) =>
+                key === 'delete' ||
+                key.startsWith('delete-') ||
+                key.startsWith('delete_') ||
+                key.endsWith('-delete') ||
+                key.endsWith('_delete');
+
+            // ✅ تنظيف/توحيد صلاحيات الأزرار قبل الحفظ لتجنب التكرار
+            const deduped = new Map<string, { pageKey: string; buttonKey: string; isVisible: boolean }>();
+            for (const b of buttonAccess) {
+                deduped.set(`${b.pageKey}::${b.buttonKey}`, b);
+            }
+            let normalizedButtons = Array.from(deduped.values());
+
+            const globalDelete = normalizedButtons.find(b => b.pageKey === '*' && b.buttonKey === 'delete');
+            const globalDeleteDisabled = globalDelete?.isVisible === false;
+            if (globalDeleteDisabled) {
+                // عند تعطيل الحذف بشكل رئيسي: لا معنى لتخزين أي صلاحيات حذف فرعية
+                normalizedButtons = normalizedButtons.filter(b => !(isDeleteLike(b.buttonKey) && !(b.pageKey === '*' && b.buttonKey === 'delete')));
+            }
+
             await userMenuAccessService.setMenuAccess(user.id, menuAccess);
             await userPermissionsService.setPermissions(user.id, resourcePermissions);
-            await userButtonAccessService.setButtonAccess(user.id, buttonAccess);
+            await userButtonAccessService.setButtonAccess(user.id, normalizedButtons);
             await userProjectAssignmentsService.deleteByUserId(user.id);
             for (const assignment of projectAssignments) {
                 await userProjectAssignmentsService.assign(user.id, assignment.projectId, assignment.interfaceMode);
@@ -314,14 +335,34 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
     };
 
     const toggleButton = (pageKey: string, buttonKey: string) => {
-        const exists = buttonAccess.find(b => b.pageKey === pageKey && b.buttonKey === buttonKey);
-        if (exists) {
-            setButtonAccess(prev => prev.map(b => 
-                b.pageKey === pageKey && b.buttonKey === buttonKey ? { ...b, isVisible: !b.isVisible } : b
-            ));
-        } else {
-            setButtonAccess(prev => [...prev, { pageKey, buttonKey, isVisible: true }]);
-        }
+        const isDeleteLike = (key: string) =>
+            key === 'delete' ||
+            key.startsWith('delete-') ||
+            key.startsWith('delete_') ||
+            key.endsWith('-delete') ||
+            key.endsWith('_delete');
+
+        setButtonAccess(prev => {
+            const idx = prev.findIndex(b => b.pageKey === pageKey && b.buttonKey === buttonKey);
+            const next = [...prev];
+
+            if (idx !== -1) {
+                next[idx] = { ...next[idx], isVisible: !next[idx].isVisible };
+            } else {
+                next.push({ pageKey, buttonKey, isVisible: true });
+            }
+
+            // ✅ صلاحية رئيسية: إذا تم تعطيل زر الحذف العام، عطّل كل أزرار الحذف
+            if (pageKey === '*' && buttonKey === 'delete') {
+                const globalDeleteEntry = next.find(b => b.pageKey === '*' && b.buttonKey === 'delete');
+                const globalDeleteDisabled = globalDeleteEntry?.isVisible === false;
+                if (globalDeleteDisabled) {
+                    return next.map(b => (isDeleteLike(b.buttonKey) ? { ...b, isVisible: false } : b));
+                }
+            }
+
+            return next;
+        });
     };
 
     const toggleProject = (projectId: string, interfaceMode: 'projects' | 'expenses') => {
@@ -590,9 +631,33 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
                                     {GENERAL_BUTTONS.map(button => {
                                         const access = buttonAccess.find(b => b.pageKey === button.page && b.buttonKey === button.key);
                                         const isVisible = access?.isVisible ?? false;
+
+                                        const globalDeleteAccess = buttonAccess.find(b => b.pageKey === '*' && b.buttonKey === 'delete');
+                                        const globalDeleteDisabled = globalDeleteAccess ? globalDeleteAccess.isVisible === false : false;
+                                        const isDeleteLike =
+                                            button.key === 'delete' ||
+                                            button.key.startsWith('delete-') ||
+                                            button.key.startsWith('delete_') ||
+                                            button.key.endsWith('-delete') ||
+                                            button.key.endsWith('_delete');
+                                        const isDisabled = globalDeleteDisabled && isDeleteLike && !(button.page === '*' && button.key === 'delete');
+
                                         return (
-                                            <label key={`${button.page}-${button.key}`} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${isVisible ? 'bg-gray-600/20 border border-gray-500/50' : 'bg-white/5 border border-white/10'}`}>
-                                                <input type="checkbox" checked={isVisible} onChange={() => toggleButton(button.page, button.key)} className="h-4 w-4 rounded border-white/30 bg-white/10 text-gray-600 focus:ring-gray-500" />
+                                            <label
+                                                key={`${button.page}-${button.key}`}
+                                                className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                                                    isVisible
+                                                        ? 'bg-gray-600/20 border border-gray-500/50'
+                                                        : 'bg-white/5 border border-white/10'
+                                                } ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isVisible}
+                                                    disabled={isDisabled}
+                                                    onChange={() => !isDisabled && toggleButton(button.page, button.key)}
+                                                    className="h-4 w-4 rounded border-white/30 bg-white/10 text-gray-600 focus:ring-gray-500"
+                                                />
                                                 <div className="text-sm font-medium text-white">{button.label}</div>
                                             </label>
                                         );
@@ -610,9 +675,33 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
                                     {SALES_BUTTONS.map(button => {
                                         const access = buttonAccess.find(b => b.pageKey === button.page && b.buttonKey === button.key);
                                         const isVisible = access?.isVisible ?? false;
+
+                                        const globalDeleteAccess = buttonAccess.find(b => b.pageKey === '*' && b.buttonKey === 'delete');
+                                        const globalDeleteDisabled = globalDeleteAccess ? globalDeleteAccess.isVisible === false : false;
+                                        const isDeleteLike =
+                                            button.key === 'delete' ||
+                                            button.key.startsWith('delete-') ||
+                                            button.key.startsWith('delete_') ||
+                                            button.key.endsWith('-delete') ||
+                                            button.key.endsWith('_delete');
+                                        const isDisabled = globalDeleteDisabled && isDeleteLike;
+
                                         return (
-                                            <label key={`${button.page}-${button.key}`} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${isVisible ? 'bg-sky-600/20 border border-sky-500/50' : 'bg-white/5 border border-white/10'}`}>
-                                                <input type="checkbox" checked={isVisible} onChange={() => toggleButton(button.page, button.key)} className="h-4 w-4 rounded border-white/30 bg-white/10 text-sky-600 focus:ring-sky-500" />
+                                            <label
+                                                key={`${button.page}-${button.key}`}
+                                                className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                                                    isVisible
+                                                        ? 'bg-sky-600/20 border border-sky-500/50'
+                                                        : 'bg-white/5 border border-white/10'
+                                                } ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isVisible}
+                                                    disabled={isDisabled}
+                                                    onChange={() => !isDisabled && toggleButton(button.page, button.key)}
+                                                    className="h-4 w-4 rounded border-white/30 bg-white/10 text-sky-600 focus:ring-sky-500"
+                                                />
                                                 <div>
                                                     <div className="text-sm font-medium text-white">{button.label}</div>
                                                     <div className="text-xs text-slate-400">{button.page}</div>
@@ -633,9 +722,33 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
                                     {ACCOUNTING_BUTTONS.map(button => {
                                         const access = buttonAccess.find(b => b.pageKey === button.page && b.buttonKey === button.key);
                                         const isVisible = access?.isVisible ?? false;
+
+                                        const globalDeleteAccess = buttonAccess.find(b => b.pageKey === '*' && b.buttonKey === 'delete');
+                                        const globalDeleteDisabled = globalDeleteAccess ? globalDeleteAccess.isVisible === false : false;
+                                        const isDeleteLike =
+                                            button.key === 'delete' ||
+                                            button.key.startsWith('delete-') ||
+                                            button.key.startsWith('delete_') ||
+                                            button.key.endsWith('-delete') ||
+                                            button.key.endsWith('_delete');
+                                        const isDisabled = globalDeleteDisabled && isDeleteLike;
+
                                         return (
-                                            <label key={`${button.page}-${button.key}`} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${isVisible ? 'bg-amber-600/20 border border-amber-500/50' : 'bg-white/5 border border-white/10'}`}>
-                                                <input type="checkbox" checked={isVisible} onChange={() => toggleButton(button.page, button.key)} className="h-4 w-4 rounded border-white/30 bg-white/10 text-amber-600 focus:ring-amber-500" />
+                                            <label
+                                                key={`${button.page}-${button.key}`}
+                                                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                                                    isVisible
+                                                        ? 'bg-amber-600/20 border border-amber-500/50'
+                                                        : 'bg-white/5 border border-white/10'
+                                                } ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isVisible}
+                                                    disabled={isDisabled}
+                                                    onChange={() => !isDisabled && toggleButton(button.page, button.key)}
+                                                    className="h-4 w-4 rounded border-white/30 bg-white/10 text-amber-600 focus:ring-amber-500"
+                                                />
                                                 <div>
                                                     <div className="text-sm font-medium text-white">{button.label}</div>
                                                     <div className="text-xs text-slate-400">{button.page}</div>

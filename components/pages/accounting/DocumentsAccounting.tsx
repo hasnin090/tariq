@@ -81,9 +81,10 @@ const AttachmentViewerModal: React.FC<{ document: SaleDocument | null, onClose: 
 const LinkExpenseModal: React.FC<{
     documentToLink: SaleDocument;
     expenses: Expense[];
+    projectIdFilter?: string | null;
     onClose: () => void;
     onLink: (documentId: string, expenseId: string) => void;
-}> = ({ documentToLink, expenses, onClose, onLink }) => {
+}> = ({ documentToLink, expenses, projectIdFilter, onClose, onLink }) => {
     const { addToast } = useToast();
     const [selectedExpenseId, setSelectedExpenseId] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -107,11 +108,16 @@ const LinkExpenseModal: React.FC<{
     }, []);
 
     const filteredExpenses = useMemo(() => {
-        return expenses.filter(exp => 
+        const effectiveProjectId = (documentToLink as any)?.projectId || projectIdFilter || null;
+        const projectFiltered = effectiveProjectId
+            ? expenses.filter(exp => (exp as any).projectId === effectiveProjectId)
+            : expenses;
+
+        return projectFiltered.filter(exp => 
             exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
             exp.date.includes(searchTerm)
         ).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [expenses, searchTerm]);
+    }, [expenses, searchTerm, projectIdFilter, documentToLink]);
 
     const handleConfirm = () => {
         if (!selectedExpenseId) {
@@ -291,7 +297,7 @@ const UploadDocumentPanel: React.FC<{ onClose: () => void; onSave: (documents: S
         e.stopPropagation();
         setIsDragging(false);
 
-        const droppedFiles = Array.from(e.dataTransfer.files);
+        const droppedFiles = Array.from(e.dataTransfer.files) as File[];
         if (droppedFiles.length > 0) {
             addFiles(droppedFiles);
         }
@@ -620,6 +626,9 @@ const DocumentsAccounting: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
+
+    // ✅ المشروع الذي تُعرض ضمنه مستندات/حركات الصفحة (للمستخدم المخصص أو المشروع النشط)
+    const projectIdToFilter = currentUser?.assignedProjectId || activeProject?.id || null;
     
     // GSAP Table Animation Ref
     const tableBodyRef = useRef<HTMLTableSectionElement>(null);
@@ -630,10 +639,10 @@ const DocumentsAccounting: React.FC = () => {
             setLoading(true);
             // Load expenses from Supabase
             const expensesData = await expensesService.getAll();
-            setExpenses(expensesData);
-
-            // Get project ID for filtering
-            const projectIdToFilter = currentUser?.assignedProjectId || activeProject?.id || null;
+            const filteredExpenses = projectIdToFilter
+                ? expensesData.filter(e => (e as any).projectId === projectIdToFilter)
+                : expensesData;
+            setExpenses(filteredExpenses);
 
             // Load all accounting documents from Supabase (linked and unlinked), filtered by project
             const allDocsFromDB = await documentsService.getAllAccountingDocuments(projectIdToFilter);
@@ -1297,7 +1306,15 @@ const DocumentsAccounting: React.FC = () => {
             )}
 
             {isUploadModalOpen && <UploadDocumentPanel onClose={() => setIsUploadModalOpen(false)} onSave={handleSaveUploads} existingDocumentNames={new Set(allDocuments.map(d => (d.fileName || d.name).toLowerCase().trim()))} />}
-            {isLinkModalOpen && documentToLink && <LinkExpenseModal documentToLink={documentToLink} expenses={expenses} onClose={() => setIsLinkModalOpen(false)} onLink={handleLink} />}
+            {isLinkModalOpen && documentToLink && (
+                <LinkExpenseModal
+                    documentToLink={documentToLink}
+                    expenses={expenses}
+                    projectIdFilter={projectIdToFilter}
+                    onClose={() => setIsLinkModalOpen(false)}
+                    onLink={handleLink}
+                />
+            )}
             {viewingDocument && <AttachmentViewerModal document={viewingDocument} onClose={() => setViewingDocument(null)} />}
             {documentToDelete && <DeleteConfirmationModal />}
         </div>

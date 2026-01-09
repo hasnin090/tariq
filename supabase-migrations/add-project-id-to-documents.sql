@@ -2,7 +2,7 @@
 -- هذا الملف يضيف حقل المشروع لجدول المستندات لتمكين فلترة المستندات حسب المشروع
 
 -- 1. إضافة عمود project_id
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS project_id text REFERENCES projects(id);
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id);
 
 -- 2. إنشاء فهرس للأداء
 CREATE INDEX IF NOT EXISTS idx_documents_project_id ON documents(project_id);

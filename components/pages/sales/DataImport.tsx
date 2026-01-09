@@ -645,6 +645,8 @@ const DataImport: React.FC = () => {
         projects={availableProjects}
         activeProject={activeProject}
         onSelectProject={setActiveProject}
+        disabled={!!currentUser?.assignedProjectId}
+        showAllProjectsOption={currentUser?.role === 'Admin'}
       />
 
       {/* Step 1: Upload */}

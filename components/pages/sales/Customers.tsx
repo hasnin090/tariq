@@ -46,9 +46,9 @@ const Customers: React.FC = () => {
     const [isPaymentsModalOpen, setIsPaymentsModalOpen] = useState(false);
     const [loadingPayments, setLoadingPayments] = useState(false);
 
-    const canEdit = currentUser?.role === 'Admin' || canShow('customers', 'edit');
-    const canDelete = currentUser?.role === 'Admin' || canShow('customers', 'delete');
-    const canManageDocs = currentUser?.role === 'Admin' || canShow('customers', 'add-document');
+    const canEdit = canShow('customers', 'edit');
+    const canDelete = canShow('customers', 'delete');
+    const canManageDocs = canShow('customers', 'add-document');
     const canAdd = canShow('customers', 'add');
 
     // 🎬 GSAP Table Animation - runs only once
@@ -262,7 +262,9 @@ const Customers: React.FC = () => {
             <ProjectSelector 
                 projects={availableProjects} 
                 activeProject={activeProject} 
-                onSelectProject={setActiveProject} 
+                onSelectProject={setActiveProject}
+                disabled={!!currentUser?.assignedProjectId}
+                showAllProjectsOption={currentUser?.role === 'Admin'}
             />
             
              {filteredCustomers.length > 0 ? (

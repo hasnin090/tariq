@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useProject } from '../contexts/ProjectContext';
-import { InterfaceMode, Unit, Customer, Booking, Expense, Payment, SearchResult, Project } from '../types';
+import { InterfaceMode, Project } from '../types';
 import { pageNames } from '../utils/pageNames';
-import { unitsService, customersService, bookingsService, expensesService, paymentsService, projectsService } from '../src/services/supabaseService';
+import { projectsService } from '../src/services/supabaseService';
 import { CalendarIcon, BriefcaseIcon, BellIcon } from './shared/Icons';
 import { supabase } from '../src/lib/supabase';
+import InlineSearch from './shared/InlineSearch';
 
 const Header: React.FC<{
     activePage: string;
@@ -17,13 +18,9 @@ const Header: React.FC<{
     const { currentUser, logout } = useAuth();
     const { activeProject } = useProject();
     const [isUserMenuVisible, setIsUserMenuVisible] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [projects, setProjects] = useState<Project[]>([]);
     const [currentDate, setCurrentDate] = useState('الثلاثاء، 4 نوفمبر 2025');
     const userMenuRef = useRef<HTMLDivElement>(null);
-    const searchRef = useRef<HTMLDivElement>(null);
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
     const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
     const [showConnectionTooltip, setShowConnectionTooltip] = useState(false);
@@ -40,9 +37,6 @@ const Header: React.FC<{
         const handleClickOutside = (event: MouseEvent) => {
              if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
                 setIsUserMenuVisible(false);
-            }
-             if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-                setIsSearchFocused(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -83,8 +77,8 @@ const Header: React.FC<{
         };
 
         checkConnection();
-        // فحص كل 3 ثواني للحصول على قراءات آنية وحقيقية
-        connectionCheckInterval.current = setInterval(checkConnection, 3000);
+        // ✅ فحص كل 30 ثانية بدلاً من 3 ثواني لتحسين الأداء
+        connectionCheckInterval.current = setInterval(checkConnection, 30000);
 
         return () => {
             if (connectionCheckInterval.current) {
@@ -124,223 +118,6 @@ const Header: React.FC<{
         }
         return null;
     }, [currentUser, projects]);
-
-    // تحديد أنواع البيانات للبحث حسب الصفحة الحالية
-    const searchContext = useMemo(() => {
-        const salesPages = ['dashboard', 'units', 'customers', 'bookings', 'payments', 'sales', 'sales-documents'];
-        const expensePages = ['expense_dashboard', 'expenses', 'treasury', 'deferred-payments', 'employees', 'budgets', 'financial-reports', 'projects-accounting', 'category-accounting', 'documents-accounting'];
-        
-        // إذا كنا في صفحة محددة، نبحث في نوع البيانات المرتبط بها فقط
-        switch (activePage) {
-            case 'units': return ['units'];
-            case 'customers': return ['customers'];
-            case 'bookings': return ['bookings'];
-            case 'payments': return ['payments'];
-            case 'expenses': return ['expenses'];
-            case 'employees': return ['employees'];
-            case 'projects': 
-            case 'projects-management': 
-            case 'projects-accounting': return ['projects'];
-            case 'sales':
-            case 'sales-documents': return ['bookings', 'payments'];
-            default:
-                // إذا في وضع المبيعات نبحث في بيانات المبيعات
-                if (interfaceMode === 'projects' || salesPages.includes(activePage)) {
-                    return ['units', 'customers', 'bookings', 'payments'];
-                }
-                // إذا في وضع المحاسبة نبحث في بيانات المحاسبة
-                if (interfaceMode === 'expenses' || expensePages.includes(activePage)) {
-                    return ['expenses'];
-                }
-                return ['units', 'customers', 'bookings', 'expenses', 'payments'];
-        }
-    }, [activePage, interfaceMode]);
-
-    useEffect(() => {
-        if (searchTerm.trim() === '') {
-            setSearchResults([]);
-            return;
-        }
-
-        const fetchResults = async () => {
-            try {
-                const term = searchTerm.toLowerCase().trim();
-                const results: SearchResult[] = [];
-
-                // جلب البيانات حسب السياق فقط (لتحسين الأداء)
-                const fetchPromises: Promise<any>[] = [];
-                const fetchTypes: string[] = [];
-
-                if (searchContext.includes('units')) {
-                    fetchPromises.push(unitsService.getAll());
-                    fetchTypes.push('units');
-                }
-                if (searchContext.includes('customers')) {
-                    fetchPromises.push(customersService.getAll());
-                    fetchTypes.push('customers');
-                }
-                if (searchContext.includes('bookings')) {
-                    fetchPromises.push(bookingsService.getAll());
-                    fetchTypes.push('bookings');
-                }
-                if (searchContext.includes('expenses')) {
-                    fetchPromises.push(expensesService.getAll());
-                    fetchTypes.push('expenses');
-                }
-                if (searchContext.includes('payments')) {
-                    fetchPromises.push(paymentsService.getAll());
-                    fetchTypes.push('payments');
-                }
-
-                const fetchedData = await Promise.all(fetchPromises);
-                const dataMap: Record<string, any[]> = {};
-                fetchTypes.forEach((type, index) => {
-                    dataMap[type] = fetchedData[index] || [];
-                });
-
-                // البحث في الوحدات
-                if (dataMap.units) {
-                    dataMap.units
-                        .filter((u: Unit) => u.name?.toLowerCase().includes(term) || (u.location && u.location.toLowerCase().includes(term)))
-                        .slice(0, 5)
-                        .forEach((u: Unit) => results.push({ 
-                            id: u.id, 
-                            name: u.name, 
-                            type: 'وحدة', 
-                            page: 'units' 
-                        }));
-                }
-
-                // البحث في العملاء
-                if (dataMap.customers) {
-                    dataMap.customers
-                        .filter((c: Customer) => 
-                            c.name?.toLowerCase().includes(term) || 
-                            (c.phone && c.phone.includes(term)) ||
-                            (c.email && c.email.toLowerCase().includes(term))
-                        )
-                        .slice(0, 5)
-                        .forEach((c: Customer) => results.push({ 
-                            id: c.id, 
-                            name: c.name, 
-                            type: 'عميل', 
-                            page: 'customers' 
-                        }));
-                }
-
-                // البحث في الحجوزات
-                if (dataMap.bookings) {
-                    dataMap.bookings
-                        .filter((b: Booking) => 
-                            b.unitName?.toLowerCase().includes(term) || 
-                            b.customerName?.toLowerCase().includes(term) ||
-                            (b.notes && b.notes.toLowerCase().includes(term))
-                        )
-                        .slice(0, 5)
-                        .forEach((b: Booking) => results.push({ 
-                            id: b.id, 
-                            name: `${b.unitName || ''} - ${b.customerName || ''}`, 
-                            type: 'حجز', 
-                            page: 'bookings' 
-                        }));
-                }
-
-                // البحث في المصروفات (فلترة حسب المشروع النشط)
-                if (dataMap.expenses) {
-                    let filteredExpenses = dataMap.expenses;
-                    
-                    // فلترة حسب المشروع النشط إذا كان محدداً
-                    if (activeProject) {
-                        filteredExpenses = filteredExpenses.filter((e: Expense) => e.projectId === activeProject.id);
-                    }
-                    // أو فلترة حسب المشروع المخصص للمستخدم
-                    else if (currentUser?.assignedProjectId) {
-                        filteredExpenses = filteredExpenses.filter((e: Expense) => e.projectId === currentUser.assignedProjectId);
-                    }
-                    
-                    filteredExpenses
-                        .filter((e: Expense) => 
-                            e.description?.toLowerCase().includes(term) ||
-                            (e.categoryName && e.categoryName.toLowerCase().includes(term)) ||
-                            (e.amount && e.amount.toString().includes(term)) ||
-                            (e.notes && e.notes.toLowerCase().includes(term))
-                        )
-                        .slice(0, 10)
-                        .forEach((e: Expense) => results.push({ 
-                            id: e.id, 
-                            name: `${e.description} (${e.amount?.toLocaleString()} ر.س)`, 
-                            type: 'مصروف', 
-                            page: 'expenses' 
-                        }));
-                }
-
-                // البحث في الدفعات
-                if (dataMap.payments) {
-                    dataMap.payments
-                        .filter((p: Payment) => 
-                            p.unitName?.toLowerCase().includes(term) || 
-                            p.customerName?.toLowerCase().includes(term) ||
-                            (p.notes && p.notes.toLowerCase().includes(term))
-                        )
-                        .slice(0, 5)
-                        .forEach((p: Payment) => results.push({ 
-                            id: p.id, 
-                            name: `${p.unitName || ''} - ${p.customerName || ''}`, 
-                            type: 'دفعة', 
-                            page: 'payments' 
-                        }));
-                }
-
-                // ترتيب النتائج: الأكثر تطابقاً أولاً
-                results.sort((a, b) => {
-                    const aStartsWith = a.name?.toLowerCase().startsWith(term) ? 0 : 1;
-                    const bStartsWith = b.name?.toLowerCase().startsWith(term) ? 0 : 1;
-                    return aStartsWith - bStartsWith;
-                });
-
-                setSearchResults(results.slice(0, 10));
-            } catch (error) {
-                console.error('Search error:', error);
-                setSearchResults([]);
-            }
-        };
-
-        // تأخير البحث لتحسين الأداء (debounce)
-        const debounceTimer = setTimeout(fetchResults, 300);
-        return () => clearTimeout(debounceTimer);
-    }, [searchTerm, searchContext]);
-    
-    const handleResultClick = (result: SearchResult) => {
-        console.log('🔍 Search result clicked:', result);
-        
-        // تحديد الوضع المستهدف
-        const targetMode = ['units', 'customers', 'bookings', 'payments'].includes(result.page) ? 'projects' : 'expenses';
-        
-        // تغيير الوضع إذا لزم الأمر
-        if (interfaceMode !== targetMode) {
-            setInterfaceMode(targetMode);
-        }
-        
-        // حفظ معلومات التركيز للصفحة المستهدفة
-        const searchFocusData = { page: result.page, id: result.id };
-        sessionStorage.setItem('searchFocus', JSON.stringify(searchFocusData));
-        console.log('🔍 Saved searchFocus:', searchFocusData);
-        
-        // الانتقال للصفحة
-        setActivePage(result.page);
-        
-        // إطلاق حدث مخصص لإعلام الصفحة المستهدفة (بعد تأخير أطول لضمان تحميل الصفحة والبيانات)
-        setTimeout(() => {
-            const event = new CustomEvent('searchNavigate', { detail: searchFocusData });
-            window.dispatchEvent(event);
-            console.log('📣 Dispatched searchNavigate event:', searchFocusData);
-        }, 500);
-        
-        // مسح البحث
-        setSearchTerm('');
-        setSearchResults([]);
-        setIsSearchFocused(false);
-    };
 
     const SearchIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
     const LogoutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
@@ -496,81 +273,33 @@ const Header: React.FC<{
                         )}
                     </div>
 
-                    <div className="relative w-32 sm:w-40 md:w-48 lg:w-64 hidden sm:block" ref={searchRef}>
-                         <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:pr-3 pointer-events-none">
-                           <SearchIcon />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder={`بحث في ${
-                                activePage === 'units' ? 'الوحدات' :
-                                activePage === 'customers' ? 'العملاء' :
-                                activePage === 'bookings' ? 'الحجوزات' :
-                                activePage === 'payments' ? 'الدفعات' :
-                                activePage === 'expenses' ? 'المصروفات' :
-                                interfaceMode === 'projects' ? 'المبيعات' : 'المحاسبة'
-                            }...`}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            onFocus={() => setIsSearchFocused(true)}
-                            className="w-full pr-8 sm:pr-10 pl-2 sm:pl-3 py-2 sm:py-2.5 text-sm border border-slate-600/30 rounded-xl bg-slate-700/40 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500/50 text-slate-100 placeholder:text-slate-500 transition-all duration-200 shadow-sm backdrop-blur-sm"
-                        />
-                         {isSearchFocused && searchTerm.trim() !== '' && (
-                            <div className="absolute top-full mt-2 w-full min-w-[320px] bg-slate-800 rounded-xl shadow-2xl border border-slate-600/50 text-right max-h-96 overflow-y-auto z-50">
-                                {searchResults.length > 0 ? (
-                                    <>
-                                        <div className="px-4 py-2.5 border-b border-slate-700 bg-slate-900/80">
-                                            <p className="text-xs text-slate-300 font-medium">
-                                                {searchResults.length} نتيجة في {
-                                                    activePage === 'units' ? 'الوحدات' :
-                                                    activePage === 'customers' ? 'العملاء' :
-                                                    activePage === 'bookings' ? 'الحجوزات' :
-                                                    activePage === 'payments' ? 'الدفعات' :
-                                                    activePage === 'expenses' ? 'المصروفات' :
-                                                    interfaceMode === 'projects' ? 'المبيعات' : 'المحاسبة'
-                                                }
-                                            </p>
-                                        </div>
-                                        <ul className="py-1">
-                                            {searchResults.map(result => (
-                                                <li key={`${result.type}-${result.id}`} className="border-b border-slate-700/50 last:border-0">
-                                                    <button onClick={() => handleResultClick(result)} className="w-full text-right px-4 py-3 transition-colors duration-200 flex items-center justify-between group hover:bg-slate-700 bg-slate-800">
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="font-semibold text-white text-sm truncate">{result.name}</p>
-                                                            <div className="flex items-center gap-2 mt-1.5">
-                                                                <span className={`text-[11px] px-2.5 py-1 rounded-md font-medium ${
-                                                                    result.type === 'وحدة' ? 'bg-blue-600 text-white' :
-                                                                    result.type === 'عميل' ? 'bg-green-600 text-white' :
-                                                                    result.type === 'حجز' ? 'bg-purple-600 text-white' :
-                                                                    result.type === 'مصروف' ? 'bg-rose-600 text-white' :
-                                                                    result.type === 'دفعة' ? 'bg-amber-600 text-white' :
-                                                                    'bg-slate-600 text-white'
-                                                                }`}>
-                                                                    {result.type}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="opacity-50 group-hover:opacity-100 transition-opacity text-primary-400 mr-2">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                                                        </div>
-                                                    </button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </>
-                                ) : (
-                                    <div className="px-4 py-8 text-center bg-slate-800">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-slate-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                        </svg>
-                                        <p className="text-slate-300 text-sm font-medium">لا توجد نتائج لـ "{searchTerm}"</p>
-                                        <p className="text-slate-500 text-xs mt-1">جرب البحث بكلمات مختلفة</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                    
+                    {/* 🔍 البحث الاحترافي المدمج */}
+                    <InlineSearch
+                        projectId={currentUser?.assignedProjectId || activeProject?.id || null}
+                        projectName={activeProject?.name || (currentUser?.assignedProjectId ? projects.find(p => p.id === currentUser.assignedProjectId)?.name : undefined)}
+                        interfaceMode={interfaceMode}
+                        onNavigate={(type, id) => {
+                            // التنقل للصفحة المناسبة
+                            console.log('🔄 Header onNavigate called:', { type, id });
+                            if (type === 'expense') {
+                                console.log('🚀 Setting page to expenses');
+                                setActivePage('expenses');
+                            }
+                            else if (type === 'payment') {
+                                console.log('🚀 Setting page to payments');
+                                setActivePage('payments');
+                            }
+                            else if (type === 'booking') {
+                                console.log('🚀 Setting page to bookings');
+                                setActivePage('bookings');
+                            }
+                        }}
+                        setActivePage={(page) => {
+                            console.log('🚀 Header setActivePage called with:', page);
+                            setActivePage(page);
+                        }}
+                    />
+                
                     <button 
                         onClick={() => setActivePage('notifications')}
                         className="text-slate-400 p-1.5 sm:p-2.5 rounded-xl hover:bg-slate-700/50 transition-all duration-200 ease-in-out border border-transparent hover:border-slate-600/30 relative group hover:scale-[1.02] active:scale-[0.98]"

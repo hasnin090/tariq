@@ -32,8 +32,8 @@ const Units: React.FC = () => {
     const tableBodyRef = useRef<HTMLTableSectionElement>(null);
     const hasAnimated = useRef(false);
 
-    const canEdit = currentUser?.role === 'Admin' || canShow('units', 'edit');
-    const canDelete = currentUser?.role === 'Admin' || canShow('units', 'delete');
+    const canEdit = canShow('units', 'edit');
+    const canDelete = canShow('units', 'delete');
     const canAdd = canShow('units', 'add');
 
     // Filter units by active project
@@ -252,6 +252,8 @@ const Units: React.FC = () => {
                 projects={availableProjects}
                 activeProject={activeProject}
                 onSelectProject={setActiveProject}
+                disabled={!!currentUser?.assignedProjectId}
+                showAllProjectsOption={currentUser?.role === 'Admin'}
             />
 
             {filteredUnits.length > 0 ? (

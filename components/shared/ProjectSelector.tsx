@@ -6,9 +6,17 @@ interface ProjectSelectorProps {
     projects: Project[];
     activeProject: Project | null;
     onSelectProject: (project: Project) => void;
+    disabled?: boolean; // ✅ للمستخدمين غير Admin - لا يمكنهم تغيير المشروع
+    showAllProjectsOption?: boolean; // ✅ إظهار خيار "جميع المشاريع" (للـ Admin فقط)
 }
 
-const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProject, onSelectProject }) => {
+const ProjectSelector: React.FC<ProjectSelectorProps> = ({ 
+    projects, 
+    activeProject, 
+    onSelectProject,
+    disabled = false,
+    showAllProjectsOption = true
+}) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -26,6 +34,32 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, activeProje
 
     if (projects.length === 0) {
         return null;
+    }
+    
+    // ✅ إذا كان المستخدم غير Admin ولديه مشروع واحد فقط - نعرض فقط اسم المشروع بدون dropdown
+    if (disabled && projects.length === 1 && activeProject) {
+        return (
+            <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <BriefcaseIcon className="h-4 w-4 text-accent" />
+                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wide">المشروع</h3>
+                </div>
+                <div className="w-full flex items-center gap-2 p-3 rounded-xl project-selector-active">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/20 backdrop-blur-sm">
+                        <BriefcaseIcon className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 text-right min-w-0">
+                        <p className="font-semibold text-sm mb-0.5 truncate text-white">{activeProject.name}</p>
+                        <p className="text-[10px] truncate text-white/90">
+                            {activeProject.description || 'المشروع المخصص لك'}
+                        </p>
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded text-white text-[10px] font-semibold bg-white/20">
+                        مخصص
+                    </span>
+                </div>
+            </div>
+        );
     }
 
     const filteredProjects = projects.filter(p => 

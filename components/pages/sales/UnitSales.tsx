@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 're
 import gsap from 'gsap';
 import { UnitSaleRecord, Unit, Customer, Account, Transaction, SaleDocument, Document } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useProject } from '../../../contexts/ProjectContext';
 import ProjectSelector from '../../shared/ProjectSelector';
 import logActivity from '../../../utils/activityLogger';
@@ -13,6 +14,7 @@ import { unitSalesService, unitsService, customersService, transactionsService, 
 
 const UnitSales: React.FC = () => {
     const { addToast } = useToast();
+    const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
     const [sales, setSales] = useState<UnitSaleRecord[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
@@ -134,6 +136,7 @@ const UnitSales: React.FC = () => {
                 date: saleData.saleDate,
                 description: `بيع الوحدة ${unit.name} إلى ${customer.name}`,
                 amount: saleData.finalSalePrice,
+                projectId: unit.projectId,
                 sourceType: 'Sale'
             });
 
@@ -207,7 +210,9 @@ const UnitSales: React.FC = () => {
             <ProjectSelector 
                 projects={availableProjects} 
                 activeProject={activeProject} 
-                onSelectProject={setActiveProject} 
+                onSelectProject={setActiveProject}
+                disabled={!!currentUser?.assignedProjectId}
+                showAllProjectsOption={currentUser?.role === 'Admin'}
             />
             
             {loading ? <p className="text-slate-300">جاري تحميل البيانات...</p> : (

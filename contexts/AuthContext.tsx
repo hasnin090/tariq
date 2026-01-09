@@ -82,7 +82,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const { userFullPermissionsService } = await import('../src/services/supabaseService');
         const fullPermissions = await userFullPermissionsService.getByUserId(user.id);
-        customPermissions = fullPermissions.resourcePermissions;
         customMenuAccess = fullPermissions.menuAccess;
         customButtonAccess = fullPermissions.buttonAccess;
         projectAssignments = fullPermissions.projectAssignments;
@@ -119,7 +118,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (permissions) {
       const updatedUser = {
         ...currentUser,
-        customPermissions: permissions.resourcePermissions,
         customMenuAccess: permissions.menuAccess,
         customButtonAccess: permissions.buttonAccess,
         projectAssignments: permissions.projectAssignments,
@@ -163,8 +161,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 .single();
               
               if (!error && user) {
+                // ✅ تحميل المشروع المخصص للمستخدم
+                let assignedProjectId = null;
+                if (user.role === 'Accounting' || user.role === 'Sales') {
+                  const { data: projects } = await supabase
+                    .from('projects')
+                    .select('id')
+                    .eq('assigned_user_id', user.id)
+                    .limit(1);
+                  
+                  if (projects && projects.length > 0) {
+                    assignedProjectId = projects[0].id;
+                  }
+                }
+                
                 const basicUser: AuthUser = {
                   ...user,
+                  assignedProjectId, // ✅ إضافة المشروع المخصص
                   permissions: user.role === 'Admin'
                     ? { canView: true, canEdit: true, canDelete: true }
                     : { canView: true, canEdit: false, canDelete: false },
@@ -195,8 +208,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     initAuth();
 
-    // Subscribe to auth changes
+    // Subscribe to auth changes - معالجة محسنة
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔐 Auth state changed:', event);
+      
       if (event === 'SIGNED_IN' && session?.user) {
         const userData = await loadUserData(session.user.id);
         if (userData) {
@@ -204,6 +219,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
+        localStorage.removeItem('legacy_user_session');
+      } else if (event === 'TOKEN_REFRESHED') {
+        // ✅ الجلسة تم تجديدها بنجاح - لا حاجة لفعل شيء
+        console.log('🔄 Token refreshed successfully');
+      } else if (event === 'USER_UPDATED') {
+        // ✅ تحديث بيانات المستخدم إذا تغيرت
+        if (session?.user) {
+          const userData = await loadUserData(session.user.id);
+          if (userData) {
+            setCurrentUser(userData);
+          }
+        }
       }
     });
 
@@ -333,6 +360,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { error: new Error('كلمة المرور غير صحيحة') };
       }
 
+      // ✅ تحميل المشروع المخصص للمستخدم
+      let assignedProjectId = null;
+      if (user.role === 'Accounting' || user.role === 'Sales') {
+        const { data: projects } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('assigned_user_id', user.id)
+          .limit(1);
+        
+        if (projects && projects.length > 0) {
+          assignedProjectId = projects[0].id;
+        }
+      }
+
       // التحقق من وجود بريد إلكتروني صالح
       if (!user.email || user.email.trim() === '') {
         // المستخدم ليس لديه بريد إلكتروني - استخدام البيانات الأساسية فقط
@@ -340,6 +381,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { password: _, ...userWithoutPassword } = user;
         const basicUser: AuthUser = {
           ...userWithoutPassword,
+          assignedProjectId, // ✅ إضافة المشروع المخصص
           permissions: user.role === 'Admin'
             ? { canView: true, canEdit: true, canDelete: true }
             : { canView: true, canEdit: false, canDelete: false },
@@ -415,6 +457,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { password: _, ...userWithoutPassword } = user;
       const basicUser: AuthUser = {
         ...userWithoutPassword,
+        assignedProjectId, // ✅ إضافة المشروع المخصص
         permissions: user.role === 'Admin'
           ? { canView: true, canEdit: true, canDelete: true }
           : { canView: true, canEdit: false, canDelete: false },

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 're
 import { Customer, Booking, Unit, Document } from '../../../types';
 import { FileIcon, SpinnerIcon, SearchIcon, CloseIcon, EyeIcon, TrashIcon } from '../../shared/Icons';
 import { useProject } from '../../../contexts/ProjectContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import ProjectSelector from '../../shared/ProjectSelector';
 import Modal from '../../shared/Modal';
@@ -125,6 +126,7 @@ const InstallmentDropdown: React.FC<{
 
 const SalesDocuments: React.FC = () => {
     const { activeProject, availableProjects, setActiveProject } = useProject();
+    const { currentUser } = useAuth();
     const { addToast } = useToast();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
@@ -340,7 +342,9 @@ const SalesDocuments: React.FC = () => {
             <ProjectSelector 
                 projects={availableProjects} 
                 activeProject={activeProject} 
-                onSelectProject={setActiveProject} 
+                onSelectProject={setActiveProject}
+                disabled={!!currentUser?.assignedProjectId}
+                showAllProjectsOption={currentUser?.role === 'Admin'}
             />
             
             {/* Search */}

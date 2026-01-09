@@ -838,9 +838,29 @@ export const paymentsService = {
     // Get booking info to enrich the response
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('customer_id, unit_id, customers(name), units(unit_number)')
+      .select('customer_id, unit_id, customers(name), units(unit_number, project_id)')
       .eq('id', payment.bookingId)
       .single();
+
+    if (bookingError) throw bookingError;
+
+    const bookingProjectId: string | null = (booking as any)?.units?.project_id ?? null;
+
+    // Create a matching treasury transaction so accounts balances are real.
+    // If account_id is null (legacy / project-only flow), we skip creating a transaction.
+    if (payment.accountId) {
+      await transactionsService.create({
+        accountId: payment.accountId,
+        accountName: '',
+        type: 'Deposit',
+        date: payment.paymentDate,
+        description: payment.notes || `Payment (${payment.paymentType || 'installment'})`,
+        amount: payment.amount,
+        projectId: bookingProjectId,
+        sourceId: id,
+        sourceType: 'Payment',
+      });
+    }
     
     // Get unit price
     const { data: unit, error: unitError } = await supabase
@@ -887,6 +907,67 @@ export const paymentsService = {
       .eq('id', id)
       .select();
     if (error) throw error;
+
+    // Keep matching treasury transaction in sync (if any)
+    // Find booking -> project for projectId attribution.
+    const updatedBookingId = data?.[0]?.booking_id;
+    if (updatedBookingId) {
+      const { data: booking, error: bookingError } = await supabase
+        .from('bookings')
+        .select('units(project_id)')
+        .eq('id', updatedBookingId)
+        .single();
+      if (bookingError) throw bookingError;
+
+      const bookingProjectId: string | null = (booking as any)?.units?.project_id ?? null;
+
+      // Locate any existing transaction for this payment
+      const { data: existingTx, error: txLookupError } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('source_type', 'Payment')
+        .eq('source_id', id)
+        .maybeSingle();
+      if (txLookupError) throw txLookupError;
+
+      const shouldHaveTx = payment.accountId !== undefined ? !!payment.accountId : !!data?.[0]?.account_id;
+      if (!shouldHaveTx) {
+        if (existingTx?.id) {
+          await transactionsService.delete(existingTx.id);
+        }
+      } else {
+        const amount = payment.amount !== undefined ? payment.amount : data?.[0]?.amount;
+        const date = payment.paymentDate !== undefined ? payment.paymentDate : data?.[0]?.payment_date;
+        const description = payment.notes !== undefined ? (payment.notes || `Payment (${data?.[0]?.payment_type || 'installment'})`) : (`Payment (${data?.[0]?.payment_type || 'installment'})`);
+        const accountId = payment.accountId !== undefined ? payment.accountId : data?.[0]?.account_id;
+
+        if (existingTx?.id) {
+          await transactionsService.update(existingTx.id, {
+            accountId,
+            accountName: '',
+            type: 'Deposit',
+            date,
+            description,
+            amount,
+            projectId: bookingProjectId,
+            sourceId: id,
+            sourceType: 'Payment',
+          });
+        } else {
+          await transactionsService.create({
+            accountId,
+            accountName: '',
+            type: 'Deposit',
+            date,
+            description,
+            amount,
+            projectId: bookingProjectId,
+            sourceId: id,
+            sourceType: 'Payment',
+          });
+        }
+      }
+    }
     
     // Get booking info to enrich the response
     const { data: booking, error: bookingError } = await supabase
@@ -925,6 +1006,17 @@ export const paymentsService = {
   },
 
   async delete(id: string) {
+    // Remove matching treasury transaction first (best-effort)
+    const { data: existingTx } = await supabase
+      .from('transactions')
+      .select('id')
+      .eq('source_type', 'Payment')
+      .eq('source_id', id)
+      .maybeSingle();
+    if (existingTx?.id) {
+      await transactionsService.delete(existingTx.id);
+    }
+
     const { error } = await supabase
       .from('payments')
       .delete()
@@ -1193,16 +1285,26 @@ const mapTransactionFromDb = (dbTransaction: any): Transaction => ({
   date: dbTransaction.date,
   description: dbTransaction.description,
   amount: dbTransaction.amount,
+  projectId: dbTransaction.project_id ?? null,
   sourceId: dbTransaction.source_id,
   sourceType: dbTransaction.source_type
 });
 
 export const transactionsService = {
-  async getAll() {
-    const { data, error } = await supabase
+  async getAll(filters?: { projectId?: string | null; accountId?: string | null }) {
+    let query = supabase
       .from('transactions')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (filters?.projectId) {
+      query = query.eq('project_id', filters.projectId);
+    }
+    if (filters?.accountId) {
+      query = query.eq('account_id', filters.accountId);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     // Convert snake_case to camelCase
     return (data || []).map(mapTransactionFromDb);
@@ -1219,6 +1321,7 @@ export const transactionsService = {
       date: transaction.date,
       description: transaction.description,
       amount: transaction.amount,
+      project_id: transaction.projectId || null,
       source_id: transaction.sourceId,
       source_type: transaction.sourceType
     };
@@ -1247,6 +1350,7 @@ export const transactionsService = {
     if (transaction.date !== undefined) dbUpdate.date = transaction.date;
     if (transaction.description !== undefined) dbUpdate.description = transaction.description;
     if (transaction.amount !== undefined) dbUpdate.amount = transaction.amount;
+    if (transaction.projectId !== undefined) dbUpdate.project_id = transaction.projectId;
     if (transaction.sourceId !== undefined) dbUpdate.source_id = transaction.sourceId;
     if (transaction.sourceType !== undefined) dbUpdate.source_type = transaction.sourceType;
     

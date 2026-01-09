@@ -214,54 +214,63 @@ const Payments: React.FC = () => {
             const paymentId = e.detail.id;
             console.log('🔍 Searching for payment:', paymentId);
             
-            // البحث عن الدفعة للحصول على bookingId
-            const targetPayment = payments.find(p => p.id === paymentId);
-            
-            if (targetPayment && targetPayment.bookingId) {
-                console.log('✅ Found payment, bookingId:', targetPayment.bookingId);
+            // ✅ دالة للبحث مع محاولات متعددة
+            const tryFindAndScroll = (attempts = 0) => {
+                const targetPayment = payments.find(p => p.id === paymentId);
                 
-                // توسيع مجموعة الحجز التي تحتوي على الدفعة
-                setExpandedBookings(prev => {
-                    const newSet = new Set(prev);
-                    newSet.add(targetPayment.bookingId);
-                    return newSet;
-                });
+                if (!targetPayment && attempts < 10) {
+                    // إذا لم نجد الدفعة، ننتظر ونحاول مرة أخرى
+                    console.log(`⏳ Payment not found yet, attempt ${attempts + 1}/10...`);
+                    setTimeout(() => tryFindAndScroll(attempts + 1), 300);
+                    return;
+                }
                 
-                // مسح البحث الحالي لإظهار جميع الدفعات
-                setSearchTerm('');
-                
-                // إزالة فلتر المشروع مؤقتاً إذا لزم الأمر
-                // يمكن إضافة هذا لاحقاً إذا كانت الدفعة في مشروع مختلف
-                
-                // التمرير إلى الحجز أولاً ثم إلى الدفعة المحددة
-                setTimeout(() => {
-                    // أولاً التمرير إلى مجموعة الحجز
-                    const bookingElement = document.getElementById(`booking-group-${targetPayment.bookingId}`) || 
-                                          document.querySelector(`[data-booking-id="${targetPayment.bookingId}"]`);
+                if (targetPayment && targetPayment.bookingId) {
+                    console.log('✅ Found payment, bookingId:', targetPayment.bookingId);
                     
-                    if (bookingElement) {
-                        bookingElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        bookingElement.classList.add('search-highlight');
-                        setTimeout(() => bookingElement.classList.remove('search-highlight'), 3000);
-                    }
+                    // توسيع مجموعة الحجز التي تحتوي على الدفعة
+                    setExpandedBookings(prev => {
+                        const newSet = new Set(prev);
+                        newSet.add(targetPayment.bookingId);
+                        return newSet;
+                    });
                     
-                    // ثم بعد تأخير قصير، التمرير إلى الدفعة المحددة وإبرازها
+                    // مسح البحث الحالي لإظهار جميع الدفعات
+                    setSearchTerm('');
+                    
+                    // التمرير إلى الحجز أولاً ثم إلى الدفعة المحددة
                     setTimeout(() => {
-                        const paymentElement = document.getElementById(`item-${paymentId}`) || 
-                                              document.querySelector(`[data-id="${paymentId}"]`);
-                        if (paymentElement) {
-                            paymentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            paymentElement.classList.add('search-highlight');
-                            setTimeout(() => paymentElement.classList.remove('search-highlight'), 3000);
+                        // أولاً التمرير إلى مجموعة الحجز
+                        const bookingElement = document.getElementById(`booking-group-${targetPayment.bookingId}`) || 
+                                              document.querySelector(`[data-booking-id="${targetPayment.bookingId}"]`);
+                        
+                        if (bookingElement) {
+                            bookingElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            bookingElement.classList.add('search-highlight');
+                            setTimeout(() => bookingElement.classList.remove('search-highlight'), 3000);
                         }
-                    }, 500);
-                    
-                }, 100);
-            } else {
-                console.log('❌ Payment not found:', paymentId);
-            }
+                        
+                        // ثم بعد تأخير قصير، التمرير إلى الدفعة المحددة وإبرازها
+                        setTimeout(() => {
+                            const paymentElement = document.getElementById(`item-${paymentId}`) || 
+                                                  document.querySelector(`[data-id="${paymentId}"]`);
+                            if (paymentElement) {
+                                paymentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                paymentElement.classList.add('search-highlight');
+                                setTimeout(() => paymentElement.classList.remove('search-highlight'), 3000);
+                            }
+                        }, 500);
+                        
+                    }, 100);
+                } else {
+                    console.log('❌ Payment not found after all attempts:', paymentId);
+                }
+                
+                sessionStorage.removeItem('searchFocus');
+            };
             
-            sessionStorage.removeItem('searchFocus');
+            // بدء البحث
+            tryFindAndScroll(0);
         };
         
         // فحص عند التحميل
@@ -1155,7 +1164,9 @@ const Payments: React.FC = () => {
             <ProjectSelector 
                 projects={availableProjects} 
                 activeProject={activeProject} 
-                onSelectProject={setActiveProject} 
+                onSelectProject={setActiveProject}
+                disabled={!!currentUser?.assignedProjectId}
+                showAllProjectsOption={currentUser?.role === 'Admin'}
             />
 
             {/* Search Box */}

@@ -384,6 +384,7 @@ export interface Transaction {
   date: string;
   description: string;
   amount: number;
+  projectId?: string | null;
   sourceId?: string;
   sourceType?: 'Payment' | 'Sale' | 'Expense' | 'Manual' | 'Salary' | 'Deferred Payment';
 }

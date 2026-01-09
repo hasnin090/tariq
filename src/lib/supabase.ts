@@ -14,5 +14,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // ✅ إضافة storage لحفظ الجلسة
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    // ✅ إضافة flowType لتحسين المصادقة
+    flowType: 'pkce',
+  },
+  // ✅ إضافة إعدادات realtime لمنع انقطاع الاتصال
+  realtime: {
+    params: {
+      eventsPerSecond: 2,
+    },
+  },
+  // ✅ إضافة global settings
+  global: {
+    headers: {
+      'x-client-info': 'real-estate-dashboard',
+    },
   },
 });

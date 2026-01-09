@@ -5,11 +5,13 @@ import { formatCurrency } from '../../../utils/currencyFormatter';
 import { useToast } from '../../../contexts/ToastContext';
 import logActivity from '../../../utils/activityLogger';
 import { CloseIcon, BankIcon, CashIcon, ArrowUpIcon, ArrowDownIcon, PlusIcon } from '../../shared/Icons';
-import { accountsService } from '../../../src/services/supabaseService';
+import { accountsService, transactionsService } from '../../../src/services/supabaseService';
 import AmountInput from '../../shared/AmountInput';
+import { useProject } from '../../../contexts/ProjectContext';
 
 const Treasury: React.FC = () => {
     const { addToast } = useToast();
+    const { activeProject, availableProjects } = useProject();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,13 +62,16 @@ const Treasury: React.FC = () => {
     
     useEffect(() => {
         loadData();
-    }, []);
+    }, [activeProject?.id]);
 
     const loadData = async () => {
         try {
             setLoading(true);
-            const loadedTransactions = JSON.parse(localStorage.getItem('transactions') || '[]');
             const loadedAccounts = await accountsService.getAll();
+            const loadedTransactions = await transactionsService.getAll({
+                // Admin may have activeProject = null (all projects)
+                projectId: activeProject?.id ?? null,
+            });
             
             setAccounts(loadedAccounts);
             setTransactions(loadedTransactions);
@@ -79,10 +84,6 @@ const Treasury: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const saveData = (key: string, data: any[]) => {
-        localStorage.setItem(key, JSON.stringify(data));
     };
 
     const handleSaveAccount = async (accountData: Omit<Account, 'id'>) => {
@@ -111,51 +112,59 @@ const Treasury: React.FC = () => {
         }
     };
     
-    const handleSaveRevenue = (revenueData: { description: string; amount: number; date: string; accountId: string; }) => {
+    const handleSaveRevenue = async (revenueData: { description: string; amount: number; date: string; accountId: string; projectId: string; }) => {
         const account = accounts.find(a => a.id === revenueData.accountId);
         if (!account) {
             addToast('الحساب المحدد غير صالح.', 'error');
             return;
         }
-
-        const newTransaction: Transaction = {
-            id: `trans_${Date.now()}`,
-            accountId: revenueData.accountId,
-            accountName: account.name,
-            type: 'Deposit',
-            date: revenueData.date,
-            description: revenueData.description,
-            amount: revenueData.amount,
-            sourceType: 'Manual',
-        };
-
-        const currentTransactions = [...transactions, newTransaction];
-        saveData('transactions', currentTransactions);
-        setTransactions(currentTransactions);
-
-        addToast('تمت إضافة الإيراد بنجاح.', 'success');
-        logActivity('Add Revenue', `Added revenue: ${revenueData.description} - ${formatCurrency(revenueData.amount)}`, 'expenses');
-        setIsRevenueModalOpen(false);
+        try {
+            const created = await transactionsService.create({
+                accountId: revenueData.accountId,
+                accountName: account.name,
+                type: 'Deposit',
+                date: revenueData.date,
+                description: revenueData.description,
+                amount: revenueData.amount,
+                projectId: revenueData.projectId,
+                sourceType: 'Manual',
+            });
+            setTransactions(prev => [created, ...prev]);
+            addToast('تمت إضافة الإيراد بنجاح.', 'success');
+            logActivity('Add Revenue', `Added revenue: ${revenueData.description} - ${formatCurrency(revenueData.amount)}`, 'expenses');
+            setIsRevenueModalOpen(false);
+        } catch (error) {
+            console.error('Error saving revenue:', error);
+            addToast('خطأ في حفظ الإيراد.', 'error');
+        }
     };
 
     const accountBalances = useMemo(() => {
         const balances = new Map<string, number>();
         accounts.forEach(acc => {
-            let balance = acc.initialBalance;
+            let balance = 0;
             transactions.forEach(t => {
-                if (t.accountId === acc.id) {
-                    balance += t.type === 'Deposit' ? t.amount : -t.amount;
-                }
+                if (t.accountId !== acc.id) return;
+                // When Admin is in "All projects" mode, we keep all rows.
+                // Otherwise, loadData already filtered by project, but this keeps it safe.
+                if (activeProject?.id && t.projectId && t.projectId !== activeProject.id) return;
+                balance += t.type === 'Deposit' ? t.amount : -t.amount;
             });
             balances.set(acc.id, balance);
         });
         return balances;
-    }, [accounts, transactions]);
+    }, [accounts, transactions, activeProject?.id]);
     
     const filteredTransactions = useMemo(() => {
         if (!selectedAccount) return [];
-        return transactions.filter(t => t.accountId === selectedAccount.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [transactions, selectedAccount]);
+        return transactions
+            .filter(t => {
+                if (t.accountId !== selectedAccount.id) return false;
+                if (!activeProject?.id) return true;
+                return t.projectId === activeProject.id;
+            })
+            .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [transactions, selectedAccount, activeProject?.id]);
 
     if (loading) {
         return (
@@ -222,28 +231,39 @@ const Treasury: React.FC = () => {
                 </div>
             </div>
              {isModalOpen && <AccountPanel account={editingAccount} onClose={() => setIsModalOpen(false)} onSave={handleSaveAccount} />}
-             {isRevenueModalOpen && <RevenuePanel accounts={accounts} onClose={() => setIsRevenueModalOpen(false)} onSave={handleSaveRevenue} />}
+             {isRevenueModalOpen && (
+                <RevenuePanel
+                    accounts={accounts}
+                    projects={availableProjects}
+                    activeProjectId={activeProject?.id ?? null}
+                    onClose={() => setIsRevenueModalOpen(false)}
+                    onSave={handleSaveRevenue}
+                />
+             )}
         </div>
     );
 };
 
 interface RevenuePanelProps {
     accounts: Account[];
+    projects: { id: string; name: string }[];
+    activeProjectId: string | null;
     onClose: () => void;
-    onSave: (data: { description: string; amount: number; date: string; accountId: string; }) => void;
+    onSave: (data: { description: string; amount: number; date: string; accountId: string; projectId: string; }) => void;
 }
-const RevenuePanel: React.FC<RevenuePanelProps> = ({ accounts, onClose, onSave }) => {
+const RevenuePanel: React.FC<RevenuePanelProps> = ({ accounts, projects, activeProjectId, onClose, onSave }) => {
     const { addToast } = useToast();
     const [formData, setFormData] = useState({
         description: '',
         amount: '' as number | '',
         date: new Date().toISOString().split('T')[0],
         accountId: accounts.length > 0 ? accounts[0].id : '',
+        projectId: activeProjectId || '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.description || !formData.amount || Number(formData.amount) <= 0 || !formData.accountId) {
+        if (!formData.description || !formData.amount || Number(formData.amount) <= 0 || !formData.accountId || !formData.projectId) {
             addToast('يرجى ملء جميع الحقول الإلزامية.', 'error');
             return;
         }
@@ -279,6 +299,12 @@ const RevenuePanel: React.FC<RevenuePanelProps> = ({ accounts, onClose, onSave }
                             />
                             <input type="date" name="date" value={formData.date} onChange={handleChange} className={inputStyle} required />
                         </div>
+                        {!activeProjectId && (
+                            <select name="projectId" value={formData.projectId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
+                                <option value="">تخصيص الإيراد إلى مشروع...</option>
+                                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                        )}
                         <select name="accountId" value={formData.accountId} onChange={handleChange} className={`${inputStyle} bg-white dark:bg-slate-700`} required>
                             <option value="">إيداع في حساب...</option>
                             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}

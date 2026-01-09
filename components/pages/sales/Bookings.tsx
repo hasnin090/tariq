@@ -103,16 +103,34 @@ export const Bookings: React.FC = () => {
         const handleSearchNavigate = (e: CustomEvent) => {
             if (e.detail?.page !== 'bookings' || !e.detail?.id) return;
             
-            setTimeout(() => {
-                const element = document.getElementById(`item-${e.detail.id}`) || 
-                               document.querySelector(`[data-id="${e.detail.id}"]`);
+            const bookingId = e.detail.id;
+            console.log('🔍 Searching for booking:', bookingId);
+            
+            // ✅ دالة للبحث مع محاولات متعددة
+            const tryFindAndScroll = (attempts = 0) => {
+                const element = document.getElementById(`item-${bookingId}`) || 
+                               document.querySelector(`[data-id="${bookingId}"]`);
+                
+                if (!element && attempts < 10) {
+                    console.log(`⏳ Booking element not found yet, attempt ${attempts + 1}/10...`);
+                    setTimeout(() => tryFindAndScroll(attempts + 1), 300);
+                    return;
+                }
+                
                 if (element) {
+                    console.log('✅ Found booking element, scrolling...');
                     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     element.classList.add('search-highlight');
                     setTimeout(() => element.classList.remove('search-highlight'), 3000);
+                } else {
+                    console.log('❌ Booking element not found after all attempts:', bookingId);
                 }
+                
                 sessionStorage.removeItem('searchFocus');
-            }, 300);
+            };
+            
+            // بدء البحث بعد تأخير قصير
+            setTimeout(() => tryFindAndScroll(0), 200);
         };
         
         // فحص عند التحميل
@@ -471,7 +489,9 @@ export const Bookings: React.FC = () => {
             <ProjectSelector 
                 projects={availableProjects} 
                 activeProject={activeProject} 
-                onSelectProject={setActiveProject} 
+                onSelectProject={setActiveProject}
+                disabled={!!currentUser?.assignedProjectId}
+                showAllProjectsOption={currentUser?.role === 'Admin'}
             />
             
             <div className="glass-card overflow-hidden">
