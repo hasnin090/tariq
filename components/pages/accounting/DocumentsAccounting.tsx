@@ -81,10 +81,11 @@ const AttachmentViewerModal: React.FC<{ document: SaleDocument | null, onClose: 
 const LinkExpenseModal: React.FC<{
     documentToLink: SaleDocument;
     expenses: Expense[];
+    allDocuments: SaleDocument[];
     projectIdFilter?: string | null;
     onClose: () => void;
     onLink: (documentId: string, expenseId: string) => void;
-}> = ({ documentToLink, expenses, projectIdFilter, onClose, onLink }) => {
+}> = ({ documentToLink, expenses, allDocuments, projectIdFilter, onClose, onLink }) => {
     const { addToast } = useToast();
     const [selectedExpenseId, setSelectedExpenseId] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -113,11 +114,21 @@ const LinkExpenseModal: React.FC<{
             ? expenses.filter(exp => (exp as any).projectId === effectiveProjectId)
             : expenses;
 
-        return projectFiltered.filter(exp => 
+        // ✅ جمع جميع expense_id المرتبطة بمستندات أخرى (غير المستند الحالي)
+        const linkedExpenseIds = new Set<string>(
+            allDocuments
+                .filter(doc => doc.expenseId && doc.id !== documentToLink.id)
+                .map(doc => doc.expenseId!)
+        );
+
+        // ✅ تصفية الحركات المالية: استبعاد الحركات المرتبطة بمستندات أخرى
+        const unlinkedExpenses = projectFiltered.filter(exp => !linkedExpenseIds.has(exp.id));
+
+        return unlinkedExpenses.filter(exp => 
             exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
             exp.date.includes(searchTerm)
         ).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [expenses, searchTerm, projectIdFilter, documentToLink]);
+    }, [expenses, allDocuments, searchTerm, projectIdFilter, documentToLink]);
 
     const handleConfirm = () => {
         if (!selectedExpenseId) {
@@ -630,12 +641,25 @@ const DocumentsAccounting: React.FC = () => {
     // ✅ المشروع الذي تُعرض ضمنه مستندات/حركات الصفحة (للمستخدم المخصص أو المشروع النشط)
     const projectIdToFilter = currentUser?.assignedProjectId || activeProject?.id || null;
     
+    // ✅ تتبع آخر مشروع تم تحميله لتجنب إعادة التحميل غير الضرورية
+    // استخدام رمز خاص للدلالة على "لم يتم التحميل بعد"
+    const INITIAL_LOAD = Symbol('INITIAL_LOAD');
+    const lastLoadedProjectRef = useRef<string | null | typeof INITIAL_LOAD>(INITIAL_LOAD);
+    
     // GSAP Table Animation Ref
     const tableBodyRef = useRef<HTMLTableSectionElement>(null);
     const hasAnimated = useRef(false);
 
     const loadData = async () => {
         try {
+            // ✅ تجنب إعادة التحميل إذا لم يتغير المشروع (ولكن السماح بالتحميل الأول)
+            if (lastLoadedProjectRef.current !== INITIAL_LOAD && lastLoadedProjectRef.current === projectIdToFilter) {
+                console.log('⏭️ Documents - Skipping reload, same project:', projectIdToFilter);
+                return;
+            }
+            
+            lastLoadedProjectRef.current = projectIdToFilter;
+            
             setLoading(true);
             // Load expenses from Supabase
             const expensesData = await expensesService.getAll();
@@ -666,8 +690,8 @@ const DocumentsAccounting: React.FC = () => {
             setAllDocuments(initialDocs);
             setLoading(false); // إنهاء التحميل مبكراً لعرض الجدول
             
-            // جلب signed URLs في الخلفية بشكل متوازي
-            const BATCH_SIZE = 20; // زيادة حجم الدفعة لتسريع التحميل
+            // ✅ جلب signed URLs في الخلفية بشكل متوازي - دفعات أكبر وأسرع
+            const BATCH_SIZE = 50; // ✅ زيادة حجم الدفعة من 20 إلى 50 لتسريع التحميل
             
             for (let i = 0; i < allDocsFromDB.length; i += BATCH_SIZE) {
                 const batch = allDocsFromDB.slice(i, i + BATCH_SIZE);
@@ -1310,6 +1334,7 @@ const DocumentsAccounting: React.FC = () => {
                 <LinkExpenseModal
                     documentToLink={documentToLink}
                     expenses={expenses}
+                    allDocuments={allDocuments}
                     projectIdFilter={projectIdToFilter}
                     onClose={() => setIsLinkModalOpen(false)}
                     onLink={handleLink}

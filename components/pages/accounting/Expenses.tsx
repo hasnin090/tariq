@@ -178,7 +178,22 @@ export const Expenses: React.FC = () => {
     // ✅ المشروع المخصص للمستخدم (يُحفظ في متغير لاستخدامه في الفلترة)
     const userAssignedProjectId = currentUser?.assignedProjectId;
 
+    // ✅ تتبع آخر مشروع تم تحميله لتجنب إعادة التحميل غير الضرورية
+    // استخدام رمز خاص للدلالة على "لم يتم التحميل بعد"
+    const INITIAL_LOAD = Symbol('INITIAL_LOAD');
+    const lastLoadedProjectRef = useRef<string | null | typeof INITIAL_LOAD>(INITIAL_LOAD);
+
     useEffect(() => {
+        const currentProjectId = userAssignedProjectId || activeProject?.id || null;
+        
+        // ✅ تجنب إعادة التحميل إذا لم يتغير المشروع (ولكن السماح بالتحميل الأول)
+        if (lastLoadedProjectRef.current !== INITIAL_LOAD && lastLoadedProjectRef.current === currentProjectId) {
+            console.log('⏭️ Skipping reload - same project:', currentProjectId);
+            return;
+        }
+        
+        lastLoadedProjectRef.current = currentProjectId;
+        
         const fetchExpenses = async () => {
             try {
                 let expensesData = await expensesService.getAll();
@@ -544,6 +559,7 @@ export const Expenses: React.FC = () => {
         return () => clearTimeout(timer);
     }, [pendingScrollId, paginatedExpenses, currentPage, skipFilters, allExpenses, filteredExpenses]);
 
+    // ✅ تحسين الأداء: تأجيل فحص المرفقات مع debounce وتخزين مؤقت
     useEffect(() => {
         if (!visibleColumns.attachments) return;
 
@@ -553,14 +569,19 @@ export const Expenses: React.FC = () => {
 
         if (ids.length === 0) return;
 
+        // ✅ فحص الـ cache أولاً - تجنب الاستعلامات المتكررة
+        const uncachedIds = ids.filter(id => !(id in expenseHasDocumentsById));
+        if (uncachedIds.length === 0) return; // كل البيانات موجودة في الـ cache
+
         let cancelled = false;
-        (async () => {
+        // ✅ Debounce: تأخير 300ms لتجنب الاستعلامات المتعددة عند التنقل السريع
+        const timer = setTimeout(async () => {
             try {
-                const idsWithDocs = await documentsService.getExpenseIdsWithDocuments(ids);
+                const idsWithDocs = await documentsService.getExpenseIdsWithDocuments(uncachedIds);
                 if (cancelled) return;
                 setExpenseHasDocumentsById(prev => {
                     const next = { ...prev };
-                    for (const id of ids) {
+                    for (const id of uncachedIds) {
                         next[id] = idsWithDocs.has(id);
                     }
                     return next;
@@ -568,12 +589,13 @@ export const Expenses: React.FC = () => {
             } catch {
                 // Keep UI stable if the check fails.
             }
-        })();
+        }, 300);
 
         return () => {
             cancelled = true;
+            clearTimeout(timer);
         };
-    }, [paginatedExpenses, visibleColumns.attachments]);
+    }, [paginatedExpenses, visibleColumns.attachments, expenseHasDocumentsById]);
 
     const handleViewFirstAttachment = async (expense: Expense) => {
         try {
@@ -1080,7 +1102,12 @@ export const Expenses: React.FC = () => {
                     )}
                     <ColumnToggler visibleColumns={visibleColumns} onToggle={handleToggleColumn} />
                     {canAdd && (
-                        <button onClick={() => handleOpenModal(null)} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm">
+                        <button 
+                            onClick={() => handleOpenModal(null)} 
+                            disabled={!currentUser?.assignedProjectId && !activeProject}
+                            className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={!currentUser?.assignedProjectId && !activeProject ? 'يرجى تحديد مشروع أولاً' : ''}
+                        >
                             إضافة حركة
                         </button>
                     )}
@@ -1213,12 +1240,13 @@ interface PanelProps {
 const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, accounts, onClose, onSave, isSaving }) => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
+    const { activeProject } = useProject();
     const [formData, setFormData] = useState({
         date: expense?.date || new Date().toISOString().split('T')[0],
         description: expense?.description || '',
         amount: expense?.amount || 0,
         categoryId: expense?.categoryId || '',
-        projectId: expense?.projectId || currentUser?.assignedProjectId || '',
+        projectId: expense?.projectId || currentUser?.assignedProjectId || activeProject?.id || '',
         accountId: expense?.accountId || '',
     });
     const [document, setDocument] = useState<SaleDocument | null>(expense?.documents?.[0] || null);
@@ -1293,6 +1321,12 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
                                     المشروع: {projects.find(p => p.id === currentUser.assignedProjectId)?.name || 'غير محدد'}
                                 </p>
                             </div>
+                        ) : formData.projectId ? (
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg p-3">
+                                <p className="text-sm text-emerald-800 dark:text-emerald-200 font-medium">
+                                    المشروع المحدد: {projects.find(p => p.id === formData.projectId)?.name || 'غير محدد'}
+                                </p>
+                            </div>
                         ) : (
                             <select name="projectId" value={formData.projectId} onChange={handleChange} className={selectStyle}><option value="">اختر مشروع (اختياري)</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                         )}
@@ -1319,39 +1353,74 @@ const Pagination: React.FC<{
     totalPages: number;
     onPageChange: (page: number) => void;
 }> = ({ currentPage, totalPages, onPageChange }) => {
-    const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
-
     return (
         <nav className="flex flex-wrap justify-center items-center gap-2 mt-6 p-4" aria-label="Pagination">
+            {/* زر الأولى */}
             <button
-                onClick={() => onPageChange(currentPage - 1)}
+                onClick={() => onPageChange(1)}
                 disabled={currentPage === 1}
-                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+                الأولى
+            </button>
+            
+            {/* زر السابق */}
+            <button
+                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
                 السابق
             </button>
             
-            {pageNumbers.map(number => (
-                <button
-                    key={number}
-                    onClick={() => onPageChange(number)}
-                    className={`px-4 py-2 text-sm font-medium border rounded-lg transition-colors ${
-                        currentPage === number
-                            ? 'bg-primary-600 text-white border-primary-600'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                    aria-current={currentPage === number ? 'page' : undefined}
-                >
-                    {number}
-                </button>
-            ))}
+            {/* أرقام الصفحات - عرض 5 صفحات كحد أقصى */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                    // إذا كان إجمالي الصفحات 5 أو أقل، اعرضهم جميعاً
+                    pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                    // إذا كنا في بداية القائمة، اعرض أول 5 صفحات
+                    pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                    // إذا كنا في نهاية القائمة، اعرض آخر 5 صفحات
+                    pageNum = totalPages - 4 + i;
+                } else {
+                    // في الوسط، اعرض الصفحة الحالية في المنتصف
+                    pageNum = currentPage - 2 + i;
+                }
+                return (
+                    <button
+                        key={pageNum}
+                        onClick={() => onPageChange(pageNum)}
+                        className={`px-4 py-2 text-sm font-medium border rounded-lg transition-colors ${
+                            currentPage === pageNum
+                                ? 'bg-primary-600 text-white border-primary-600'
+                                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                        aria-current={currentPage === pageNum ? 'page' : undefined}
+                    >
+                        {pageNum}
+                    </button>
+                );
+            })}
             
+            {/* زر التالي */}
             <button
-                onClick={() => onPageChange(currentPage + 1)}
+                onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
                 التالي
+            </button>
+            
+            {/* زر الأخيرة */}
+            <button
+                onClick={() => onPageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+                الأخيرة
             </button>
         </nav>
     );
