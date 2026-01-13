@@ -1286,11 +1286,38 @@ export const expensesService = {
   },
 
   async delete(id: string) {
-    const { error } = await supabase
+    console.log('🗑️ Attempting to delete expense:', id);
+    
+    // First verify the record exists
+    const { data: existingRecord, error: checkError } = await supabase
+      .from('expenses')
+      .select('id')
+      .eq('id', id)
+      .single();
+    
+    if (checkError) {
+      console.error('❌ Error checking expense existence:', checkError);
+      if (checkError.code === 'PGRST116') {
+        console.log('ℹ️ Expense not found - may already be deleted');
+        return; // Record doesn't exist, consider it deleted
+      }
+      throw checkError;
+    }
+    
+    console.log('✅ Expense exists, proceeding with delete...');
+    
+    const { error, count } = await supabase
       .from('expenses')
       .delete()
-      .eq('id', id);
-    if (error) throw error;
+      .eq('id', id)
+      .select();
+    
+    if (error) {
+      console.error('❌ Delete error:', error);
+      throw error;
+    }
+    
+    console.log('✅ Expense deleted successfully');
   },
 
   subscribe(callback: (expenses: Expense[]) => void) {
@@ -1403,11 +1430,33 @@ export const transactionsService = {
   },
 
   async delete(id: string) {
+    console.log('🗑️ Attempting to delete transaction:', id);
+    
+    // First verify the record exists
+    const { data: existingRecord, error: checkError } = await supabase
+      .from('transactions')
+      .select('id')
+      .eq('id', id)
+      .single();
+    
+    if (checkError) {
+      console.error('❌ Error checking transaction existence:', checkError);
+      if (checkError.code === 'PGRST116') {
+        console.log('ℹ️ Transaction not found - may already be deleted');
+        return; // Record doesn't exist, consider it deleted
+      }
+      throw checkError;
+    }
+    
     const { error } = await supabase
       .from('transactions')
       .delete()
       .eq('id', id);
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Delete transaction error:', error);
+      throw error;
+    }
+    console.log('✅ Transaction deleted successfully');
   }
 };
 
