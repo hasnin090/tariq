@@ -184,20 +184,27 @@ const Payments: React.FC = () => {
         return filtered;
     }, [allPaymentsWithBooking, units, activeProject, searchTerm]);
 
+    // ✅ تحديث البيانات عند تغيير payments أو bookings أو units (لحل مشكلة closure)
+    useEffect(() => {
+        if (payments.length > 0 || bookings.length > 0) {
+            mergePaymentsWithBookings(payments, bookings, units);
+        }
+    }, [payments, bookings, units]);
+
     useEffect(() => {
         loadAllData();
         
         const paymentsSubscription = paymentsService.subscribe((data) => {
             const sortedPayments = data.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
             setPayments(sortedPayments);
-            mergePaymentsWithBookings(sortedPayments, bookings, units);
+            // ✅ لا نستدعي mergePaymentsWithBookings هنا - سيتم استدعاؤها من useEffect أعلاه
         });
 
         const bookingsSubscription = bookingsService.subscribe((data) => {
             // عرض الحجوزات النشطة والمكتملة (لا نستبعد المكتملة من قائمة الدفعات)
             const relevantBookings = data.filter(b => b.status === 'Active' || b.status === 'Completed');
             setBookings(relevantBookings);
-            mergePaymentsWithBookings(payments, relevantBookings, units);
+            // ✅ لا نستدعي mergePaymentsWithBookings هنا - سيتم استدعاؤها من useEffect أعلاه
         });
 
         return () => {
@@ -440,6 +447,7 @@ const Payments: React.FC = () => {
         try {
             // احفظ معلومات الحجز قبل الحذف
             const bookingId = paymentToDelete.bookingId;
+            const deletedPaymentId = paymentToDelete.id;
             const booking = bookings.find(b => b.id === bookingId);
             const unit = units.find(u => u.id === paymentToDelete.unitId);
             
@@ -457,6 +465,10 @@ const Payments: React.FC = () => {
             await paymentsService.delete(paymentToDelete.id);
             logActivity('Delete Payment', `Deleted additional payment of ${formatCurrency(paymentToDelete.amount)} for ${paymentToDelete.customerName}`, 'projects');
             
+            // ✅ تحديث الحالة المحلية فوراً لإزالة الدفعة من الواجهة
+            setPayments(prev => prev.filter(p => p.id !== deletedPaymentId));
+            setAllPaymentsWithBooking(prev => prev.filter(p => p.id !== deletedPaymentId));
+            
             // ✅ تحديث حالة الحجز إذا كان مكتملاً وأصبح المبلغ غير مكتمل
             if (booking && unit && booking.status === 'Completed' && newTotalPaid < unit.price) {
                 // إرجاع حالة الحجز إلى نشط
@@ -468,10 +480,14 @@ const Payments: React.FC = () => {
             }
             
             setPaymentToDelete(null);
+            
+            // ✅ إعادة تحميل البيانات للتأكد من التزامن مع قاعدة البيانات
             await loadAllData();
         } catch (error) {
             console.error('Error deleting payment:', error);
             addToast('خطأ في حذف الدفعة', 'error');
+            // ✅ في حالة الخطأ، أعد تحميل البيانات لاستعادة الحالة الصحيحة
+            await loadAllData();
         }
     };
 
@@ -2182,7 +2198,7 @@ const Payments: React.FC = () => {
                     message={`هل أنت متأكد من حذف دفعة بمبلغ ${formatCurrency(paymentToDelete.amount)} للعميل ${paymentToDelete.customerName}؟ هذا الإجراء لا يمكن التراجع عنه.`}
                     confirmText="حذف"
                     cancelText="إلغاء"
-                    type="danger"
+                    variant="danger"
                 />
             )}
 

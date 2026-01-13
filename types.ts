@@ -201,6 +201,8 @@ export interface Payment {
     paymentType: 'booking' | 'installment' | 'final' | 'extra'; // نوع الدفعة (extra = دفعة إضافية خارج الخطة)
     accountId?: string;
     accountName?: string;
+    receiptNumber?: string;
+    scheduledPaymentId?: string;
     notes?: string;
     createdBy?: string;
     // البيانات التالية تأتي من JOIN مع جداول أخرى (غير مخزنة مباشرة)
@@ -217,13 +219,28 @@ export interface Payment {
 
 export interface Document {
   id: string;
+  name?: string;
   file_name: string;
+  fileName?: string;
   storage_path: string;
+  storagePath?: string;
   file_type?: string;
+  fileType?: string;
+  fileUrl?: string;
+  fileSize?: number;
+  mimeType?: string;
+  folderId?: string;
+  categoryId?: string;
+  projectId?: string;
+  description?: string;
+  tags?: string[];
   uploaded_at: string;
   customer_id?: string;
   booking_id?: string;
   publicUrl?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SaleDocument {
@@ -335,6 +352,101 @@ export interface Budget {
     amount: number;
 }
 
+// ============================================================================
+// أنواع الدفعات والمرفقات
+// ============================================================================
+
+/** الدفعات الإضافية */
+export interface ExtraPayment {
+  id: string;
+  bookingId: string;
+  amount: number;
+  paymentDate: string;
+  paymentType: string;
+  description?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  // بيانات من JOIN
+  projectId?: string;
+  projectName?: string;
+  customerName?: string;
+  customerPhone?: string;
+  unitName?: string;
+}
+
+/** مرفقات الدفعات */
+export interface PaymentAttachment {
+  id: string;
+  paymentId: string;
+  fileName: string;
+  filePath: string;
+  fileUrl?: string;
+  fileSize?: number;
+  fileType?: string;
+  uploadedBy?: string;
+  uploadedAt?: string;
+  createdAt?: string;
+}
+
+// ============================================================================
+// أنواع المستندات
+// ============================================================================
+
+/** مجلد المستندات */
+export interface DocumentFolder {
+  id: string;
+  name: string;
+  parentId?: string;
+  projectId?: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+}
+
+/** تصنيف المستندات */
+export interface DocumentCategory {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+/** بيانات الملف */
+export interface FileMetadata {
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  mimeType: string;
+}
+
+// ============================================================================
+// سجل النشاطات
+// ============================================================================
+
+/** سجل النشاط */
+export interface ActivityLog {
+  id: string;
+  userId?: string;
+  userName?: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  entityName?: string;
+  details?: string;
+  metadata?: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+  interfaceMode?: 'projects' | 'expenses';
+  timestamp?: string;
+  createdAt?: string;
+}
+
 export interface ActivityLogEntry {
   id: number;
   timestamp: string;
@@ -396,4 +508,88 @@ export interface ProjectTransaction {
   type: 'Deposit' | 'Withdrawal';
   description: string;
   amount: number;
+}
+
+// ============================================================================
+// نظام القيد المزدوج (Double-Entry Bookkeeping)
+// ============================================================================
+
+/** أنواع الحسابات في دليل الحسابات */
+export type AccountCategory = 
+  | 'asset'      // أصول (الصندوق، البنك، ذمم العملاء)
+  | 'liability'  // التزامات (ذمم الموردين، قروض)
+  | 'equity'     // حقوق الملكية (رأس المال)
+  | 'revenue'    // إيرادات (مبيعات)
+  | 'expense';   // مصروفات
+
+/** دليل الحسابات (Chart of Accounts) */
+export interface ChartOfAccount {
+  id: string;
+  code: string;           // رمز الحساب (مثل: 1001, 2001)
+  name: string;           // اسم الحساب
+  nameEn?: string;        // الاسم بالإنجليزية
+  category: AccountCategory;
+  parentId?: string;      // للحسابات الفرعية
+  level: number;          // مستوى التسلسل (1 = رئيسي)
+  isActive: boolean;
+  description?: string;
+  normalBalance: 'debit' | 'credit'; // الرصيد الطبيعي
+  currentBalance: number; // الرصيد الحالي
+  projectId?: string;     // اختياري - لربطه بمشروع معين
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** القيد اليومي (Journal Entry) */
+export interface JournalEntry {
+  id: string;
+  entryNumber: string;    // رقم القيد (تسلسلي)
+  date: string;
+  description: string;
+  referenceType?: 'payment' | 'expense' | 'sale' | 'salary' | 'manual' | 'deferred';
+  referenceId?: string;   // رابط للمعاملة الأصلية
+  status: 'draft' | 'posted' | 'reversed';
+  totalDebit: number;
+  totalCredit: number;
+  projectId?: string;
+  createdBy?: string;
+  createdAt?: string;
+  postedAt?: string;
+  postedBy?: string;
+  reversedEntryId?: string; // إذا كان قيد عكسي
+  lines?: JournalEntryLine[];
+}
+
+/** سطر القيد (Journal Entry Line) */
+export interface JournalEntryLine {
+  id: string;
+  entryId: string;
+  accountId: string;
+  accountCode?: string;   // للعرض
+  accountName?: string;   // للعرض
+  debit: number;
+  credit: number;
+  description?: string;
+  costCenter?: string;    // مركز التكلفة (اختياري)
+}
+
+/** ملخص الحساب للتقارير */
+export interface AccountSummary {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  category: AccountCategory;
+  openingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  closingBalance: number;
+}
+
+/** ميزان المراجعة */
+export interface TrialBalance {
+  date: string;
+  accounts: AccountSummary[];
+  totalDebit: number;
+  totalCredit: number;
+  isBalanced: boolean;
 }

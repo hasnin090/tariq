@@ -9,6 +9,7 @@ import {
   validateAmount, 
   validateDate,
   validateText,
+  validatePassword,
   sanitizeText,
   ValidationError 
 } from '../../utils/validation';
@@ -41,6 +42,13 @@ const generateUUID = (): string => {
 };
 
 /**
+ * HELPER: Compare two numbers with epsilon tolerance
+ * ✅ تم إضافتها لتجنب تكرار الكود
+ */
+const nearlyEqual = (a: number, b: number, epsilon: number = 0.01): boolean => 
+  Math.abs(a - b) < epsilon;
+
+/**
  * USERS SERVICE
  */
 // Helper function to add default permissions based on role
@@ -69,9 +77,10 @@ export const usersService = {
   },
 
   async getById(id: string) {
+    // ✅ تم إصلاح تسريب المعلومات - استبعاد كلمة المرور
     const { data, error } = await supabase
       .from('users')
-      .select('*')
+      .select('id, name, username, email, role, created_at')
       .eq('id', id)
       .single();
     if (error) throw error;
@@ -657,7 +666,13 @@ export const paymentsService = {
       .select('id, price');
     if (unitsError) throw unitsError;
     
-    const nearlyEqual = (a: number, b: number, epsilon: number = 0.01) => Math.abs(a - b) < epsilon;
+    // ✅ جلب الدفعات الإضافية لحساب المبلغ المتبقي بشكل صحيح
+    const { data: extraPayments, error: extraPaymentsError } = await supabase
+      .from('extra_payments')
+      .select('booking_id, amount');
+    if (extraPaymentsError) throw extraPaymentsError;
+    
+    // ✅ تم استخدام nearlyEqual العامة من أعلى الملف
 
     // Create maps for efficient lookup
     const bookingMap = new Map<string, any>();
@@ -685,16 +700,27 @@ export const paymentsService = {
       sumPaymentsPerBooking.set(payment.booking_id, current + (payment.amount || 0));
     });
 
+    // ✅ حساب مجموع الدفعات الإضافية لكل حجز
+    const sumExtraPaymentsPerBooking = new Map<string, number>();
+    (extraPayments || []).forEach((ep: any) => {
+      const current = sumExtraPaymentsPerBooking.get(ep.booking_id) || 0;
+      sumExtraPaymentsPerBooking.set(ep.booking_id, current + (ep.amount || 0));
+    });
+
     const totalPaidPerBooking = new Map<string, number>();
     (bookings || []).forEach((booking: any) => {
       const bookingPaid = Number(booking.amount_paid || 0);
       const paymentsSum = Number(sumPaymentsPerBooking.get(booking.id) || 0);
+      const extraPaymentsSum = Number(sumExtraPaymentsPerBooking.get(booking.id) || 0); // ✅ إضافة الدفعات الإضافية
 
       // If trigger is active, bookingPaid ~= paymentsSum (don't double-count).
       // If they differ (legacy), treat bookingPaid as deposit + paymentsSum.
-      const totalPaid = nearlyEqual(bookingPaid, paymentsSum)
+      const basePaid = nearlyEqual(bookingPaid, paymentsSum)
         ? paymentsSum
         : bookingPaid + paymentsSum;
+      
+      // ✅ إجمالي المدفوع = الدفعات العادية + الدفعات الإضافية
+      const totalPaid = basePaid + extraPaymentsSum;
 
       totalPaidPerBooking.set(booking.id, totalPaid);
     });
@@ -725,93 +751,98 @@ export const paymentsService = {
   },
 
   async getByCustomerId(customerId: string) {
-    // Get all payments first, then filter by customer via bookings
+    // ✅ تحسين الأداء: جلب حجوزات العميل أولاً ثم الدفعات المرتبطة فقط
+    
+    // الخطوة 1: جلب حجوزات العميل فقط
+    const { data: customerBookings, error: bookingsError } = await supabase
+      .from('bookings')
+      .select('id, customer_id, unit_id, amount_paid, customers(name), units(unit_number, price)')
+      .eq('customer_id', customerId);
+    if (bookingsError) throw bookingsError;
+    
+    if (!customerBookings || customerBookings.length === 0) {
+      return []; // لا يوجد حجوزات لهذا العميل
+    }
+    
+    const bookingIds = customerBookings.map(b => b.id);
+    
+    // الخطوة 2: جلب الدفعات المرتبطة بحجوزات العميل فقط
     const { data: payments, error: paymentsError } = await supabase
       .from('payments')
       .select('*')
+      .in('booking_id', bookingIds)
       .order('payment_date', { ascending: false });
     if (paymentsError) throw paymentsError;
     
-    // Get all bookings to map customer_id and initial payment
-    const { data: bookings, error: bookingsError } = await supabase
-      .from('bookings')
-      .select('id, customer_id, unit_id, amount_paid, customers(name), units(unit_number)');
-    if (bookingsError) throw bookingsError;
-    
-    // Get all units to map unit_price
-    const { data: units, error: unitsError } = await supabase
-      .from('units')
-      .select('id, price');
-    if (unitsError) throw unitsError;
-    
-    const nearlyEqual = (a: number, b: number, epsilon: number = 0.01) => Math.abs(a - b) < epsilon;
+    // الخطوة 3: جلب الدفعات الإضافية المرتبطة فقط
+    const { data: extraPayments, error: extraPaymentsError } = await supabase
+      .from('extra_payments')
+      .select('booking_id, amount')
+      .in('booking_id', bookingIds);
+    if (extraPaymentsError) throw extraPaymentsError;
 
-    // Create maps for efficient lookup
+    // إنشاء خرائط للبحث السريع
     const bookingMap = new Map<string, any>();
-    (bookings || []).forEach((booking: any) => {
+    (customerBookings || []).forEach((booking: any) => {
       bookingMap.set(booking.id, {
         ...booking,
         customer_name: booking.customers?.name,
         unit_name: booking.units?.unit_number,
+        unit_price: booking.units?.price || 0,
       });
     });
     
-    const unitMap = new Map();
-    (units || []).forEach(unit => {
-      unitMap.set(unit.id, unit);
-    });
-    
-    // Calculate total paid per booking (see getAll() for compatibility notes)
+    // حساب مجموع الدفعات لكل حجز
     const sumPaymentsPerBooking = new Map<string, number>();
     (payments || []).forEach((payment: any) => {
-      const booking = bookingMap.get(payment.booking_id);
-      if (booking && booking.customer_id === customerId) {
-        const current = sumPaymentsPerBooking.get(payment.booking_id) || 0;
-        sumPaymentsPerBooking.set(payment.booking_id, current + (payment.amount || 0));
-      }
+      const current = sumPaymentsPerBooking.get(payment.booking_id) || 0;
+      sumPaymentsPerBooking.set(payment.booking_id, current + (payment.amount || 0));
     });
 
-    const totalPaidPerBooking = new Map<string, number>();
-    (bookings || []).forEach((booking: any) => {
-      if (booking.customer_id !== customerId) return;
+    // حساب مجموع الدفعات الإضافية لكل حجز
+    const sumExtraPaymentsPerBooking = new Map<string, number>();
+    (extraPayments || []).forEach((ep: any) => {
+      const current = sumExtraPaymentsPerBooking.get(ep.booking_id) || 0;
+      sumExtraPaymentsPerBooking.set(ep.booking_id, current + (ep.amount || 0));
+    });
 
+    // حساب إجمالي المدفوع لكل حجز
+    const totalPaidPerBooking = new Map<string, number>();
+    customerBookings.forEach((booking: any) => {
       const bookingPaid = Number(booking.amount_paid || 0);
       const paymentsSum = Number(sumPaymentsPerBooking.get(booking.id) || 0);
-      const totalPaid = nearlyEqual(bookingPaid, paymentsSum)
+      const extraPaymentsSum = Number(sumExtraPaymentsPerBooking.get(booking.id) || 0);
+      
+      const basePaid = nearlyEqual(bookingPaid, paymentsSum)
         ? paymentsSum
         : bookingPaid + paymentsSum;
-
+      
+      const totalPaid = basePaid + extraPaymentsSum;
       totalPaidPerBooking.set(booking.id, totalPaid);
     });
     
-    // Filter payments by customer and enrich with booking and unit data
-    return (payments || [])
-      .filter((payment: any) => {
-        const booking = bookingMap.get(payment.booking_id);
-        return booking && booking.customer_id === customerId;
-      })
-      .map((payment: any) => {
-        const booking = bookingMap.get(payment.booking_id);
-        const unit = booking ? unitMap.get(booking.unit_id) : null;
-        const unitPrice = unit?.price || 0;
-        const totalPaid = totalPaidPerBooking.get(payment.booking_id) || 0;
-        
-        return {
-          id: payment.id,
-          bookingId: payment.booking_id,
-          customerId: booking?.customer_id,
-          customerName: booking?.customer_name,
-          unitId: booking?.unit_id,
-          unitName: booking?.unit_name,
-          amount: payment.amount,
-          paymentDate: payment.payment_date,
-          paymentType: payment.payment_type, // ✅ إضافة نوع الدفعة
-          unitPrice: unitPrice,
-          remainingAmount: unitPrice - totalPaid,
-          accountId: payment.account_id,
-          notes: payment.notes,
-        };
-      });
+    // تحويل الدفعات مع البيانات المُثرية
+    return (payments || []).map((payment: any) => {
+      const booking = bookingMap.get(payment.booking_id);
+      const unitPrice = booking?.unit_price || 0;
+      const totalPaid = totalPaidPerBooking.get(payment.booking_id) || 0;
+      
+      return {
+        id: payment.id,
+        bookingId: payment.booking_id,
+        customerId: booking?.customer_id,
+        customerName: booking?.customer_name,
+        unitId: booking?.unit_id,
+        unitName: booking?.unit_name,
+        amount: payment.amount,
+        paymentDate: payment.payment_date,
+        paymentType: payment.payment_type,
+        unitPrice: unitPrice,
+        remainingAmount: unitPrice - totalPaid,
+        accountId: payment.account_id,
+        notes: payment.notes,
+      };
+    });
   },
 
   async create(payment: Omit<Payment, 'id' | 'remainingAmount' | 'totalPaidSoFar'>) {
@@ -1753,56 +1784,124 @@ export const expenseCategoriesService = {
   },
 
   async getByProject(projectId: string | null) {
+    // ✅ تم إصلاح ثغرة SQL Injection - التحقق من صحة projectId قبل استخدامه
     // جلب فئات المشروع المحدد + الفئات العامة (التي ليس لها مشروع)
-    let query = supabase
-      .from('expense_categories')
-      .select('*')
-      .order('name', { ascending: true });
     
     if (projectId) {
-      // جلب فئات هذا المشروع أو الفئات العامة
-      query = query.or(`project_id.eq.${projectId},project_id.is.null`);
-    } else {
-      // جلب الفئات العامة فقط
-      query = query.is('project_id', null);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []).map((cat: any) => ({
-      id: cat.id,
-      name: cat.name,
-      description: cat.description,
-      projectId: cat.project_id
-    }));
-  },
-
-  async findByName(name: string, projectId: string | null) {
-    // البحث عن فئة بالاسم ضمن المشروع أو الفئات العامة
-    let query = supabase
-      .from('expense_categories')
-      .select('*')
-      .eq('name', name.trim());
-    
-    if (projectId) {
-      query = query.or(`project_id.eq.${projectId},project_id.is.null`);
-    } else {
-      query = query.is('project_id', null);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    
-    if (data && data.length > 0) {
-      const cat = data[0];
-      return {
+      // ✅ التحقق من أن projectId هو معرّف صالح (UUID أو ID مخصص)
+      const idPattern = /^[a-zA-Z0-9_-]+$/;
+      if (!idPattern.test(projectId)) {
+        throw new Error('معرّف المشروع غير صالح');
+      }
+      
+      // ✅ استخدام استعلامين منفصلين وجمع النتائج بدلاً من or مع template string
+      const [projectCats, generalCats] = await Promise.all([
+        supabase
+          .from('expense_categories')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('name', { ascending: true }),
+        supabase
+          .from('expense_categories')
+          .select('*')
+          .is('project_id', null)
+          .order('name', { ascending: true })
+      ]);
+      
+      if (projectCats.error) throw projectCats.error;
+      if (generalCats.error) throw generalCats.error;
+      
+      const allCats = [...(projectCats.data || []), ...(generalCats.data || [])];
+      // إزالة التكرارات بناءً على الاسم
+      const uniqueCats = allCats.filter((cat, index, self) =>
+        index === self.findIndex(c => c.id === cat.id)
+      );
+      
+      return uniqueCats.map((cat: any) => ({
         id: cat.id,
         name: cat.name,
         description: cat.description,
         projectId: cat.project_id
-      };
+      }));
+    } else {
+      // جلب الفئات العامة فقط
+      const { data, error } = await supabase
+        .from('expense_categories')
+        .select('*')
+        .is('project_id', null)
+        .order('name', { ascending: true });
+      
+      if (error) throw error;
+      return (data || []).map((cat: any) => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        projectId: cat.project_id
+      }));
     }
-    return null;
+  },
+
+  async findByName(name: string, projectId: string | null) {
+    // ✅ تم إصلاح ثغرة SQL Injection
+    // البحث عن فئة بالاسم ضمن المشروع أو الفئات العامة
+    const trimmedName = name.trim();
+    
+    if (projectId) {
+      // ✅ التحقق من صحة projectId
+      const idPattern = /^[a-zA-Z0-9_-]+$/;
+      if (!idPattern.test(projectId)) {
+        throw new Error('معرّف المشروع غير صالح');
+      }
+      
+      // ✅ استعلامين منفصلين بدلاً من or
+      const [projectResult, generalResult] = await Promise.all([
+        supabase
+          .from('expense_categories')
+          .select('*')
+          .eq('name', trimmedName)
+          .eq('project_id', projectId)
+          .maybeSingle(),
+        supabase
+          .from('expense_categories')
+          .select('*')
+          .eq('name', trimmedName)
+          .is('project_id', null)
+          .maybeSingle()
+      ]);
+      
+      if (projectResult.error) throw projectResult.error;
+      if (generalResult.error) throw generalResult.error;
+      
+      const cat = projectResult.data || generalResult.data;
+      if (cat) {
+        return {
+          id: cat.id,
+          name: cat.name,
+          description: cat.description,
+          projectId: cat.project_id
+        };
+      }
+      return null;
+    } else {
+      const { data, error } = await supabase
+        .from('expense_categories')
+        .select('*')
+        .eq('name', trimmedName)
+        .is('project_id', null)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data) {
+        return {
+          id: data.id,
+          name: data.name,
+          description: data.description,
+          projectId: data.project_id
+        };
+      }
+      return null;
+    }
   },
 
   async findOrCreate(name: string, projectId: string | null) {
@@ -2000,6 +2099,47 @@ export const documentsService = {
       return data.signedUrl;
     } catch {
       return null;
+    }
+  },
+
+  // ✅ جلب signed URLs متعددة دفعة واحدة - أسرع بكثير
+  async getSignedUrls(storagePaths: string[], expiresIn: number = 3600): Promise<Map<string, string | null>> {
+    const results = new Map<string, string | null>();
+    
+    // تصفية المسارات الفارغة
+    const validPaths = storagePaths.filter(p => p && p.trim());
+    
+    if (validPaths.length === 0) {
+      return results;
+    }
+    
+    try {
+      // Supabase يدعم createSignedUrls للحصول على عدة URLs دفعة واحدة
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .createSignedUrls(validPaths, expiresIn);
+      
+      if (error) {
+        console.error('Error getting signed URLs:', error);
+        // في حالة الخطأ، إرجاع null لكل مسار
+        validPaths.forEach(path => results.set(path, null));
+        return results;
+      }
+      
+      // تخزين النتائج
+      data?.forEach((item, index) => {
+        if (item.error) {
+          results.set(validPaths[index], null);
+        } else {
+          results.set(validPaths[index], item.signedUrl);
+        }
+      });
+      
+      return results;
+    } catch (err) {
+      console.error('Exception getting signed URLs:', err);
+      validPaths.forEach(path => results.set(path, null));
+      return results;
     }
   },
 
@@ -3002,6 +3142,7 @@ export const scheduledPaymentsService = {
 
   /**
    * إنشاء الدفعات المجدولة لحجز جديد
+   * ✅ تم إصلاح مشكلة التقريب الحسابي لضمان تطابق المجموع مع السعر الإجمالي
    */
   async generateForBooking(
     bookingId: string,
@@ -3010,11 +3151,23 @@ export const scheduledPaymentsService = {
     paymentFrequencyMonths: 1 | 2 | 3 | 4 | 5 | 6 | 12,
     startDate: string
   ) {
-    // حساب المبالغ
+    // حساب المبالغ باستخدام دقة عالية
     const totalMonths = paymentPlanYears * 12;
-    const monthlyAmount = Math.round((unitPrice / totalMonths) * 100) / 100;
-    const installmentAmount = Math.round((monthlyAmount * paymentFrequencyMonths) * 100) / 100;
     const totalInstallments = Math.ceil(totalMonths / paymentFrequencyMonths);
+    
+    // ✅ حساب مبلغ القسط الأساسي (بدون الأخير)
+    // استخدام toFixed لضمان دقة التقريب لمنزلتين عشريتين
+    const baseInstallmentAmount = parseFloat((unitPrice / totalInstallments).toFixed(2));
+    
+    // ✅ حساب مجموع الأقساط الأولى (ما عدا الأخير)
+    const sumOfBaseInstallments = parseFloat((baseInstallmentAmount * (totalInstallments - 1)).toFixed(2));
+    
+    // ✅ القسط الأخير يساوي الفرق لضمان تطابق المجموع تماماً
+    const lastInstallmentAmount = parseFloat((unitPrice - sumOfBaseInstallments).toFixed(2));
+    
+    // حساب المبلغ الشهري للعرض فقط
+    const monthlyAmount = parseFloat((unitPrice / totalMonths).toFixed(2));
+    const installmentAmount = parseFloat((monthlyAmount * paymentFrequencyMonths).toFixed(2));
     
     // حذف الدفعات السابقة إن وجدت
     await supabase
@@ -3028,19 +3181,16 @@ export const scheduledPaymentsService = {
     let totalScheduled = 0;
     
     for (let i = 1; i <= totalInstallments; i++) {
-      // الدفعة الأخيرة تعوض فرق التقريب
-      let amount = installmentAmount;
-      if (i === totalInstallments) {
-        amount = unitPrice - totalScheduled;
-      }
-      totalScheduled += amount;
+      // ✅ القسط الأخير يأخذ القيمة المحسوبة خصيصاً لتعويض فرق التقريب
+      const amount = (i === totalInstallments) ? lastInstallmentAmount : baseInstallmentAmount;
+      totalScheduled = parseFloat((totalScheduled + amount).toFixed(2));
       
       scheduledPayments.push({
         id: `sched_${bookingId}_${i}_${Date.now()}`,
         booking_id: bookingId,
         installment_number: i,
         due_date: currentDate.toISOString().split('T')[0],
-        amount: Math.round(amount * 100) / 100,
+        amount: amount,
         status: 'pending',
         paid_amount: 0,
         notification_sent: false,
@@ -3048,6 +3198,11 @@ export const scheduledPaymentsService = {
       
       // الانتقال للشهر التالي
       currentDate.setMonth(currentDate.getMonth() + paymentFrequencyMonths);
+    }
+    
+    // ✅ تحقق نهائي: التأكد من تطابق المجموع مع السعر الإجمالي
+    if (Math.abs(totalScheduled - unitPrice) > 0.01) {
+      console.error(`⚠️ تحذير: فرق في المجموع - المتوقع: ${unitPrice}, المحسوب: ${totalScheduled}`);
     }
     
     const { error } = await supabase
@@ -3131,8 +3286,51 @@ export const paymentNotificationsService = {
       .eq('is_read', false)
       .order('created_at', { ascending: false });
     
+    // ✅ تم إصلاح ثغرة SQL Injection - استخدام استعلامات منفصلة بدلاً من or مع template string
     if (userId) {
-      query = query.or(`user_id.eq.${userId},user_id.is.null`);
+      // التحقق من صحة userId
+      const idPattern = /^[a-zA-Z0-9_-]+$/;
+      if (!idPattern.test(userId)) {
+        throw new Error('معرّف المستخدم غير صالح');
+      }
+      
+      // ✅ جلب إشعارات المستخدم وإشعارات العامة
+      const [userNotifs, generalNotifs] = await Promise.all([
+        supabase
+          .from('payment_notifications')
+          .select('*')
+          .eq('is_read', false)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('payment_notifications')
+          .select('*')
+          .eq('is_read', false)
+          .is('user_id', null)
+          .order('created_at', { ascending: false })
+      ]);
+      
+      if (userNotifs.error) throw userNotifs.error;
+      if (generalNotifs.error) throw generalNotifs.error;
+      
+      const allData = [...(userNotifs.data || []), ...(generalNotifs.data || [])];
+      // ترتيب حسب التاريخ
+      allData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      return allData.map((n: any) => ({
+        id: n.id,
+        scheduledPaymentId: n.scheduled_payment_id,
+        bookingId: n.booking_id,
+        customerName: n.customer_name,
+        customerPhone: n.customer_phone,
+        unitName: n.unit_name,
+        amountDue: n.amount_due,
+        dueDate: n.due_date,
+        notificationType: n.notification_type,
+        isRead: n.is_read,
+        userId: n.user_id,
+        createdAt: n.created_at,
+      }));
     }
     
     const { data, error } = await query;
@@ -3158,6 +3356,12 @@ export const paymentNotificationsService = {
    * تحديث حالة القراءة
    */
   async markAsRead(id: string) {
+    // ✅ التحقق من صحة ID
+    const idPattern = /^[a-zA-Z0-9_-]+$/;
+    if (!idPattern.test(id)) {
+      throw new Error('معرّف الإشعار غير صالح');
+    }
+    
     const { error } = await supabase
       .from('payment_notifications')
       .update({ is_read: true })
@@ -3169,16 +3373,37 @@ export const paymentNotificationsService = {
    * تحديث جميع الإشعارات كمقروءة
    */
   async markAllAsRead(userId?: string) {
-    let query = supabase
+    // ✅ تم إصلاح ثغرة SQL Injection
+    if (userId) {
+      // التحقق من صحة userId
+      const idPattern = /^[a-zA-Z0-9_-]+$/;
+      if (!idPattern.test(userId)) {
+        throw new Error('معرّف المستخدم غير صالح');
+      }
+      
+      // ✅ تحديث إشعارات المستخدم وإشعارات العامة
+      const [userUpdate, generalUpdate] = await Promise.all([
+        supabase
+          .from('payment_notifications')
+          .update({ is_read: true })
+          .eq('is_read', false)
+          .eq('user_id', userId),
+        supabase
+          .from('payment_notifications')
+          .update({ is_read: true })
+          .eq('is_read', false)
+          .is('user_id', null)
+      ]);
+      
+      if (userUpdate.error) throw userUpdate.error;
+      if (generalUpdate.error) throw generalUpdate.error;
+      return;
+    }
+    
+    const { error } = await supabase
       .from('payment_notifications')
       .update({ is_read: true })
       .eq('is_read', false);
-    
-    if (userId) {
-      query = query.or(`user_id.eq.${userId},user_id.is.null`);
-    }
-    
-    const { error } = await query;
     if (error) throw error;
   },
 

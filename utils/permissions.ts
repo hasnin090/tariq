@@ -313,8 +313,22 @@ export const ROLE_PERMISSIONS: Record<UserRole, Record<string, Permission>> = {
 };
 
 /**
+ * التحقق مما إذا كان المستخدم لديه صلاحيات قوائم مخصصة
+ * ⚠️ يُرجع true حتى لو كان الarray فارغاً (يعني تم تعيين صلاحيات مخصصة لكن لم يُمنح أي شيء)
+ * يُرجع false فقط إذا كان undefined أو null (لم يتم تعيين صلاحيات مخصصة أصلاً)
+ */
+export function hasCustomMenuAccess(customMenuAccess?: UserMenuAccess[]): boolean {
+  return customMenuAccess !== undefined && customMenuAccess !== null;
+}
+
+/**
  * التحقق من إمكانية الوصول إلى صفحة معينة
  * يدعم الصلاحيات المخصصة من قاعدة البيانات
+ * 
+ * قواعد الصلاحيات:
+ * - Admin: يمكنه الوصول لكل شيء
+ * - المستخدم مع صلاحيات مخصصة: يرى فقط القوائم المحددة له صراحةً (isVisible = true)
+ * - المستخدم بدون صلاحيات مخصصة: يستخدم صلاحيات دوره الافتراضية
  */
 export function canAccessPage(
   role: UserRole, 
@@ -323,21 +337,40 @@ export function canAccessPage(
 ): boolean {
   // إذا كان المستخدم Admin، يمكنه الوصول لكل شيء
   if (role === 'Admin') {
+    console.log(`🔐 canAccessPage [${page}]: Admin - GRANTED`);
     return true;
   }
   
-  // إذا توجد صلاحيات مخصصة، استخدمها
-  if (customMenuAccess && customMenuAccess.length > 0) {
-    const menuItem = customMenuAccess.find(m => m.menuKey === page);
-    if (menuItem) {
-      return menuItem.isVisible;
-    }
-    // إذا لم يوجد تخصيص لهذه القائمة، لا يمكن الوصول
-    return false;
+  // إذا توجد صلاحيات مخصصة (حتى لو فارغة)، استخدمها بشكل حصري
+  if (hasCustomMenuAccess(customMenuAccess)) {
+    const menuItem = customMenuAccess!.find(m => m.menuKey === page);
+    const result = menuItem ? menuItem.isVisible : false;
+    console.log(`🔐 canAccessPage [${page}]: Custom permissions - ${result ? 'GRANTED' : 'DENIED'}`, {
+      hasCustomMenu: true,
+      menuItem,
+      totalMenuItems: customMenuAccess?.length
+    });
+    // يظهر فقط إذا كان موجود و isVisible = true
+    return result;
   }
   
-  // الرجوع للصلاحيات الافتراضية حسب الدور
-  return ROLE_PAGES[role]?.includes(page) || false;
+  // ✅ بدون صلاحيات مخصصة: استخدم صلاحيات الدور الافتراضية
+  const rolePages = ROLE_PAGES[role] || [];
+  const result = rolePages.includes(page);
+  console.log(`🔐 canAccessPage [${page}]: Role-based (${role}) - ${result ? 'GRANTED' : 'DENIED'}`, {
+    hasCustomMenu: false,
+    rolePages
+  });
+  return result;
+}
+
+/**
+ * التحقق مما إذا كان المستخدم لديه صلاحيات موارد مخصصة
+ * ⚠️ يُرجع true حتى لو كان الarray فارغاً
+ * يُرجع false فقط إذا كان undefined أو null
+ */
+export function hasCustomResourcePermissions(customPermissions?: UserResourcePermission[]): boolean {
+  return customPermissions !== undefined && customPermissions !== null;
 }
 
 /**
@@ -349,7 +382,7 @@ export function getPermissions(
   resource: string,
   customPermissions?: UserResourcePermission[]
 ): Permission {
-  // إذا كان المستخدم Admin، له كل الصلاحيات
+  // إذا كان المستخدم Admin، له كل الصلاحيات دائماً
   if (role === 'Admin') {
     return {
       canView: true,
@@ -359,9 +392,9 @@ export function getPermissions(
     };
   }
   
-  // إذا توجد صلاحيات مخصصة، استخدمها
-  if (customPermissions && customPermissions.length > 0) {
-    const perm = customPermissions.find(p => p.resource === resource);
+  // إذا توجد صلاحيات مخصصة، استخدمها بشكل حصري
+  if (hasCustomResourcePermissions(customPermissions)) {
+    const perm = customPermissions!.find(p => p.resource === resource);
     if (perm) {
       return {
         canView: perm.canView,
@@ -371,6 +404,7 @@ export function getPermissions(
       };
     }
     // إذا لم يوجد تخصيص لهذا المورد، لا صلاحيات
+    // هذا السلوك المتوقع: الصلاحيات المخصصة تلغي الصلاحيات الافتراضية
     return {
       canView: false,
       canEdit: false,
@@ -379,7 +413,7 @@ export function getPermissions(
     };
   }
   
-  // الرجوع للصلاحيات الافتراضية حسب الدور
+  // الرجوع للصلاحيات الافتراضية حسب الدور فقط إذا لم توجد صلاحيات مخصصة
   return (
     ROLE_PERMISSIONS[role]?.[resource] || {
       canView: false,
@@ -416,7 +450,21 @@ export function hasPermission(
 }
 
 /**
+ * التحقق مما إذا كان المستخدم لديه صلاحيات أزرار مخصصة
+ * ⚠️ يُرجع true حتى لو كان الarray فارغاً
+ * يُرجع false فقط إذا كان undefined أو null
+ */
+export function hasCustomButtonAccess(customButtonAccess?: UserButtonAccess[]): boolean {
+  return customButtonAccess !== undefined && customButtonAccess !== null;
+}
+
+/**
  * التحقق من ظهور زر معين
+ * 
+ * قواعد الصلاحيات:
+ * - Admin: يرى كل الأزرار
+ * - المستخدم مع صلاحيات مخصصة: حسب التخصيص
+ * - المستخدم بدون صلاحيات مخصصة: عرض وتصدير فقط (بدون إضافة/تعديل/حذف)
  */
 export function canShowButton(
   role: UserRole,
@@ -424,13 +472,13 @@ export function canShowButton(
   buttonKey: string,
   customButtonAccess?: UserButtonAccess[]
 ): boolean {
-  // Admin يرى كل الأزرار
+  // Admin يرى كل الأزرار دائماً
   if (role === 'Admin') {
     return true;
   }
   
-  // إذا توجد صلاحيات مخصصة للأزرار
-  if (customButtonAccess && customButtonAccess.length > 0) {
+  // إذا توجد صلاحيات مخصصة للأزرار، استخدمها بشكل حصري
+  if (hasCustomButtonAccess(customButtonAccess)) {
     const isDeleteLike = (key: string) =>
       key === 'delete' ||
       key.startsWith('delete-') ||
@@ -438,34 +486,43 @@ export function canShowButton(
       key.endsWith('-delete') ||
       key.endsWith('_delete');
 
-    // ✅ صلاحية رئيسية: منع الحذف يتغلب على أي صلاحيات حذف فرعية
+    // ✅ قواعد خاصة لأزرار الحذف: منع الحذف العام يتغلب على أي صلاحيات حذف فرعية
     if (isDeleteLike(buttonKey)) {
-      const globalDelete = customButtonAccess.find(
+      // تحقق من صلاحية الحذف العامة (*)
+      const globalDelete = customButtonAccess!.find(
         b => b.pageKey === '*' && b.buttonKey === 'delete'
       );
-      if (globalDelete && globalDelete.isVisible === false) {
+      if (globalDelete && !globalDelete.isVisible) {
         return false;
       }
 
-      const pageDelete = customButtonAccess.find(
-        b => (b.pageKey === pageKey || b.pageKey === '*') && b.buttonKey === 'delete'
+      // تحقق من صلاحية الحذف الخاصة بالصفحة
+      const pageDelete = customButtonAccess!.find(
+        b => b.pageKey === pageKey && b.buttonKey === 'delete'
       );
-      if (pageDelete && pageDelete.isVisible === false) {
+      if (pageDelete && !pageDelete.isVisible) {
         return false;
       }
     }
 
-    // ابحث عن الزر المحدد أو الزر العام (*)
-    const buttonAccess = customButtonAccess.find(
-      b => (b.pageKey === pageKey || b.pageKey === '*') && b.buttonKey === buttonKey
+    // ابحث عن الزر المحدد (أولوية للصفحة المحددة، ثم العام)
+    const specificButton = customButtonAccess!.find(
+      b => b.pageKey === pageKey && b.buttonKey === buttonKey
     );
-    if (buttonAccess) {
-      return buttonAccess.isVisible;
+    if (specificButton) {
+      return specificButton.isVisible;
+    }
+
+    const globalButton = customButtonAccess!.find(
+      b => b.pageKey === '*' && b.buttonKey === buttonKey
+    );
+    if (globalButton) {
+      return globalButton.isVisible;
     }
 
     // ✅ fallback: مفاتيح مثل delete-expense تُعامل كـ delete
     if (buttonKey.startsWith('delete-') || buttonKey.startsWith('delete_')) {
-      const genericDelete = customButtonAccess.find(
+      const genericDelete = customButtonAccess!.find(
         b => (b.pageKey === pageKey || b.pageKey === '*') && b.buttonKey === 'delete'
       );
       if (genericDelete) {
@@ -473,12 +530,14 @@ export function canShowButton(
       }
     }
 
-    // إذا لم يوجد تخصيص، افتراضياً مخفي
+    // إذا لم يوجد تخصيص، افتراضياً مخفي (الصلاحيات المخصصة تلغي الافتراضي)
     return false;
   }
   
-  // الافتراضي: كل الأزرار ظاهرة
-  return true;
+  // ✅ بدون صلاحيات مخصصة: صلاحيات محدودة جداً
+  // فقط عرض وتصدير وطباعة - بدون إضافة أو تعديل أو حذف
+  const safeButtons = ['view', 'export', 'print', 'search', 'filter'];
+  return safeButtons.includes(buttonKey);
 }
 
 /**
@@ -566,3 +625,277 @@ export function getDefaultMenusForRole(role: UserRole): string[] {
 export function getDefaultPermissionsForRole(role: UserRole): Record<string, Permission> {
   return ROLE_PERMISSIONS[role] || {};
 }
+
+// ============================================================================
+// نظام قوالب الصلاحيات - لتبسيط إدارة الصلاحيات
+// ============================================================================
+
+export type PermissionTemplate = 'full' | 'view-only' | 'limited' | 'custom';
+
+export interface PermissionPreset {
+  id: PermissionTemplate;
+  label: string;
+  description: string;
+  menus: string[];
+  resourcePermissions?: Record<string, Permission>;
+  buttonPermissions?: {
+    canAdd: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+    canExport: boolean;
+    canPrint: boolean;
+  };
+}
+
+/**
+ * قوالب صلاحيات جاهزة لتسهيل الإدارة
+ */
+export const PERMISSION_PRESETS: Record<UserRole, PermissionPreset[]> = {
+  Admin: [
+    {
+      id: 'full',
+      label: 'صلاحيات كاملة (افتراضي)',
+      description: 'وصول كامل لجميع الصفحات والموارد',
+      menus: ROLE_PAGES.Admin,
+    }
+  ],
+  Sales: [
+    {
+      id: 'full',
+      label: 'مبيعات - كامل (افتراضي)',
+      description: 'وصول كامل لجميع صفحات المبيعات مع كل الصلاحيات',
+      menus: ROLE_PAGES.Sales,
+      buttonPermissions: {
+        canAdd: true,
+        canEdit: true,
+        canDelete: true,
+        canExport: true,
+        canPrint: true,
+      }
+    },
+    {
+      id: 'view-only',
+      label: 'مبيعات - عرض فقط',
+      description: 'عرض البيانات بدون إضافة أو تعديل أو حذف',
+      menus: ['dashboard', 'customers', 'units', 'bookings', 'payments', 'sales'],
+      resourcePermissions: {
+        customers: { canView: true, canEdit: false, canDelete: false, canCreate: false },
+        units: { canView: true, canEdit: false, canDelete: false, canCreate: false },
+        bookings: { canView: true, canEdit: false, canDelete: false, canCreate: false },
+        payments: { canView: true, canEdit: false, canDelete: false, canCreate: false },
+        sales: { canView: true, canEdit: false, canDelete: false, canCreate: false },
+      },
+      buttonPermissions: {
+        canAdd: false,
+        canEdit: false,
+        canDelete: false,
+        canExport: true,
+        canPrint: true,
+      }
+    },
+    {
+      id: 'limited',
+      label: 'مبيعات - محدود',
+      description: 'صلاحيات محدودة للإضافة والتعديل فقط',
+      menus: ['dashboard', 'customers', 'bookings'],
+      resourcePermissions: {
+        customers: { canView: true, canEdit: true, canDelete: false, canCreate: true },
+        bookings: { canView: true, canEdit: true, canDelete: false, canCreate: true },
+      },
+      buttonPermissions: {
+        canAdd: true,
+        canEdit: true,
+        canDelete: false,
+        canExport: true,
+        canPrint: true,
+      }
+    }
+  ],
+  Accounting: [
+    {
+      id: 'full',
+      label: 'محاسبة - كامل (افتراضي)',
+      description: 'وصول كامل لجميع صفحات المحاسبة مع كل الصلاحيات',
+      menus: ROLE_PAGES.Accounting,
+      buttonPermissions: {
+        canAdd: true,
+        canEdit: true,
+        canDelete: true,
+        canExport: true,
+        canPrint: true,
+      }
+    },
+    {
+      id: 'view-only',
+      label: 'محاسبة - عرض فقط',
+      description: 'عرض البيانات المالية بدون تعديل أو حذف',
+      menus: ['expense_dashboard', 'expenses', 'treasury', 'financial-reports'],
+      resourcePermissions: {
+        expenses: { canView: true, canEdit: false, canDelete: false, canCreate: false },
+        treasury: { canView: true, canEdit: false, canDelete: false, canCreate: false },
+        vendors: { canView: true, canEdit: false, canDelete: false, canCreate: false },
+        employees: { canView: true, canEdit: false, canDelete: false, canCreate: false },
+      },
+      buttonPermissions: {
+        canAdd: false,
+        canEdit: false,
+        canDelete: false,
+        canExport: true,
+        canPrint: true,
+      }
+    },
+    {
+      id: 'limited',
+      label: 'محاسبة - محدود',
+      description: 'لوحة التحكم والمصروفات فقط مع إمكانية الإضافة والتعديل',
+      menus: ['expense_dashboard', 'expenses'],
+      resourcePermissions: {
+        expenses: { canView: true, canEdit: true, canDelete: false, canCreate: true },
+      },
+      buttonPermissions: {
+        canAdd: true,
+        canEdit: true,
+        canDelete: false,
+        canExport: true,
+        canPrint: true,
+      }
+    }
+  ]
+};
+
+/**
+ * تطبيق قالب صلاحيات على مستخدم
+ */
+export function applyPermissionPreset(
+  role: UserRole,
+  presetId: PermissionTemplate
+): {
+  menuAccess: UserMenuAccess[];
+  resourcePermissions: UserResourcePermission[];
+  buttonAccess: UserButtonAccess[];
+} {
+  const presets = PERMISSION_PRESETS[role];
+  const preset = presets.find(p => p.id === presetId);
+  
+  if (!preset) {
+    // افتراضياً، استخدام القالب الكامل
+    const fullPreset = presets[0];
+    return {
+      menuAccess: fullPreset.menus.map(menuKey => ({
+        userId: '',
+        menuKey,
+        isVisible: true
+      })),
+      resourcePermissions: [],
+      buttonAccess: []
+    };
+  }
+  
+  const menuAccess: UserMenuAccess[] = preset.menus.map(menuKey => ({
+    userId: '',
+    menuKey,
+    isVisible: true
+  }));
+  
+  const resourcePermissions: UserResourcePermission[] = preset.resourcePermissions
+    ? Object.entries(preset.resourcePermissions).map(([resource, perms]) => ({
+        userId: '',
+        resource,
+        ...perms
+      }))
+    : [];
+  
+  // إضافة صلاحيات الأزرار من القالب
+  const buttonAccess: UserButtonAccess[] = [];
+  if (preset.buttonPermissions) {
+    const buttons: Array<keyof typeof preset.buttonPermissions> = ['canAdd', 'canEdit', 'canDelete', 'canExport', 'canPrint'];
+    const buttonKeys = {
+      canAdd: 'add',
+      canEdit: 'edit',
+      canDelete: 'delete',
+      canExport: 'export',
+      canPrint: 'print'
+    };
+    
+    buttons.forEach(btn => {
+      buttonAccess.push({
+        userId: '',
+        pageKey: '*',
+        buttonKey: buttonKeys[btn],
+        isVisible: preset.buttonPermissions![btn]
+      });
+    });
+  }
+  
+  return { menuAccess, resourcePermissions, buttonAccess };
+}
+
+/**
+ * الحصول على القالب الحالي للمستخدم
+ */
+export function detectCurrentPreset(
+  role: UserRole,
+  menuAccess: UserMenuAccess[]
+): PermissionTemplate {
+  if (!menuAccess || menuAccess.length === 0) {
+    return 'full'; // الافتراضي
+  }
+  
+  const visibleMenus = menuAccess.filter(m => m.isVisible).map(m => m.menuKey).sort();
+  const presets = PERMISSION_PRESETS[role];
+  
+  // تحقق من تطابق مع أحد القوالب
+  for (const preset of presets) {
+    const presetMenus = preset.menus.slice().sort();
+    if (JSON.stringify(visibleMenus) === JSON.stringify(presetMenus)) {
+      return preset.id;
+    }
+  }
+  
+  return 'custom'; // قالب مخصص
+}
+
+/**
+ * فلترة البيانات حسب المشاريع المخصصة للمستخدم
+ */
+export const filterDataByUserProject = async <T extends { project_id?: string }>(
+  data: T[],
+  userId: string
+): Promise<T[]> => {
+  try {
+    // الحصول على المشاريع المخصصة للمستخدم
+    const assignments = await userFullPermissionsService.getUserProjectAssignments(userId);
+    
+    if (!assignments || assignments.length === 0) {
+      // إذا لم يكن لديه مشاريع محددة، لا يعرض شيء
+      return [];
+    }
+    
+    // استخراج معرفات المشاريع
+    const projectIds = assignments.map(a => a.project_id);
+    
+    // فلترة البيانات لتشمل فقط المشاريع المخصصة
+    return data.filter(item => 
+      item.project_id && projectIds.includes(item.project_id)
+    );
+  } catch (error) {
+    console.error('Error filtering data by user projects:', error);
+    return [];
+  }
+};
+
+/**
+ * فحص ما إذا كان المستخدم لديه صلاحية الوصول إلى مشروع معين
+ */
+export const canAccessProject = async (
+  userId: string,
+  projectId: string
+): Promise<boolean> => {
+  try {
+    const assignments = await userFullPermissionsService.getUserProjectAssignments(userId);
+    return assignments.some(a => a.project_id === projectId);
+  } catch (error) {
+    console.error('Error checking project access:', error);
+    return false;
+  }
+};

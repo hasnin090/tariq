@@ -86,6 +86,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         customButtonAccess = fullPermissions.buttonAccess;
         projectAssignments = fullPermissions.projectAssignments;
         
+        // ✅ Detailed logging for debugging
+        console.log('🔍 Loaded permissions for user:', user.username, {
+          menuAccessCount: customMenuAccess?.length || 0,
+          menuAccess: customMenuAccess,
+          buttonAccessCount: customButtonAccess?.length || 0,
+          projectAssignmentsCount: projectAssignments?.length || 0,
+          role: user.role
+        });
+        
         if (projectAssignments && projectAssignments.length > 0 && !assignedProjectId) {
           assignedProjectId = projectAssignments[0].projectId;
         }
@@ -93,6 +102,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error('Error loading custom permissions:', error);
       }
 
+      const finalCustomMenuAccess = customMenuAccess && customMenuAccess.length > 0 ? customMenuAccess : undefined;
+      const finalCustomButtonAccess = customButtonAccess && customButtonAccess.length > 0 ? customButtonAccess : undefined;
+      
+      // ✅ Log final values
+      console.log('✅ Final user data for:', user.username, {
+        customMenuAccess: finalCustomMenuAccess,
+        customButtonAccess: finalCustomButtonAccess,
+        role: user.role
+      });
+      
       return {
         ...user,
         assignedProjectId,
@@ -100,8 +119,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           ? { canView: true, canEdit: true, canDelete: true }
           : { canView: true, canEdit: false, canDelete: false },
         customPermissions: customPermissions || [],
-        customMenuAccess: customMenuAccess || [],
-        customButtonAccess: customButtonAccess || [],
+        customMenuAccess: finalCustomMenuAccess,
+        customButtonAccess: finalCustomButtonAccess,
         projectAssignments: projectAssignments || [],
       };
     } catch (error) {
@@ -182,8 +201,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     ? { canView: true, canEdit: true, canDelete: true }
                     : { canView: true, canEdit: false, canDelete: false },
                   customPermissions: [],
-                  customMenuAccess: [],
-                  customButtonAccess: [],
+                  customMenuAccess: undefined, // ✅ undefined لاستخدام صلاحيات الدور
+                  customButtonAccess: undefined, // ✅ undefined لاستخدام صلاحيات الدور
                   projectAssignments: [],
                 };
                 setCurrentUser(basicUser);
@@ -386,8 +405,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             ? { canView: true, canEdit: true, canDelete: true }
             : { canView: true, canEdit: false, canDelete: false },
           customPermissions: [],
-          customMenuAccess: [],
-          customButtonAccess: [],
+          customMenuAccess: undefined, // ✅ undefined لاستخدام صلاحيات الدور
+          customButtonAccess: undefined, // ✅ undefined لاستخدام صلاحيات الدور
           projectAssignments: [],
         };
         // لا نستدعي setCurrentUser هنا - سيتم استدعاؤها من Login.tsx بعد الأنيميشن
@@ -462,8 +481,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           ? { canView: true, canEdit: true, canDelete: true }
           : { canView: true, canEdit: false, canDelete: false },
         customPermissions: [],
-        customMenuAccess: [],
-        customButtonAccess: [],
+        customMenuAccess: undefined, // ✅ undefined لاستخدام صلاحيات الدور
+        customButtonAccess: undefined, // ✅ undefined لاستخدام صلاحيات الدور
         projectAssignments: [],
       };
       // لا نستدعي setCurrentUser هنا - سيتم استدعاؤها من Login.tsx بعد الأنيميشن

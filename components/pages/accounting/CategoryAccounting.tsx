@@ -4,6 +4,7 @@ import { ExpenseCategory, Expense, Project } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { TagIcon, BriefcaseIcon, ArrowRightIcon, PrinterIcon, FilterIcon, ChartBarIcon } from '../../shared/Icons';
 import { expensesService, expenseCategoriesService, projectsService } from '../../../src/services/supabaseService';
+import { useAuth } from '../../../contexts/AuthContext';
 
 // دالة لتنظيف النصوص من الرموز الغريبة
 const cleanText = (text: string | null | undefined): string => {
@@ -52,6 +53,7 @@ const formatDescriptionForDisplay = (text: string | null | undefined): { main: s
 type ViewMode = 'all' | 'by-project';
 
 const CategoryAccounting: React.FC = () => {
+    const { currentUser } = useAuth();
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -59,6 +61,18 @@ const CategoryAccounting: React.FC = () => {
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [viewMode, setViewMode] = useState<ViewMode>('all');
     const [filterProjectId, setFilterProjectId] = useState<string>('');
+    
+    // ✅ المشروع المخصص للمستخدم
+    const userAssignedProjectId = currentUser?.assignedProjectId;
+    
+    // 🔍 Debug log
+    console.log('📋 CategoryAccounting - User assigned project:', {
+        userId: currentUser?.id,
+        username: currentUser?.username,
+        role: currentUser?.role,
+        assignedProjectId: userAssignedProjectId,
+        shouldHideProjectSelector: !!userAssignedProjectId
+    });
     
     // GSAP Table Animation Ref
     const tableBodyRef = useRef<HTMLTableSectionElement>(null);
@@ -77,9 +91,25 @@ const CategoryAccounting: React.FC = () => {
                 projectsService.getAll()
             ]);
             
+            // ✅ فلترة المصروفات حسب المشروع المخصص للمستخدم
+            let filteredExpenses = expensesData;
+            if (userAssignedProjectId) {
+                filteredExpenses = expensesData.filter(e => e.projectId === userAssignedProjectId);
+                console.log(`📋 CategoryAccounting - Filtered by assigned project: ${userAssignedProjectId}`, {
+                    total: expensesData.length,
+                    filtered: filteredExpenses.length
+                });
+            }
+            
+            // ✅ فلترة المشاريع حسب المشروع المخصص
+            let filteredProjects = projectsData;
+            if (userAssignedProjectId) {
+                filteredProjects = projectsData.filter(p => p.id === userAssignedProjectId);
+            }
+            
             setCategories(categoriesData as ExpenseCategory[]);
-            setExpenses(expensesData);
-            setProjects(projectsData);
+            setExpenses(filteredExpenses);
+            setProjects(filteredProjects);
         } catch (error) {
             console.error('Error loading category accounting data:', error);
         }
@@ -634,16 +664,19 @@ const CategoryAccounting: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="mb-6">
-                    <select
-                        value={selectedProjectId}
-                        onChange={(e) => setSelectedProjectId(e.target.value)}
-                        className="p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all min-w-[250px] font-medium"
-                    >
-                        <option value="">عرض كل المشاريع</option>
-                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                </div>
+                {/* ✅ إخفاء قائمة المشاريع للمستخدمين المخصصين لمشروع واحد */}
+                {!userAssignedProjectId && (
+                    <div className="mb-6">
+                        <select
+                            value={selectedProjectId}
+                            onChange={(e) => setSelectedProjectId(e.target.value)}
+                            className="p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all min-w-[250px] font-medium"
+                        >
+                            <option value="">عرض كل المشاريع</option>
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                )}
                 
                 <div className="glass-card overflow-hidden">
                     <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
@@ -698,38 +731,40 @@ const CategoryAccounting: React.FC = () => {
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">دفتر الأستاذ</h2>
                 
                 <div className="flex flex-wrap items-center gap-3">
-                    {/* View Mode Toggle */}
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
-                        <button
-                            onClick={() => setViewMode('all')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                viewMode === 'all'
-                                    ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                        >
-                            <span className="flex items-center gap-2">
-                                <TagIcon className="h-4 w-4" />
-                                كل التصنيفات
-                            </span>
-                        </button>
-                        <button
-                            onClick={() => setViewMode('by-project')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                viewMode === 'by-project'
-                                    ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                        >
-                            <span className="flex items-center gap-2">
-                                <BriefcaseIcon className="h-4 w-4" />
-                                حسب المشروع
-                            </span>
-                        </button>
-                    </div>
+                    {/* View Mode Toggle - Admin Only */}
+                    {currentUser?.role === 'Admin' && (
+                        <div className="flex items-center bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
+                            <button
+                                onClick={() => setViewMode('all')}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    viewMode === 'all'
+                                        ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
+                                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                            >
+                                <span className="flex items-center gap-2">
+                                    <TagIcon className="h-4 w-4" />
+                                    كل التصنيفات
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('by-project')}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    viewMode === 'by-project'
+                                        ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
+                                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                            >
+                                <span className="flex items-center gap-2">
+                                    <BriefcaseIcon className="h-4 w-4" />
+                                    حسب المشروع
+                                </span>
+                            </button>
+                        </div>
+                    )}
 
-                    {/* Print Button */}
-                    {categoryData.length > 0 && (
+                    {/* Print Button - Admin Only */}
+                    {currentUser?.role === 'Admin' && categoryData.length > 0 && (
                         <button
                             onClick={handlePrintCategoriesSummary}
                             className="bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl font-semibold border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm flex items-center gap-2"
@@ -741,8 +776,8 @@ const CategoryAccounting: React.FC = () => {
                 </div>
             </div>
 
-            {/* Filter by Project (only in 'all' mode) */}
-            {viewMode === 'all' && (
+            {/* Filter by Project - Admin Only */}
+            {currentUser?.role === 'Admin' && viewMode === 'all' && !userAssignedProjectId && (
                 <div className="mb-6 flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                         <FilterIcon className="h-5 w-5" />

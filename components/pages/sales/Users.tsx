@@ -27,6 +27,7 @@ import {
 } from '../../../utils/permissions';
 import { CloseIcon, UserGroupIcon, SearchIcon, TrashIcon, EditIcon, ShieldIcon } from '../../shared/Icons';
 import ConfirmModal from '../../shared/ConfirmModal';
+import SimplePermissionsManager from './SimplePermissionsManager';
 
 const RoleBadge: React.FC<{ role: User['role'] }> = ({ role }) => {
     const colors = {
@@ -920,11 +921,22 @@ const Users: React.FC = () => {
 
             // Handle project assignment (with error handling for missing column)
             try {
-                if (userToSave.role === 'Accounting' && assignedProjectId) {
-                    await projectsService.update(assignedProjectId, { assignedUserId: userToSave.id });
-                } else if (isEditing && editingUser.role === 'Accounting' && editingUser.assignedProjectId && editingUser.assignedProjectId !== assignedProjectId) {
-                    // Unassign from old project if changed
-                    await projectsService.update(editingUser.assignedProjectId, { assignedUserId: null });
+                if (assignedProjectId && (userToSave.role === 'Accounting' || userToSave.role === 'Sales')) {
+                    // تحديد الحقل المناسب حسب الدور
+                    const updateField = userToSave.role === 'Sales' 
+                        ? { salesUserId: userToSave.id }
+                        : { accountingUserId: userToSave.id };
+                    
+                    await projectsService.update(assignedProjectId, updateField);
+                }
+                
+                // إلغاء التعيين من المشروع القديم إذا تغير
+                if (isEditing && editingUser.assignedProjectId && editingUser.assignedProjectId !== assignedProjectId) {
+                    const unassignField = editingUser.role === 'Sales'
+                        ? { salesUserId: null }
+                        : { accountingUserId: null };
+                    
+                    await projectsService.update(editingUser.assignedProjectId, unassignField);
                 }
             } catch (projectError: any) {
                 console.warn('Could not update project assignment (column may not exist):', projectError);
@@ -1125,12 +1137,14 @@ const Users: React.FC = () => {
                 />
              )}
              {permissionsUser && (
-                <PermissionsEditor 
+                <SimplePermissionsManager 
                     user={permissionsUser}
-                    projects={projects}
                     onClose={() => setPermissionsUser(null)}
-                    onSave={() => {
-                        // Optionally refresh data after permissions save
+                    onSave={async () => {
+                        // تحديث قائمة المستخدمين بعد الحفظ
+                        const updatedUsers = await usersService.getAll();
+                        setUsers(updatedUsers);
+                        addToast('تم حفظ الصلاحيات بنجاح', 'success');
                     }}
                 />
              )}

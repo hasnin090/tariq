@@ -996,7 +996,10 @@ export const Expenses: React.FC = () => {
                 }
                 await expensesService.delete(expenseId);
                 
-                // Wait for animation - the subscription will automatically update allExpenses
+                // ✅ تحديث الحالة المحلية فوراً لإزالة الحركة من الواجهة
+                setAllExpenses(prev => prev.filter(e => e.id !== expenseId));
+                
+                // Wait for animation
                 await new Promise(resolve => setTimeout(resolve, 300));
                 
                 // Precise success message
@@ -1007,7 +1010,9 @@ export const Expenses: React.FC = () => {
                 console.error('Error deleting expense:', error);
                 const errorMessage = error?.message || 'حدث خطأ غير متوقع';
                 addToast(`فشل حذف الحركة المالية "${expenseDescription}". السبب: ${errorMessage}`, 'error');
-                // No need to revert since we didn't remove from UI yet
+                // ✅ في حالة الخطأ، أعد تحميل البيانات لاستعادة الحالة الصحيحة
+                const data = await expensesService.getAll();
+                setAllExpenses(data);
             } finally {
                 setDeletingId(null);
             }

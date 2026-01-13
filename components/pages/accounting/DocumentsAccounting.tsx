@@ -658,58 +658,28 @@ const DocumentsAccounting: React.FC = () => {
             // Load all accounting documents from Supabase (linked and unlinked), filtered by project
             const allDocsFromDB = await documentsService.getAllAccountingDocuments(projectIdToFilter);
             
-            // عرض المستندات فوراً بدون signed URLs
-            const initialDocs: SaleDocument[] = allDocsFromDB.map(doc => ({
+            // ✅ جلب جميع signed URLs دفعة واحدة - أسرع بكثير!
+            const storagePaths = allDocsFromDB.map(doc => doc.storagePath).filter(Boolean);
+            const signedUrlsMap = await documentsService.getSignedUrls(storagePaths);
+            
+            // تحويل البيانات مع signed URLs
+            const docsWithUrls: SaleDocument[] = allDocsFromDB.map(doc => ({
                 id: doc.id,
                 name: doc.fileName,
                 type: 'مستند مرفق',
                 fileName: doc.fileName,
                 mimeType: doc.fileType || 'application/octet-stream',
                 storagePath: doc.storagePath,
-                signedUrl: null,
+                signedUrl: signedUrlsMap.get(doc.storagePath) || null,
                 expenseId: doc.expenseId,
                 projectId: doc.projectId,
                 uploadedAt: doc.uploadedAt,
-                hasError: false,
-                isLoadingUrl: true, // علامة أن URL قيد التحميل
+                hasError: !signedUrlsMap.get(doc.storagePath),
+                isLoadingUrl: false,
             }));
             
-            setAllDocuments(initialDocs);
-            setLoading(false); // إنهاء التحميل مبكراً لعرض الجدول
-            
-            // ✅ جلب signed URLs في الخلفية بشكل متوازي - دفعات أكبر وأسرع
-            const BATCH_SIZE = 50; // ✅ زيادة حجم الدفعة من 20 إلى 50 لتسريع التحميل
-            
-            for (let i = 0; i < allDocsFromDB.length; i += BATCH_SIZE) {
-                const batch = allDocsFromDB.slice(i, i + BATCH_SIZE);
-                
-                const batchResults = await Promise.allSettled(
-                    batch.map(async (doc) => {
-                        const signedUrl = await documentsService.getSignedUrl(doc.storagePath);
-                        // إذا كان signedUrl null، يعني أن الملف غير موجود
-                        return { id: doc.id, signedUrl, hasError: signedUrl === null };
-                    })
-                );
-                
-                // تحديث المستندات بـ signed URLs
-                setAllDocuments(prevDocs => {
-                    const updatedDocs = [...prevDocs];
-                    batchResults.forEach(result => {
-                        if (result.status === 'fulfilled' && result.value) {
-                            const docIndex = updatedDocs.findIndex(d => d.id === result.value.id);
-                            if (docIndex !== -1) {
-                                updatedDocs[docIndex] = {
-                                    ...updatedDocs[docIndex],
-                                    signedUrl: result.value.signedUrl,
-                                    hasError: result.value.hasError,
-                                    isLoadingUrl: false,
-                                } as SaleDocument;
-                            }
-                        }
-                    });
-                    return updatedDocs;
-                });
-            }
+            setAllDocuments(docsWithUrls);
+            setLoading(false);
         } catch (error) {
             console.error('Error loading data:', error);
             addToast('خطأ في تحميل البيانات', 'error');

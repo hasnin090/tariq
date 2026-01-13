@@ -238,3 +238,49 @@ export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
   
   return sanitized;
 }
+
+/**
+ * التحقق من صحة UUID
+ * مهم جداً لمنع SQL Injection عند استخدام IDs في الاستعلامات
+ */
+export function validateUUID(id: string | null | undefined): { valid: boolean; error?: string } {
+  if (!id) {
+    return { valid: false, error: 'المعرّف مطلوب' };
+  }
+
+  // نمط UUID القياسي (v4)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  
+  // نمط IDs المخصصة في النظام (مثل: customer_123456789_abc123_456)
+  const customIdRegex = /^[a-z]+_[0-9]+_[a-z0-9]+_[0-9]+$/i;
+  
+  // نمط IDs بسيطة (مثل: cat_123456789_abc123)
+  const simpleIdRegex = /^[a-z]+_[0-9]+_[a-z0-9]+$/i;
+
+  if (uuidRegex.test(id) || customIdRegex.test(id) || simpleIdRegex.test(id)) {
+    return { valid: true };
+  }
+
+  return { valid: false, error: 'المعرّف غير صالح' };
+}
+
+/**
+ * التحقق من صحة ID مع رمي خطأ
+ * يُستخدم لحماية الاستعلامات من SQL Injection
+ */
+export function assertValidId(id: string | null | undefined, fieldName: string = 'ID'): void {
+  const validation = validateUUID(id);
+  if (!validation.valid) {
+    throw new ValidationError(`${fieldName}: ${validation.error}`);
+  }
+}
+
+/**
+ * تنظيف ID للاستخدام الآمن في الاستعلامات
+ * يزيل أي أحرف غير مسموح بها
+ */
+export function sanitizeId(id: string): string {
+  if (!id) return '';
+  // السماح فقط بالأحرف الأبجدية الرقمية والشرطات والشرطات السفلية
+  return id.replace(/[^a-zA-Z0-9_-]/g, '');
+}

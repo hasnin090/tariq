@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { InterfaceMode } from '../types.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
-import { canAccessPage } from '../utils/permissions';
+import { canAccessPage, hasCustomMenuAccess } from '../utils/permissions';
 import gsap from 'gsap';
 import { 
     HomeIcon, BuildingIcon, UsersIcon, CreditCardIcon, TrendingUpIcon, 
@@ -148,17 +148,20 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     useLayoutEffect(() => {
         if (linksRef.current) {
             const items = linksRef.current.querySelectorAll('li');
-            gsap.fromTo(items, 
-                { opacity: 0, x: 30 },
-                { 
-                    opacity: 1, 
-                    x: 0, 
-                    duration: 0.4,
-                    stagger: 0.05,
-                    ease: "power2.out",
-                    delay: 0.2
-                }
-            );
+            // ✅ التحقق من وجود عناصر قبل تطبيق animation
+            if (items && items.length > 0) {
+                gsap.fromTo(items, 
+                    { opacity: 0, x: 30 },
+                    { 
+                        opacity: 1, 
+                        x: 0, 
+                        duration: 0.4,
+                        stagger: 0.05,
+                        ease: "power2.out",
+                        delay: 0.2
+                    }
+                );
+            }
         }
     }, [interfaceMode]);
 
@@ -329,23 +332,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     const userCanAccessPage = (page: string): boolean => {
         if (!currentUser) return false;
         
-        // المدير دائمًا لديه كل الصلاحيات (بدون تحذيرات)
+        // المدير دائماً لديه كل الصلاحيات
         if (currentUser.role === 'Admin') return true;
         
-        // إذا توجد صلاحيات مخصصة للقوائم، استخدمها
+        // الحصول على الصلاحيات المخصصة
         const customMenuAccess = (currentUser as any).customMenuAccess;
         
-        if (customMenuAccess && customMenuAccess.length > 0) {
-            const menuItem = customMenuAccess.find((m: any) => m.menuKey === page);
-            if (menuItem !== undefined) {
-                return menuItem.isVisible;
-            }
-            // إذا لم يوجد تخصيص لهذه القائمة، لا يمكن الوصول
-            return false;
-        }
-        
-        // الرجوع للصلاحيات الافتراضية حسب الدور
-        return canAccessPage(currentUser.role, page);
+        // استخدام canAccessPage مباشرة - تتعامل مع كل الحالات بشكل صحيح
+        return canAccessPage(currentUser.role, page, customMenuAccess);
     };
     
     let linksToShow: typeof defaultProjectsLinks = [];
@@ -429,13 +423,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                         </h2>
                         <ul ref={linksRef} className="space-y-0.5 sm:space-y-1">
                             {linksToShow.filter(link => {
-                                // إذا توجد صلاحيات مخصصة، تجاوز adminOnly
-                                const hasCustomPermissions = (currentUser as any)?.customMenuAccess?.length > 0;
-                                if (hasCustomPermissions) {
-                                    return true; // تم الفلترة مسبقاً في userCanAccessPage
-                                }
-                                // الرجوع للفحص الافتراضي
-                                return !link.adminOnly || isAdmin;
+                                // ✅ الفحص الوحيد المطلوب: userCanAccessPage تتعامل مع كل شيء
+                                // (الصلاحيات المخصصة، الافتراضية، adminOnly، إلخ)
+                                return userCanAccessPage(link.page);
                             }).map((link, index) => (
                                 <NavLink 
                                     key={link.page} 
