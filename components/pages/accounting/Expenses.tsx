@@ -874,8 +874,15 @@ export const Expenses: React.FC = () => {
                 const updatedExpense = await expensesService.update(editingExpense.id, expenseDataWithoutDocs);
                 // Only update transaction if it exists and user is not assigned to a project
                 if (updatedExpense && updatedExpense.transactionId && !currentUser?.assignedProjectId) {
+                    // جلب صندوق المشروع تلقائياً إذا كان هناك مشروع محدد
+                    let accountId = expenseData.accountId;
+                    if (expenseData.projectId && !accountId) {
+                        const projectCashbox = await accountsService.getOrCreateProjectCashbox(expenseData.projectId);
+                        accountId = projectCashbox.id;
+                    }
+                    
                     await transactionsService.update(updatedExpense.transactionId, {
-                        accountId: expenseData.accountId,
+                        accountId: accountId,
                         accountName: '', // Account name will be populated by the backend
                         date: expenseData.date,
                         description: expenseData.description,
@@ -886,23 +893,34 @@ export const Expenses: React.FC = () => {
                 addToast(`تم تحديث الحركة المالية "${expenseData.description}" بمبلغ ${formatCurrency(expenseData.amount)} بنجاح`, 'success');
                 logActivity('Update Expense', `Updated expense: ${expenseData.description} (Amount: ${expenseData.amount})`, 'expenses');
             } else {
-                if (!currentUser?.assignedProjectId && !expenseData.accountId) {
-                    addToast('الحساب المحدد غير صالح.', 'error');
+                // جلب صندوق المشروع تلقائياً إذا كان هناك مشروع محدد ولم يتم تحديد حساب
+                let accountId = expenseData.accountId;
+                if (expenseData.projectId && !accountId) {
+                    const projectCashbox = await accountsService.getOrCreateProjectCashbox(expenseData.projectId);
+                    accountId = projectCashbox.id;
+                }
+                
+                // تحقق من وجود حساب فقط إذا لم يكن المستخدم مرتبط بمشروع
+                if (!currentUser?.assignedProjectId && !accountId) {
+                    addToast('لا يوجد صندوق للمشروع. يرجى إنشاء صندوق أولاً.', 'error');
                     setIsSaving(false);
                     return;
                 }
                 
+                // تحديث accountId في البيانات
+                const expenseDataWithAccount = { ...expenseData, accountId };
+                
                 // Optimistic update - add temporary expense immediately
                 const tempId = `temp_${Date.now()}`;
-                const tempExpense = { ...expenseData, id: tempId };
+                const tempExpense = { ...expenseDataWithAccount, id: tempId };
                 setAllExpenses(prev => [tempExpense, ...prev]);
                 
                 let newTransaction = null;
                 
-                // Only create transaction if user is not assigned to a project (expenses for project users deduct from project revenue)
-                if (!currentUser?.assignedProjectId && expenseData.accountId) {
+                // إنشاء الحركة المالية - تخصم من صندوق المشروع تلقائياً
+                if (accountId) {
                     newTransaction = await transactionsService.create({
-                        accountId: expenseData.accountId,
+                        accountId: accountId,
                         accountName: '', // Account name will be populated by the backend
                         type: 'Withdrawal',
                         date: expenseData.date,

@@ -271,16 +271,26 @@ export const userFullPermissionsService = {
   async getByUserId(userId: string) {
     console.log('📥 userFullPermissionsService.getByUserId called for:', userId);
     try {
-      const [menuAccess, buttonAccess, projectAssignments] = await Promise.all([
+      const [menuAccess, buttonAccess, projectAssignments, resourcePermissions] = await Promise.all([
         userMenuAccessService.getByUserId(userId),
         userButtonAccessService.getByUserId(userId),
         userProjectAssignmentsService.getByUserId(userId),
+        userPermissionsService.getByUserId(userId),
       ]);
+
+      console.log('✅ Loaded permissions:', {
+        menuAccessCount: menuAccess.length,
+        buttonAccessCount: buttonAccess.length,
+        projectAssignmentsCount: projectAssignments.length,
+        resourcePermissionsCount: resourcePermissions.length,
+        buttonAccess: buttonAccess.slice(0, 5), // Log first 5 for debugging
+      });
 
       return {
         menuAccess,
         buttonAccess,
         projectAssignments,
+        resourcePermissions,
       };
     } catch (error) {
       console.error('❌ Error in userFullPermissionsService.getByUserId:', error);

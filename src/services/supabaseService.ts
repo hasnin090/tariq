@@ -877,11 +877,21 @@ export const paymentsService = {
 
     const bookingProjectId: string | null = (booking as any)?.units?.project_id ?? null;
 
+    // جلب صندوق المشروع تلقائياً إذا كانت الـ booking تابعة لمشروع ولم يتم تحديد حساب
+    let finalAccountId = payment.accountId || null;
+    if (!finalAccountId && bookingProjectId) {
+      try {
+        const projectCashbox = await accountsService.getOrCreateProjectCashbox(bookingProjectId);
+        finalAccountId = projectCashbox.id;
+      } catch (error) {
+        console.warn('Error getting project cashbox for payment:', error);
+      }
+    }
+
     // Create a matching treasury transaction so accounts balances are real.
-    // If account_id is null (legacy / project-only flow), we skip creating a transaction.
-    if (payment.accountId) {
+    if (finalAccountId) {
       await transactionsService.create({
-        accountId: payment.accountId,
+        accountId: finalAccountId,
         accountName: '',
         type: 'Deposit',
         date: payment.paymentDate,
@@ -961,7 +971,18 @@ export const paymentsService = {
         .maybeSingle();
       if (txLookupError) throw txLookupError;
 
-      const shouldHaveTx = payment.accountId !== undefined ? !!payment.accountId : !!data?.[0]?.account_id;
+      // جلب صندوق المشروع تلقائياً إذا لم يتم تحديد حساب
+      let accountId = payment.accountId !== undefined ? payment.accountId : data?.[0]?.account_id;
+      if (!accountId && bookingProjectId) {
+        try {
+          const projectCashbox = await accountsService.getOrCreateProjectCashbox(bookingProjectId);
+          accountId = projectCashbox.id;
+        } catch (error) {
+          console.warn('Error getting project cashbox for payment update:', error);
+        }
+      }
+
+      const shouldHaveTx = !!accountId;
       if (!shouldHaveTx) {
         if (existingTx?.id) {
           await transactionsService.delete(existingTx.id);
@@ -970,7 +991,6 @@ export const paymentsService = {
         const amount = payment.amount !== undefined ? payment.amount : data?.[0]?.amount;
         const date = payment.paymentDate !== undefined ? payment.paymentDate : data?.[0]?.payment_date;
         const description = payment.notes !== undefined ? (payment.notes || `Payment (${data?.[0]?.payment_type || 'installment'})`) : (`Payment (${data?.[0]?.payment_type || 'installment'})`);
-        const accountId = payment.accountId !== undefined ? payment.accountId : data?.[0]?.account_id;
 
         if (existingTx?.id) {
           await transactionsService.update(existingTx.id, {
@@ -2480,17 +2500,52 @@ export const documentsService = {
  * ACCOUNTS SERVICE
  */
 export const accountsService = {
-  async getAll(): Promise<Account[]> {
-    const { data, error } = await supabase
+  /**
+   * جلب جميع الحسابات مع إمكانية الفلترة حسب المشروع
+   * الحسابات المشتركة (project_id = NULL) تظهر دائماً
+   */
+  async getAll(filters?: { projectId?: string | null }): Promise<Account[]> {
+    let query = supabase
       .from('accounts')
       .select('*')
       .order('created_at', { ascending: false });
-    // If table doesn't exist, return empty array
-    if (error && error.code === 'PGRST205') {
-      console.warn('Accounts table does not exist, returning empty array');
-      return [];
+    
+    // فلترة: إظهار حسابات المشروع المحدد + الحسابات المشتركة (NULL)
+    if (filters?.projectId) {
+      query = query.or(`project_id.eq.${filters.projectId},project_id.is.null`);
     }
-    if (error) throw error;
+    
+    const { data, error } = await query;
+    
+    // If table doesn't exist or column doesn't exist, return empty array
+    if (error) {
+      // Check if it's a column not found error
+      if (error.message?.includes('project_id') || error.code === '42703') {
+        // Try without project_id filter
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('accounts')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (simpleError) {
+          console.warn('Error loading accounts:', simpleError);
+          return [];
+        }
+        
+        return (simpleData || []).map(acc => ({
+          id: acc.id,
+          name: acc.name,
+          type: acc.account_type as 'Bank' | 'Cash',
+          initialBalance: acc.balance || 0,
+        }));
+      }
+      
+      if (error.code === 'PGRST205') {
+        console.warn('Accounts table does not exist, returning empty array');
+        return [];
+      }
+      throw error;
+    }
     
     // Map database fields to frontend fields
     return (data || []).map(acc => ({
@@ -2498,31 +2553,77 @@ export const accountsService = {
       name: acc.name,
       type: acc.account_type as 'Bank' | 'Cash',
       initialBalance: acc.balance || 0,
+      projectId: acc.project_id,
+      description: acc.description,
+      isActive: acc.is_active ?? true,
+      createdAt: acc.created_at,
     }));
+  },
+
+  /**
+   * جلب حسابات مشروع معين
+   */
+  async getByProject(projectId: string): Promise<Account[]> {
+    return this.getAll({ projectId });
   },
 
   async create(account: Omit<Account, 'id'>) {
     // Generate unique ID
     const id = generateUniqueId('account');
     
+    // Build insert object with only base fields first
+    const insertData: any = { 
+      id,
+      name: account.name,
+      account_type: account.type,
+      balance: account.initialBalance || 0,
+    };
+    
+    // Add optional fields if provided
+    if (account.projectId) insertData.project_id = account.projectId;
+    if (account.description) insertData.description = account.description;
+    
     const { data, error } = await supabase
       .from('accounts')
-      .insert([{ 
-        id,
-        name: account.name,
-        account_type: account.type,
-        balance: account.initialBalance || 0,
-      }])
-      .select()
+      .insert([insertData])
+      .select('*')
       .single();
     
-    if (error) throw error;
+    if (error) {
+      // If column doesn't exist, try with basic fields only
+      if (error.message?.includes('project_id') || error.message?.includes('description')) {
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('accounts')
+          .insert([{ 
+            id,
+            name: account.name,
+            account_type: account.type,
+            balance: account.initialBalance || 0,
+          }])
+          .select('*')
+          .single();
+        
+        if (simpleError) throw simpleError;
+        
+        return {
+          id: simpleData.id,
+          name: simpleData.name,
+          type: simpleData.account_type as 'Bank' | 'Cash',
+          initialBalance: simpleData.balance || 0,
+        };
+      }
+      throw error;
+    }
     
     return {
       id: data.id,
       name: data.name,
       type: data.account_type as 'Bank' | 'Cash',
       initialBalance: data.balance || 0,
+      projectId: data.project_id,
+      description: data.description,
+      isActive: data.is_active ?? true,
+      createdAt: data.created_at,
     };
   },
 
@@ -2531,21 +2632,55 @@ export const accountsService = {
     if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.type !== undefined) dbUpdates.account_type = updates.type;
     if (updates.initialBalance !== undefined) dbUpdates.balance = updates.initialBalance;
+    // Only add these if they're defined (may not exist in DB yet)
+    if (updates.projectId !== undefined) dbUpdates.project_id = updates.projectId;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
     
     const { data, error } = await supabase
       .from('accounts')
       .update(dbUpdates)
       .eq('id', id)
-      .select()
+      .select('*')
       .single();
     
-    if (error) throw error;
+    if (error) {
+      // If column doesn't exist, try with basic fields only
+      if (error.message?.includes('project_id') || error.message?.includes('description') || error.message?.includes('is_active')) {
+        const basicUpdates: any = {};
+        if (updates.name !== undefined) basicUpdates.name = updates.name;
+        if (updates.type !== undefined) basicUpdates.account_type = updates.type;
+        if (updates.initialBalance !== undefined) basicUpdates.balance = updates.initialBalance;
+        
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('accounts')
+          .update(basicUpdates)
+          .eq('id', id)
+          .select('*')
+          .single();
+        
+        if (simpleError) throw simpleError;
+        
+        return {
+          id: simpleData.id,
+          name: simpleData.name,
+          type: simpleData.account_type as 'Bank' | 'Cash',
+          initialBalance: simpleData.balance || 0,
+        };
+      }
+      throw error;
+    }
     
     return {
       id: data.id,
       name: data.name,
       type: data.account_type as 'Bank' | 'Cash',
       initialBalance: data.balance || 0,
+      projectId: data.project_id,
+      projectName: (data as any).projects?.name,
+      description: data.description,
+      isActive: data.is_active ?? true,
+      createdAt: data.created_at,
     };
   },
 
@@ -2556,6 +2691,120 @@ export const accountsService = {
       .eq('id', id);
     
     if (error) throw error;
+  },
+
+  /**
+   * الحصول على الصندوق الافتراضي للمشروع أو إنشاءه تلقائياً
+   * هذه الدالة تستخدم لربط المصروفات والرواتب والدفعات تلقائياً بصندوق المشروع
+   */
+  async getOrCreateProjectCashbox(projectId: string, projectName?: string): Promise<Account> {
+    // البحث عن صندوق المشروع (نوع Cash ومرتبط بالمشروع)
+    const { data: existingAccounts, error: searchError } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('account_type', 'Cash')
+      .limit(1);
+    
+    if (searchError && !searchError.message?.includes('project_id')) {
+      throw searchError;
+    }
+    
+    // إذا وجد صندوق، إرجاعه
+    if (existingAccounts && existingAccounts.length > 0) {
+      const acc = existingAccounts[0];
+      return {
+        id: acc.id,
+        name: acc.name,
+        type: 'Cash',
+        initialBalance: acc.balance || 0,
+        projectId: acc.project_id,
+      };
+    }
+    
+    // إذا لم يوجد صندوق، البحث عن صندوق مشترك
+    const { data: sharedAccounts } = await supabase
+      .from('accounts')
+      .select('*')
+      .is('project_id', null)
+      .eq('account_type', 'Cash')
+      .limit(1);
+    
+    if (sharedAccounts && sharedAccounts.length > 0) {
+      const acc = sharedAccounts[0];
+      return {
+        id: acc.id,
+        name: acc.name,
+        type: 'Cash',
+        initialBalance: acc.balance || 0,
+      };
+    }
+    
+    // إذا لم يوجد أي صندوق، إنشاء صندوق جديد للمشروع
+    const newAccount = await this.create({
+      name: `صندوق ${projectName || 'المشروع'}`,
+      type: 'Cash',
+      initialBalance: 0,
+      projectId: projectId,
+    });
+    
+    return newAccount;
+  },
+
+  /**
+   * الحصول على الحساب البنكي الافتراضي للمشروع أو المشترك
+   */
+  async getOrCreateProjectBank(projectId: string, projectName?: string): Promise<Account> {
+    // البحث عن حساب بنكي للمشروع
+    const { data: existingAccounts, error: searchError } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('account_type', 'Bank')
+      .limit(1);
+    
+    if (searchError && !searchError.message?.includes('project_id')) {
+      throw searchError;
+    }
+    
+    if (existingAccounts && existingAccounts.length > 0) {
+      const acc = existingAccounts[0];
+      return {
+        id: acc.id,
+        name: acc.name,
+        type: 'Bank',
+        initialBalance: acc.balance || 0,
+        projectId: acc.project_id,
+      };
+    }
+    
+    // البحث عن حساب بنكي مشترك
+    const { data: sharedAccounts } = await supabase
+      .from('accounts')
+      .select('*')
+      .is('project_id', null)
+      .eq('account_type', 'Bank')
+      .limit(1);
+    
+    if (sharedAccounts && sharedAccounts.length > 0) {
+      const acc = sharedAccounts[0];
+      return {
+        id: acc.id,
+        name: acc.name,
+        type: 'Bank',
+        initialBalance: acc.balance || 0,
+      };
+    }
+    
+    // إنشاء حساب بنكي جديد
+    const newAccount = await this.create({
+      name: `بنك ${projectName || 'المشروع'}`,
+      type: 'Bank',
+      initialBalance: 0,
+      projectId: projectId,
+    });
+    
+    return newAccount;
   },
 
   subscribe(callback: (accounts: Account[]) => void) {
@@ -2895,16 +3144,26 @@ export const userFullPermissionsService = {
   async getByUserId(userId: string) {
     console.log('📥 userFullPermissionsService.getByUserId called for:', userId);
     try {
-      const [menuAccess, buttonAccess, projectAssignments] = await Promise.all([
+      const [menuAccess, buttonAccess, projectAssignments, resourcePermissions] = await Promise.all([
         userMenuAccessService.getByUserId(userId),
         userButtonAccessService.getByUserId(userId),
         userProjectAssignmentsService.getByUserId(userId),
+        userPermissionsService.getByUserId(userId),
       ]);
+
+      console.log('✅ Loaded permissions:', {
+        menuAccessCount: menuAccess.length,
+        buttonAccessCount: buttonAccess.length,
+        projectAssignmentsCount: projectAssignments.length,
+        resourcePermissionsCount: resourcePermissions.length,
+        buttonAccess: buttonAccess.slice(0, 5), // Log first 5 for debugging
+      });
 
       return {
         menuAccess,
         buttonAccess,
         projectAssignments,
+        resourcePermissions,
       };
     } catch (error) {
       console.error('❌ Error in userFullPermissionsService.getByUserId:', error);

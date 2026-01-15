@@ -235,12 +235,33 @@ const Employees: React.FC = () => {
 
     const confirmPaySalary = async (employeeId: string, accountId: string, amount: number) => {
         const employee = employees.find(e => e.id === employeeId);
-        const account = accounts.find(a => a.id === accountId);
         const salaryCategory = categories.find(c => c.name === 'رواتب');
 
-        if(!employee || !account || !salaryCategory) {
+        if(!employee || !salaryCategory) {
             addToast('بيانات غير مكتملة, لا يمكن إتمام العملية.', 'error');
             return;
+        }
+
+        // جلب صندوق المشروع تلقائياً إذا كان الموظف تابع لمشروع
+        let finalAccountId = accountId;
+        let account: Account | undefined;
+        
+        if (employee.projectId) {
+            try {
+                const projectCashbox = await accountsService.getOrCreateProjectCashbox(employee.projectId);
+                finalAccountId = projectCashbox.id;
+                account = projectCashbox;
+            } catch (error) {
+                console.error('Error getting project cashbox:', error);
+                addToast('فشل في الحصول على صندوق المشروع.', 'error');
+                return;
+            }
+        } else {
+            account = accounts.find(a => a.id === accountId);
+            if (!account) {
+                addToast('يرجى اختيار حساب صالح.', 'error');
+                return;
+            }
         }
 
         const monthName = new Date().toLocaleString('ar-EG', { month: 'long' });
@@ -254,13 +275,14 @@ const Employees: React.FC = () => {
             await employeesService.upsertFromAppEmployee(employee);
 
             const newTransaction = await transactionsService.create({
-                accountId,
+                accountId: finalAccountId,
                 accountName: account.name,
                 type: 'Withdrawal',
                 date: paymentDate,
                 description,
                 amount,
                 sourceType: 'Salary',
+                projectId: employee.projectId || null,
             });
 
             if (!newTransaction) {
@@ -272,9 +294,10 @@ const Employees: React.FC = () => {
                 description,
                 amount,
                 categoryId: salaryCategory.id,
-                accountId,
+                accountId: finalAccountId,
                 employeeId: employee.id,
                 transactionId: newTransaction.id,
+                projectId: employee.projectId || null,
             } as any);
 
             await transactionsService.update(newTransaction.id, { sourceId: newExpense.id });

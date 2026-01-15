@@ -120,17 +120,38 @@ const UnitSales: React.FC = () => {
     const handleSave = async (saleData: Omit<UnitSaleRecord, 'id' | 'unitName' | 'customerName'>, documents: File[]) => {
         const unit = units.find(u => u.id === saleData.unitId);
         const customer = customers.find(c => c.id === saleData.customerId);
-        const account = accounts.find(a => a.id === saleData.accountId);
 
-        if (!unit || !customer || !account) {
-            addToast('بيانات غير مكتملة. يرجى التحقق من الوحدة والعميل والحساب.', 'error');
+        if (!unit || !customer) {
+            addToast('بيانات غير مكتملة. يرجى التحقق من الوحدة والعميل.', 'error');
             return;
+        }
+
+        // جلب صندوق المشروع تلقائياً إذا كانت الوحدة تابعة لمشروع
+        let finalAccountId = saleData.accountId;
+        let account: Account | undefined;
+        
+        if (unit.projectId) {
+            try {
+                const projectCashbox = await accountsService.getOrCreateProjectCashbox(unit.projectId);
+                finalAccountId = projectCashbox.id;
+                account = projectCashbox;
+            } catch (error) {
+                console.error('Error getting project cashbox:', error);
+                addToast('فشل في الحصول على صندوق المشروع.', 'error');
+                return;
+            }
+        } else {
+            account = accounts.find(a => a.id === saleData.accountId);
+            if (!account) {
+                addToast('يرجى اختيار حساب صالح.', 'error');
+                return;
+            }
         }
 
         try {
             // 1. Create Transaction in Supabase
             const newTransaction = await transactionsService.create({
-                accountId: saleData.accountId,
+                accountId: finalAccountId,
                 accountName: account.name,
                 type: 'Deposit',
                 date: saleData.saleDate,
@@ -150,7 +171,7 @@ const UnitSales: React.FC = () => {
                 finalSalePrice: saleData.finalSalePrice,
                 saleDate: saleData.saleDate,
                 documents: [],
-                accountId: saleData.accountId,
+                accountId: finalAccountId,
                 transactionId: newTransaction.id,
                 projectId: unit.projectId
             });

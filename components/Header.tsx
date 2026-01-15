@@ -7,6 +7,7 @@ import { projectsService } from '../src/services/supabaseService';
 import { CalendarIcon, BriefcaseIcon, BellIcon } from './shared/Icons';
 import { supabase } from '../src/lib/supabase';
 import InlineSearch from './shared/InlineSearch';
+import ConnectionIndicator from './shared/ConnectionIndicator';
 
 const Header: React.FC<{
     activePage: string;
@@ -21,10 +22,6 @@ const Header: React.FC<{
     const [projects, setProjects] = useState<Project[]>([]);
     const [currentDate, setCurrentDate] = useState('الثلاثاء، 4 نوفمبر 2025');
     const userMenuRef = useRef<HTMLDivElement>(null);
-    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
-    const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
-    const [showConnectionTooltip, setShowConnectionTooltip] = useState(false);
-    const connectionCheckInterval = useRef<NodeJS.Timeout | null>(null);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
     
     const pageName = useMemo(() => {
@@ -53,38 +50,6 @@ const Header: React.FC<{
             }
         };
         fetchProjects();
-    }, []);
-
-    // Database connection check - Real-time latency monitoring
-    useEffect(() => {
-        const checkConnection = async () => {
-            const startTime = Date.now();
-            try {
-                const { error } = await supabase.from('projects').select('id').limit(1);
-                const latency = Date.now() - startTime;
-                
-                if (error) {
-                    setConnectionStatus('disconnected');
-                    setConnectionLatency(null);
-                } else {
-                    setConnectionStatus('connected');
-                    setConnectionLatency(latency);
-                }
-            } catch (error) {
-                setConnectionStatus('disconnected');
-                setConnectionLatency(null);
-            }
-        };
-
-        checkConnection();
-        // ✅ فحص كل 30 ثانية بدلاً من 3 ثواني لتحسين الأداء
-        connectionCheckInterval.current = setInterval(checkConnection, 30000);
-
-        return () => {
-            if (connectionCheckInterval.current) {
-                clearInterval(connectionCheckInterval.current);
-            }
-        };
     }, []);
 
     // Fetch unread notifications count
@@ -165,113 +130,8 @@ const Header: React.FC<{
                 </div>
 
                 <div className="flex items-center gap-1 sm:gap-2 lg:gap-4 flex-shrink-0">
-                    {/* Connection Status Indicator */}
-                    <div className="relative">
-                        <button
-                            onClick={async () => {
-                                setConnectionStatus('checking');
-                                const startTime = Date.now();
-                                try {
-                                    const { error } = await supabase.from('projects').select('id').limit(1);
-                                    const latency = Date.now() - startTime;
-                                    if (error) {
-                                        setConnectionStatus('disconnected');
-                                        setConnectionLatency(null);
-                                    } else {
-                                        setConnectionStatus('connected');
-                                        setConnectionLatency(latency);
-                                    }
-                                } catch (error) {
-                                    setConnectionStatus('disconnected');
-                                    setConnectionLatency(null);
-                                }
-                            }}
-                            onMouseEnter={() => setShowConnectionTooltip(true)}
-                            onMouseLeave={() => setShowConnectionTooltip(false)}
-                            className="p-2.5 rounded-xl transition-all duration-200 ease-in-out border hover:scale-[1.02] active:scale-[0.98] relative group border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-                            title="التحقق من الاتصال"
-                        >
-                            {connectionStatus === 'connected' && (
-                                <div className="relative">
-                                    <svg className={`h-6 w-6 ${
-                                        connectionLatency && connectionLatency <= 250 ? 'text-emerald-500' : 
-                                        connectionLatency && connectionLatency <= 300 ? 'text-amber-500' : 
-                                        'text-rose-500'
-                                    }`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M2 20h.01" />
-                                        <path d="M7 20v-4" className={connectionLatency && connectionLatency <= 300 ? 'opacity-100' : 'opacity-30'} />
-                                        <path d="M12 20v-8" className={connectionLatency && connectionLatency <= 250 ? 'opacity-100' : 'opacity-30'} />
-                                        <path d="M17 20v-12" className={connectionLatency && connectionLatency <= 220 ? 'opacity-100' : 'opacity-30'} />
-                                        <path d="M22 20v-16" className={connectionLatency && connectionLatency <= 180 ? 'opacity-100' : 'opacity-30'} />
-                                    </svg>
-                                    {connectionLatency && connectionLatency > 300 && (
-                                        <span className="absolute -top-1 -right-1 flex items-center justify-center">
-                                            <svg className="h-3 w-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                            </svg>
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                            {connectionStatus === 'disconnected' && (
-                                <div className="relative">
-                                    <svg className="h-6 w-6 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M2 20h.01" />
-                                        <path d="M7 20v-4" className="opacity-30" />
-                                        <path d="M12 20v-8" className="opacity-30" />
-                                        <path d="M17 20v-12" className="opacity-30" />
-                                        <path d="M22 20v-16" className="opacity-30" />
-                                        <line x1="4" y1="4" x2="20" y2="20" strokeWidth="2.5" />
-                                    </svg>
-                                    <span className="absolute -top-1 -right-1 flex items-center justify-center">
-                                        <svg className="h-3.5 w-3.5 text-rose-500 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                        </svg>
-                                    </span>
-                                </div>
-                            )}
-                            {connectionStatus === 'checking' && (
-                                <svg className="h-6 w-6 text-slate-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            )}
-                        </button>
-                        {showConnectionTooltip && (
-                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-48 bg-slate-800 dark:bg-slate-900 rounded-lg shadow-xl border border-slate-700 p-3 z-50 animate-fade-in-scale-up">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-xs text-slate-400">حالة الاتصال</span>
-                                    <div className="flex items-center gap-1.5">
-                                        <div className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'disconnected' ? 'bg-rose-500' : 'bg-amber-500'} animate-pulse`}></div>
-                                        <span className={`text-xs font-medium ${connectionStatus === 'connected' ? 'text-emerald-400' : connectionStatus === 'disconnected' ? 'text-rose-400' : 'text-amber-400'}`}>
-                                            {connectionStatus === 'connected' ? 'متصل' : connectionStatus === 'disconnected' ? 'غير متصل' : 'جاري...'}
-                                        </span>
-                                    </div>
-                                </div>
-                                {connectionLatency !== null && (
-                                    <>
-                                        <div className="flex items-baseline justify-center gap-1 mb-2">
-                                            <span className={`text-3xl font-bold tabular-nums transition-all duration-300 ${
-                                                connectionLatency <= 250 ? 'text-emerald-400' : 
-                                                connectionLatency <= 300 ? 'text-amber-400' : 
-                                                'text-rose-400'
-                                            }`}>
-                                                {connectionLatency}
-                                            </span>
-                                            <span className="text-sm text-slate-500">ms</span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-[10px] text-slate-500">
-                                            <span>{connectionLatency <= 250 ? 'ممتاز' : connectionLatency <= 300 ? 'متوسط' : 'بطيء'}</span>
-                                            <span>⟳ 3s</span>
-                                        </div>
-                                    </>
-                                )}
-                                {connectionStatus === 'disconnected' && (
-                                    <p className="text-xs text-rose-400 text-center">⚠️ تحقق من الاتصال</p>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    {/* Connection Status Indicator - مؤشر حالة الاتصال المحسن */}
+                    <ConnectionIndicator showLatency={true} />
 
                     {/* 🔍 البحث الاحترافي المدمج */}
                     <InlineSearch

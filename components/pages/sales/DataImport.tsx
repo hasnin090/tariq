@@ -9,7 +9,8 @@ import {
   paymentsService, 
   employeesService, 
   vendorsService,
-  expenseCategoriesService
+  expenseCategoriesService,
+  accountsService
 } from '../../../src/services/supabaseService';
 import { UploadIcon, DocumentTextIcon, CheckCircleIcon, XCircleIcon, RefreshIcon, EyeIcon } from '../../shared/Icons';
 import ProjectSelector from '../../shared/ProjectSelector';
@@ -488,13 +489,24 @@ const DataImport: React.FC = () => {
                 }
               }
               
+              // جلب صندوق المشروع تلقائياً إذا كان هناك مشروع محدد
+              let expenseAccountId: string | null = null;
+              if (activeProject?.id) {
+                try {
+                  const projectCashbox = await accountsService.getOrCreateProjectCashbox(activeProject.id, activeProject.name);
+                  expenseAccountId = projectCashbox.id;
+                } catch (accError) {
+                  console.warn('تعذر الحصول على صندوق المشروع:', accError);
+                }
+              }
+              
               await expensesService.create({
                 date: record.expense_date || new Date().toISOString().split('T')[0],
                 description: record.description || '',
                 amount: record.amount || 0,
                 categoryId: categoryId,
                 projectId: activeProject?.id || null,  // Use selected project
-                accountId: null,
+                accountId: expenseAccountId,
               });
               break;
             case 'customers':

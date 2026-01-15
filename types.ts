@@ -486,6 +486,11 @@ export interface Account {
   name: string;
   type: 'Bank' | 'Cash';
   initialBalance: number;
+  projectId?: string;      // معرف المشروع المرتبط
+  projectName?: string;    // اسم المشروع (للعرض)
+  description?: string;    // وصف الحساب
+  isActive?: boolean;      // هل الحساب نشط
+  createdAt?: string;      // تاريخ الإنشاء
 }
 
 export interface Transaction {

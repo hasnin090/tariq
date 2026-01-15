@@ -214,8 +214,10 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
             try {
                 const fullPerms = await userFullPermissionsService.getByUserId(user.id);
                 
+                console.log('📋 Loading permissions for user:', user.name, fullPerms);
+                
                 // تحميل القوائم
-                if (fullPerms.menuAccess.length > 0) {
+                if (fullPerms.menuAccess && fullPerms.menuAccess.length > 0) {
                     setMenuAccess(fullPerms.menuAccess.map(m => ({ menuKey: m.menuKey, isVisible: m.isVisible })));
                 } else {
                     const defaultMenus = SYSTEM_MENUS.map(m => ({
@@ -228,7 +230,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
                 }
 
                 // تحميل صلاحيات الموارد
-                if (fullPerms.resourcePermissions.length > 0) {
+                if (fullPerms.resourcePermissions && fullPerms.resourcePermissions.length > 0) {
                     setResourcePermissions(fullPerms.resourcePermissions.map(p => ({
                         resource: p.resource,
                         canView: p.canView,
@@ -248,7 +250,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
                 }
 
                 // تحميل صلاحيات الأزرار
-                if (fullPerms.buttonAccess.length > 0) {
+                if (fullPerms.buttonAccess && fullPerms.buttonAccess.length > 0) {
                     setButtonAccess(fullPerms.buttonAccess.map(b => ({
                         pageKey: b.pageKey,
                         buttonKey: b.buttonKey,
@@ -264,7 +266,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
                 }
 
                 // تحميل المشاريع المعينة
-                if (fullPerms.projectAssignments.length > 0) {
+                if (fullPerms.projectAssignments && fullPerms.projectAssignments.length > 0) {
                     setProjectAssignments(fullPerms.projectAssignments.map(a => ({
                         projectId: a.projectId,
                         interfaceMode: a.interfaceMode,

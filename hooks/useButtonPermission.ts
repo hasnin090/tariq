@@ -37,15 +37,28 @@ export function useButtonPermissions() {
   
   const canShow = (pageKey: string, buttonKey: string): boolean => {
     if (!currentUser) {
+      console.log(`🔒 canShow(${pageKey}, ${buttonKey}): No current user - DENIED`);
       return false;
     }
     
-    return canShowButton(
+    const result = canShowButton(
       currentUser.role as 'Admin' | 'Accounting' | 'Sales',
       pageKey,
       buttonKey,
       currentUser.customButtonAccess
     );
+    
+    // Debug logging - only log when result is false to reduce noise
+    if (!result) {
+      console.log(`🔒 canShow(${pageKey}, ${buttonKey}):`, {
+        role: currentUser.role,
+        hasCustomAccess: !!currentUser.customButtonAccess,
+        customAccessCount: currentUser.customButtonAccess?.length || 0,
+        result
+      });
+    }
+    
+    return result;
   };
   
   return { canShow };

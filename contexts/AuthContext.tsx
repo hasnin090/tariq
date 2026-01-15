@@ -39,6 +39,96 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // ✅ NEW: Function to load user data by user ID (for username-based login)
+  const loadUserDataByUserId = async (userId: string): Promise<AuthUser | null> => {
+    if (!userId || userId.trim() === '') {
+      console.error('loadUserDataByUserId called with empty userId');
+      return null;
+    }
+    
+    try {
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id, name, username, email, role')
+        .eq('id', userId)
+        .single();
+
+      if (error || !user) {
+        console.error('Error loading user data by ID:', error);
+        return null;
+      }
+
+      // Find assigned project
+      let assignedProjectId = null;
+      if (user.role === 'Accounting' || user.role === 'Sales') {
+        const { data: projects } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('assigned_user_id', user.id)
+          .limit(1);
+        
+        if (projects && projects.length > 0) {
+          assignedProjectId = projects[0].id;
+        }
+      }
+
+      // ✅ Load custom permissions (button access, menu access, etc.)
+      let customPermissions = null;
+      let customMenuAccess = null;
+      let customButtonAccess = null;
+      let projectAssignments = null;
+      
+      try {
+        const { userFullPermissionsService } = await import('../src/services/supabaseService');
+        const fullPermissions = await userFullPermissionsService.getByUserId(user.id);
+        customMenuAccess = fullPermissions.menuAccess;
+        customButtonAccess = fullPermissions.buttonAccess;
+        projectAssignments = fullPermissions.projectAssignments;
+        customPermissions = fullPermissions.resourcePermissions;
+        
+        console.log('🔍 Loaded permissions for user (by userId):', user.username, {
+          menuAccessCount: customMenuAccess?.length || 0,
+          buttonAccessCount: customButtonAccess?.length || 0,
+          buttonAccess: customButtonAccess,
+          projectAssignmentsCount: projectAssignments?.length || 0,
+          resourcePermissionsCount: customPermissions?.length || 0,
+          role: user.role
+        });
+        
+        if (projectAssignments && projectAssignments.length > 0 && !assignedProjectId) {
+          assignedProjectId = projectAssignments[0].projectId;
+        }
+      } catch (error) {
+        console.error('Error loading custom permissions:', error);
+      }
+
+      const finalCustomMenuAccess = customMenuAccess && customMenuAccess.length > 0 ? customMenuAccess : undefined;
+      const finalCustomButtonAccess = customButtonAccess && customButtonAccess.length > 0 ? customButtonAccess : undefined;
+      
+      console.log('✅ Final user data (by userId) for:', user.username, {
+        customMenuAccess: finalCustomMenuAccess,
+        customButtonAccess: finalCustomButtonAccess,
+        customButtonAccessLength: finalCustomButtonAccess?.length,
+        role: user.role
+      });
+      
+      return {
+        ...user,
+        assignedProjectId,
+        permissions: user.role === 'Admin'
+          ? { canView: true, canEdit: true, canDelete: true }
+          : { canView: true, canEdit: false, canDelete: false },
+        customPermissions: customPermissions || [],
+        customMenuAccess: finalCustomMenuAccess,
+        customButtonAccess: finalCustomButtonAccess,
+        projectAssignments: projectAssignments || [],
+      };
+    } catch (error) {
+      console.error('Error in loadUserDataByUserId:', error);
+      return null;
+    }
+  };
+
   // Function to load user data from users table
   const loadUserData = async (authId: string): Promise<AuthUser | null> => {
     // التحقق من أن authId ليس فارغاً
@@ -85,13 +175,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         customMenuAccess = fullPermissions.menuAccess;
         customButtonAccess = fullPermissions.buttonAccess;
         projectAssignments = fullPermissions.projectAssignments;
+        customPermissions = fullPermissions.resourcePermissions;
         
         // ✅ Detailed logging for debugging
         console.log('🔍 Loaded permissions for user:', user.username, {
           menuAccessCount: customMenuAccess?.length || 0,
-          menuAccess: customMenuAccess,
           buttonAccessCount: customButtonAccess?.length || 0,
+          buttonAccess: customButtonAccess, // ✅ Log full button access for debugging
           projectAssignmentsCount: projectAssignments?.length || 0,
+          resourcePermissionsCount: customPermissions?.length || 0,
           role: user.role
         });
         
@@ -102,13 +194,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error('Error loading custom permissions:', error);
       }
 
+      // ✅ CRITICAL FIX: Keep arrays even if empty - this signals "custom permissions exist but are empty"
+      // which has different behavior than "no custom permissions at all"
       const finalCustomMenuAccess = customMenuAccess && customMenuAccess.length > 0 ? customMenuAccess : undefined;
-      const finalCustomButtonAccess = customButtonAccess && customButtonAccess.length > 0 ? customButtonAccess : undefined;
+      // ✅ For button access: if we loaded from DB (even empty), keep the array to signal custom permissions mode
+      const finalCustomButtonAccess = customButtonAccess !== null ? (customButtonAccess.length > 0 ? customButtonAccess : undefined) : undefined;
       
-      // ✅ Log final values
+      // ✅ Log final values with more details
       console.log('✅ Final user data for:', user.username, {
         customMenuAccess: finalCustomMenuAccess,
         customButtonAccess: finalCustomButtonAccess,
+        customButtonAccessLength: finalCustomButtonAccess?.length,
         role: user.role
       });
       
@@ -135,10 +231,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     const permissions = await loadCustomPermissions(currentUser.id);
     if (permissions) {
+      console.log('🔄 Refreshing permissions for:', currentUser.username, {
+        menuAccessCount: permissions.menuAccess?.length || 0,
+        buttonAccessCount: permissions.buttonAccess?.length || 0,
+        projectAssignmentsCount: permissions.projectAssignments?.length || 0,
+      });
+      
       const updatedUser = {
         ...currentUser,
-        customMenuAccess: permissions.menuAccess,
-        customButtonAccess: permissions.buttonAccess,
+        customMenuAccess: permissions.menuAccess?.length > 0 ? permissions.menuAccess : undefined,
+        customButtonAccess: permissions.buttonAccess?.length > 0 ? permissions.buttonAccess : undefined,
         projectAssignments: permissions.projectAssignments,
       };
       setCurrentUser(updatedUser);
@@ -172,42 +274,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
             
             if (sessionAge < maxAge && userId) {
-              // إعادة تحميل بيانات المستخدم
-              const { data: user, error } = await supabase
-                .from('users')
-                .select('id, name, username, email, role')
-                .eq('id', userId)
-                .single();
+              // ✅ إعادة تحميل بيانات المستخدم مع الصلاحيات الكاملة
+              console.log('🔄 Restoring legacy session for userId:', userId);
               
-              if (!error && user) {
-                // ✅ تحميل المشروع المخصص للمستخدم
-                let assignedProjectId = null;
-                if (user.role === 'Accounting' || user.role === 'Sales') {
-                  const { data: projects } = await supabase
-                    .from('projects')
-                    .select('id')
-                    .eq('assigned_user_id', user.id)
-                    .limit(1);
-                  
-                  if (projects && projects.length > 0) {
-                    assignedProjectId = projects[0].id;
-                  }
-                }
-                
-                const basicUser: AuthUser = {
-                  ...user,
-                  assignedProjectId, // ✅ إضافة المشروع المخصص
-                  permissions: user.role === 'Admin'
-                    ? { canView: true, canEdit: true, canDelete: true }
-                    : { canView: true, canEdit: false, canDelete: false },
-                  customPermissions: [],
-                  customMenuAccess: undefined, // ✅ undefined لاستخدام صلاحيات الدور
-                  customButtonAccess: undefined, // ✅ undefined لاستخدام صلاحيات الدور
-                  projectAssignments: [],
-                };
-                setCurrentUser(basicUser);
+              const fullUserData = await loadUserDataByUserId(userId);
+              
+              if (fullUserData) {
+                console.log('✅ Successfully restored user session with permissions:', {
+                  username: fullUserData.username,
+                  buttonAccessCount: fullUserData.customButtonAccess?.length || 0,
+                  menuAccessCount: fullUserData.customMenuAccess?.length || 0,
+                });
+                setCurrentUser(fullUserData);
               } else {
                 // إزالة الجلسة غير الصالحة
+                console.warn('⚠️ Failed to restore user session, removing legacy session');
                 localStorage.removeItem('legacy_user_session');
               }
             } else {
@@ -395,8 +476,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // التحقق من وجود بريد إلكتروني صالح
       if (!user.email || user.email.trim() === '') {
-        // المستخدم ليس لديه بريد إلكتروني - استخدام البيانات الأساسية فقط
-        console.warn('User has no email, skipping Supabase Auth');
+        // ✅ المستخدم ليس لديه بريد إلكتروني - تحميل الصلاحيات بواسطة user.id مباشرة
+        console.log('📧 User has no email, loading permissions directly by userId:', user.id);
+        
+        // ✅ جلب الصلاحيات الكاملة من قاعدة البيانات
+        const fullUserData = await loadUserDataByUserId(user.id);
+        
+        if (fullUserData) {
+          console.log('✅ Successfully loaded user with permissions (no email):', {
+            username: fullUserData.username,
+            buttonAccessCount: fullUserData.customButtonAccess?.length || 0,
+            menuAccessCount: fullUserData.customMenuAccess?.length || 0,
+          });
+          
+          // حفظ الجلسة المحلية
+          localStorage.setItem('legacy_user_session', JSON.stringify({
+            userId: user.id,
+            timestamp: Date.now()
+          }));
+          
+          return { error: null, user: fullUserData };
+        }
+        
+        // ✅ Fallback: إذا فشل تحميل الصلاحيات، استخدم البيانات الأساسية
+        console.warn('⚠️ Failed to load full permissions, using basic user data');
         const { password: _, ...userWithoutPassword } = user;
         const basicUser: AuthUser = {
           ...userWithoutPassword,
