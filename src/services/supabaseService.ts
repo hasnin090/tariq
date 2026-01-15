@@ -1793,6 +1793,16 @@ export const unitTypesService = {
     return data?.[0];
   },
 
+  async update(id: string, item: Partial<UnitType>) {
+    const { data, error } = await supabase
+      .from('unit_types')
+      .update({ name: item.name })
+      .eq('id', id)
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
+
   async delete(id: string) {
     const { error } = await supabase
       .from('unit_types')
@@ -1820,6 +1830,16 @@ export const unitStatusesService = {
     const { data, error } = await supabase
       .from('unit_statuses')
       .insert([{ ...item, id }])
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
+
+  async update(id: string, item: Partial<UnitStatus>) {
+    const { data, error } = await supabase
+      .from('unit_statuses')
+      .update({ name: item.name })
+      .eq('id', id)
       .select();
     if (error) throw error;
     return data?.[0];

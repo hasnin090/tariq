@@ -6,7 +6,7 @@ import { useProject } from '../../../contexts/ProjectContext';
 import logActivity from '../../../utils/activityLogger';
 import { unitTypesService, unitStatusesService, expenseCategoriesService, settingsService, userMenuAccessService, projectsService } from '../../../src/services/supabaseService';
 import { refreshCurrencyCache } from '../../../utils/currencyFormatter';
-import { PlusIcon, TrashIcon } from '../../shared/Icons';
+import { PlusIcon, TrashIcon, PencilIcon, CheckIcon, XMarkIcon } from '../../shared/Icons';
 import ProjectSelector from '../../shared/ProjectSelector';
 
 interface EditableListItem {
@@ -28,6 +28,8 @@ const CustomizationSection: React.FC<{
     const [newItemName, setNewItemName] = useState('');
     const [isExpanded, setIsExpanded] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(activeProjectId || null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingName, setEditingName] = useState('');
 
     const services = {
         unitTypes: unitTypesService,
@@ -87,6 +89,43 @@ const CustomizationSection: React.FC<{
         } catch (error) {
             console.error(`Error deleting item from ${storageKey}:`, error);
             addToast('حدث خطأ أثناء الحذف.', 'error');
+        }
+    };
+
+    const handleStartEdit = (item: EditableListItem) => {
+        setEditingId(item.id);
+        setEditingName(item.name);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setEditingName('');
+    };
+
+    const handleSaveEdit = async (itemId: string) => {
+        if (!editingName.trim()) {
+            addToast('الاسم لا يمكن أن يكون فارغًا.', 'error');
+            return;
+        }
+        try {
+            const updateService = service as any;
+            if (typeof updateService.update === 'function') {
+                await updateService.update(itemId, { name: editingName.trim() });
+                const updatedItems = items.map(item => 
+                    item.id === itemId ? { ...item, name: editingName.trim() } : item
+                );
+                onUpdate(updatedItems);
+                logActivity(`Update ${storageKey}`, `Updated item name to: ${editingName}`, 'projects');
+                addToast('تم التعديل بنجاح', 'success');
+            } else {
+                addToast('التعديل غير متاح لهذا النوع.', 'error');
+            }
+        } catch (error) {
+            console.error(`Error updating item in ${storageKey}:`, error);
+            addToast('حدث خطأ أثناء التعديل.', 'error');
+        } finally {
+            setEditingId(null);
+            setEditingName('');
         }
     };
     
@@ -159,29 +198,73 @@ const CustomizationSection: React.FC<{
                                     const itemProject = storageKey === 'expenseCategories' && item.projectId
                                         ? projects?.find(p => p.id === item.projectId)
                                         : null;
+                                    const isEditing = editingId === item.id;
                                     
                                     return (
                                         <li key={item.id} className="p-3 flex justify-between items-center hover:bg-white/5 transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium text-slate-200">{item.name}</span>
-                                                {storageKey === 'expenseCategories' && (
-                                                    <span className={`text-xs px-2 py-0.5 rounded ${
-                                                        itemProject 
-                                                            ? 'bg-blue-500/20 text-blue-300' 
-                                                            : 'bg-green-500/20 text-green-300'
-                                                    }`}>
-                                                        {itemProject ? itemProject.name : 'عام'}
-                                                    </span>
+                                            <div className="flex items-center gap-2 flex-grow">
+                                                {isEditing ? (
+                                                    <input
+                                                        type="text"
+                                                        value={editingName}
+                                                        onChange={e => setEditingName(e.target.value)}
+                                                        onKeyPress={e => e.key === 'Enter' && handleSaveEdit(item.id)}
+                                                        className="input-field flex-grow text-sm py-1"
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <>
+                                                        <span className="font-medium text-slate-200">{item.name}</span>
+                                                        {storageKey === 'expenseCategories' && (
+                                                            <span className={`text-xs px-2 py-0.5 rounded ${
+                                                                itemProject 
+                                                                    ? 'bg-blue-500/20 text-blue-300' 
+                                                                    : 'bg-green-500/20 text-green-300'
+                                                            }`}>
+                                                                {itemProject ? itemProject.name : 'عام'}
+                                                            </span>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                             {!item.isSystem ? (
-                                                <button 
-                                                    onClick={() => handleDeleteItem(item.id, item.name)} 
-                                                    className="text-rose-400 hover:text-rose-300 p-2 rounded-lg hover:bg-rose-500/10 transition-colors"
-                                                    title="حذف"
-                                                >
-                                                    <TrashIcon className="h-4 w-4" />
-                                                </button>
+                                                <div className="flex items-center gap-1">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <button 
+                                                                onClick={() => handleSaveEdit(item.id)} 
+                                                                className="text-green-400 hover:text-green-300 p-2 rounded-lg hover:bg-green-500/10 transition-colors"
+                                                                title="حفظ"
+                                                            >
+                                                                <CheckIcon className="h-4 w-4" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={handleCancelEdit} 
+                                                                className="text-slate-400 hover:text-slate-300 p-2 rounded-lg hover:bg-slate-500/10 transition-colors"
+                                                                title="إلغاء"
+                                                            >
+                                                                <XMarkIcon className="h-4 w-4" />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button 
+                                                                onClick={() => handleStartEdit(item)} 
+                                                                className="text-blue-400 hover:text-blue-300 p-2 rounded-lg hover:bg-blue-500/10 transition-colors"
+                                                                title="تعديل"
+                                                            >
+                                                                <PencilIcon className="h-4 w-4" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteItem(item.id, item.name)} 
+                                                                className="text-rose-400 hover:text-rose-300 p-2 rounded-lg hover:bg-rose-500/10 transition-colors"
+                                                                title="حذف"
+                                                            >
+                                                                <TrashIcon className="h-4 w-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded">نظام</span>
                                             )}

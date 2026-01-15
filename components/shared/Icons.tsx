@@ -97,7 +97,9 @@ export const ShieldIcon = (props: React.SVGProps<SVGSVGElement>) => <Shield stro
 export const SwitchHorizontalIcon = (props: React.SVGProps<SVGSVGElement>) => <SwitchCamera {...props} />;
 export const MicrophoneIcon = (props: React.SVGProps<SVGSVGElement>) => <Mic {...props} />;
 export const CloseIcon = (props: React.SVGProps<SVGSVGElement>) => <X {...props} />;
+export const XMarkIcon = (props: React.SVGProps<SVGSVGElement>) => <X {...props} />;
 export const EditIcon = (props: React.SVGProps<SVGSVGElement>) => <Edit {...props} />;
+export const PencilIcon = (props: React.SVGProps<SVGSVGElement>) => <Edit strokeWidth={1.5} {...props} />;
 export const WifiIcon = (props: React.SVGProps<SVGSVGElement>) => <Wifi strokeWidth={1.5} {...props} />;
 export const PlusIcon = (props: React.SVGProps<SVGSVGElement>) => <Plus strokeWidth={1.5} {...props} />;
 export const ArrowRightIcon = (props: React.SVGProps<SVGSVGElement>) => <ArrowRight strokeWidth={1.5} {...props} />;
