@@ -58,17 +58,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return null;
       }
 
-      // Find assigned project
+      // Find assigned project based on user role
       let assignedProjectId = null;
       if (user.role === 'Accounting' || user.role === 'Sales') {
+        // البحث في الحقل المناسب حسب الدور
+        const userIdField = user.role === 'Sales' ? 'sales_user_id' : 'accounting_user_id';
+        
         const { data: projects } = await supabase
           .from('projects')
           .select('id')
-          .eq('assigned_user_id', user.id)
+          .eq(userIdField, user.id)
           .limit(1);
         
         if (projects && projects.length > 0) {
           assignedProjectId = projects[0].id;
+        }
+        
+        // إذا لم نجد، نبحث في assigned_user_id كخيار بديل
+        if (!assignedProjectId) {
+          const { data: fallbackProjects } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('assigned_user_id', user.id)
+            .limit(1);
+          
+          if (fallbackProjects && fallbackProjects.length > 0) {
+            assignedProjectId = fallbackProjects[0].id;
+          }
         }
       }
 
@@ -149,17 +165,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return null;
       }
 
-      // Find assigned project
+      // Find assigned project based on user role
       let assignedProjectId = null;
       if (user.role === 'Accounting' || user.role === 'Sales') {
+        // البحث في الحقل المناسب حسب الدور
+        const userIdField = user.role === 'Sales' ? 'sales_user_id' : 'accounting_user_id';
+        
         const { data: projects } = await supabase
           .from('projects')
           .select('id')
-          .eq('assigned_user_id', user.id)
+          .eq(userIdField, user.id)
           .limit(1);
         
         if (projects && projects.length > 0) {
           assignedProjectId = projects[0].id;
+        }
+        
+        // إذا لم نجد، نبحث في assigned_user_id كخيار بديل
+        if (!assignedProjectId) {
+          const { data: fallbackProjects } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('assigned_user_id', user.id)
+            .limit(1);
+          
+          if (fallbackProjects && fallbackProjects.length > 0) {
+            assignedProjectId = fallbackProjects[0].id;
+          }
         }
       }
 
@@ -460,17 +492,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { error: new Error('كلمة المرور غير صحيحة') };
       }
 
-      // ✅ تحميل المشروع المخصص للمستخدم
+      // ✅ تحميل المشروع المخصص للمستخدم حسب الدور
       let assignedProjectId = null;
       if (user.role === 'Accounting' || user.role === 'Sales') {
+        // البحث في الحقل المناسب حسب الدور
+        const userIdField = user.role === 'Sales' ? 'sales_user_id' : 'accounting_user_id';
+        
         const { data: projects } = await supabase
           .from('projects')
           .select('id')
-          .eq('assigned_user_id', user.id)
+          .eq(userIdField, user.id)
           .limit(1);
         
         if (projects && projects.length > 0) {
           assignedProjectId = projects[0].id;
+        }
+        
+        // إذا لم نجد، نبحث في assigned_user_id كخيار بديل
+        if (!assignedProjectId) {
+          const { data: fallbackProjects } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('assigned_user_id', user.id)
+            .limit(1);
+          
+          if (fallbackProjects && fallbackProjects.length > 0) {
+            assignedProjectId = fallbackProjects[0].id;
+          }
         }
       }
 

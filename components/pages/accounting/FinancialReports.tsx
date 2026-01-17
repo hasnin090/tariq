@@ -85,7 +85,7 @@ const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#e
 const FinancialReports: React.FC = () => {
     const { addToast } = useToast();
     const { currentProject } = useProject();
-    const canExport = useButtonPermission('export_reports');
+    const canExport = useButtonPermission('financial-reports', 'export');
     
     // Filters
     const [dateFrom, setDateFrom] = useState<string>(

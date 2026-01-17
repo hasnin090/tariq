@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UnitType, UnitStatus, ExpenseCategory, Project } from '../../../types';
+import { UnitType, UnitStatus, ExpenseCategory, Project, InterfaceMode } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useProject } from '../../../contexts/ProjectContext';
@@ -23,11 +23,13 @@ const CustomizationSection: React.FC<{
     onUpdate: (items: any[]) => void;
     projects?: Project[];
     activeProjectId?: string | null;
-}> = ({ title, items, storageKey, onUpdate, projects, activeProjectId }) => {
+    userAssignedProjectId?: string | null; // المشروع المخصص للمستخدم (إذا وُجد)
+}> = ({ title, items, storageKey, onUpdate, projects, activeProjectId, userAssignedProjectId }) => {
     const { addToast } = useToast();
     const [newItemName, setNewItemName] = useState('');
     const [isExpanded, setIsExpanded] = useState(false);
-    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(activeProjectId || null);
+    // إذا كان للمستخدم مشروع مخصص، استخدمه تلقائياً
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(userAssignedProjectId || activeProjectId || null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingName, setEditingName] = useState('');
 
@@ -39,12 +41,17 @@ const CustomizationSection: React.FC<{
 
     const service = services[storageKey];
 
-    // تحديث المشروع المحدد عند تغيير المشروع النشط
+    // تحديث المشروع المحدد عند تغيير المشروع النشط أو المخصص
     useEffect(() => {
-        if (storageKey === 'expenseCategories' && activeProjectId !== undefined) {
-            setSelectedProjectId(activeProjectId);
+        if (storageKey === 'expenseCategories') {
+            // إذا كان للمستخدم مشروع مخصص، استخدمه دائماً
+            if (userAssignedProjectId) {
+                setSelectedProjectId(userAssignedProjectId);
+            } else if (activeProjectId !== undefined) {
+                setSelectedProjectId(activeProjectId);
+            }
         }
-    }, [activeProjectId, storageKey]);
+    }, [activeProjectId, storageKey, userAssignedProjectId]);
 
     const handleAddItem = async () => {
         if (!newItemName.trim()) {
@@ -153,8 +160,8 @@ const CustomizationSection: React.FC<{
                 <div className="border-t border-white/10">
                     {/* Add New Item */}
                     <div className="p-4 bg-white/5 border-b border-white/10">
-                        {/* Project selector for expense categories */}
-                        {storageKey === 'expenseCategories' && projects && projects.length > 0 && (
+                        {/* Project selector for expense categories - يظهر فقط للمدير */}
+                        {storageKey === 'expenseCategories' && projects && projects.length > 0 && !userAssignedProjectId && (
                             <div className="mb-3">
                                 <label className="block text-sm font-medium text-slate-300 mb-1">
                                     المشروع (اترك فارغاً للفئة العامة)
@@ -169,6 +176,16 @@ const CustomizationSection: React.FC<{
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>
+                            </div>
+                        )}
+                        {/* عرض اسم المشروع المخصص للمستخدم (بدون إمكانية التغيير) */}
+                        {storageKey === 'expenseCategories' && userAssignedProjectId && (
+                            <div className="mb-3 bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                                <p className="text-sm text-blue-300">
+                                    <span className="font-medium">المشروع: </span>
+                                    {projects?.find(p => p.id === userAssignedProjectId)?.name || 'مشروعك'}
+                                </p>
+                                <p className="text-xs text-slate-400 mt-1">سيتم إضافة الفئة لمشروعك تلقائياً</p>
                             </div>
                         )}
                         <div className="flex gap-2">
@@ -285,7 +302,11 @@ const CustomizationSection: React.FC<{
     );
 };
 
-const Customization: React.FC = () => {
+interface CustomizationProps {
+    interfaceMode?: InterfaceMode;
+}
+
+const Customization: React.FC<CustomizationProps> = ({ interfaceMode = 'projects' }) => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
@@ -359,7 +380,17 @@ const Customization: React.FC = () => {
                 ]);
                 setUnitTypes(unitTypesData as UnitType[]);
                 setUnitStatuses(unitStatusesData as UnitStatus[]);
-                setExpenseCategories(expenseCategoriesData as ExpenseCategory[]);
+                
+                // ✅ فلترة فئات المصروفات: المدير يرى الكل، غيره يرى فقط الفئات الخاصة بمشروعه أو العامة
+                let filteredCategories = expenseCategoriesData as ExpenseCategory[];
+                if (currentUser && currentUser.role !== 'Admin') {
+                    const userProjectId = currentUser.assignedProjectId || activeProject?.id;
+                    filteredCategories = filteredCategories.filter(cat => 
+                        !cat.projectId || // الفئات العامة (بدون مشروع)
+                        cat.projectId === userProjectId // الفئات الخاصة بمشروع المستخدم
+                    );
+                }
+                setExpenseCategories(filteredCategories);
                 setProjects(projectsData as Project[]);
                 
                 // Validate and clean currency data
@@ -572,11 +603,13 @@ const Customization: React.FC = () => {
             {/* Data Customization Sections */}
             <div className="space-y-4">
                 <h3 className="font-bold text-xl text-slate-100 mb-4">تخصيص البيانات</h3>
-                {sectionPermissions.unitTypes && (
+                {/* أنواع الوحدات - تظهر فقط في واجهة المبيعات */}
+                {interfaceMode === 'projects' && sectionPermissions.unitTypes && (
                     <CustomizationSection title="أنواع الوحدات" items={unitTypes} storageKey="unitTypes" onUpdate={setUnitTypes} />
                 )}
                 {/* حالات الوحدات مخفية لأنها ثوابت نظام (متاح، محجوز، مباع) ولا يجب تعديلها */}
-                {sectionPermissions.expenseCategories && (
+                {/* فئات المصروفات - تظهر فقط في واجهة الحسابات */}
+                {interfaceMode === 'expenses' && sectionPermissions.expenseCategories && (
                     <CustomizationSection 
                         title="فئات المصروفات" 
                         items={expenseCategories} 
@@ -584,9 +617,14 @@ const Customization: React.FC = () => {
                         onUpdate={setExpenseCategories}
                         projects={projects}
                         activeProjectId={activeProject?.id || null}
+                        userAssignedProjectId={currentUser?.assignedProjectId || null}
                     />
                 )}
-                {!sectionPermissions.unitTypes && !sectionPermissions.expenseCategories && (
+                {/* رسالة عند عدم وجود صلاحيات */}
+                {interfaceMode === 'projects' && !sectionPermissions.unitTypes && (
+                    <p className="text-slate-400 text-center py-4">لا توجد صلاحيات لتخصيص البيانات</p>
+                )}
+                {interfaceMode === 'expenses' && !sectionPermissions.expenseCategories && (
                     <p className="text-slate-400 text-center py-4">لا توجد صلاحيات لتخصيص البيانات</p>
                 )}
             </div>

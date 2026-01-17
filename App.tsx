@@ -242,7 +242,7 @@ const App: React.FC = () => {
       case 'customization': 
         return (
           <ProtectedRoute allowedRoles={['Admin']} pageKey="customization">
-            <Customization />
+            <Customization interfaceMode={interfaceMode} />
           </ProtectedRoute>
         );
       

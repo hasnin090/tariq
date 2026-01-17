@@ -472,6 +472,12 @@ export function canShowButton(
   buttonKey: string,
   customButtonAccess?: UserButtonAccess[]
 ): boolean {
+  // ✅ حماية من القيم الفارغة أو غير المعرّفة
+  if (!pageKey || !buttonKey) {
+    console.warn('⚠️ canShowButton called with invalid params:', { pageKey, buttonKey });
+    return false;
+  }
+  
   // Admin يرى كل الأزرار دائماً
   if (role === 'Admin') {
     return true;

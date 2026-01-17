@@ -1270,17 +1270,18 @@ export const expensesService = {
 
   async update(id: string, expense: Partial<Expense>) {
     // Convert camelCase to snake_case for database
+    // ✅ تحويل القيم الفارغة إلى null لتجنب خطأ المفتاح الأجنبي
     const dbUpdate: any = {};
     if (expense.date !== undefined) dbUpdate.expense_date = expense.date;
     if (expense.description !== undefined) dbUpdate.description = expense.description;
     if (expense.amount !== undefined) dbUpdate.amount = expense.amount;
-    if (expense.categoryId !== undefined) dbUpdate.category_id = expense.categoryId;
-    if (expense.projectId !== undefined) dbUpdate.project_id = expense.projectId;
-    if (expense.accountId !== undefined) dbUpdate.account_id = expense.accountId;
-    if (expense.vendorId !== undefined) dbUpdate.vendor_id = expense.vendorId;
-    if (expense.transactionId !== undefined) dbUpdate.transaction_id = expense.transactionId;
-    if (expense.deferredPaymentInstallmentId !== undefined) dbUpdate.deferred_payment_installment_id = expense.deferredPaymentInstallmentId;
-    if (expense.employeeId !== undefined) dbUpdate.employee_id = expense.employeeId;
+    if (expense.categoryId !== undefined) dbUpdate.category_id = expense.categoryId || null;
+    if (expense.projectId !== undefined) dbUpdate.project_id = expense.projectId || null;
+    if (expense.accountId !== undefined) dbUpdate.account_id = expense.accountId || null;
+    if (expense.vendorId !== undefined) dbUpdate.vendor_id = expense.vendorId || null;
+    if (expense.transactionId !== undefined) dbUpdate.transaction_id = expense.transactionId || null;
+    if (expense.deferredPaymentInstallmentId !== undefined) dbUpdate.deferred_payment_installment_id = expense.deferredPaymentInstallmentId || null;
+    if (expense.employeeId !== undefined) dbUpdate.employee_id = expense.employeeId || null;
     
     const { data, error } = await supabase
       .from('expenses')
