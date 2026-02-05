@@ -38,6 +38,11 @@ const ProjectsManagement: React.FC = () => {
     };
 
     const handleOpenModal = (project: Project | null) => {
+        // ✅ فحص الصلاحيات قبل فتح المودال
+        if (!canEdit) {
+            console.warn('🚫 handleOpenModal blocked: No edit permission');
+            return;
+        }
         setEditingProject(project);
         setIsModalOpen(true);
     };
@@ -164,7 +169,8 @@ const ProjectsManagement: React.FC = () => {
                 />
             )}
 
-            {isModalOpen && (
+            {/* ✅ حماية المودال بفحص الصلاحيات */}
+            {isModalOpen && canEdit && (
                 <ProjectPanel 
                     project={editingProject} 
                     onClose={handleCloseModal} 

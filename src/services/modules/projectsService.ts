@@ -5,6 +5,7 @@
 
 import { supabase } from '../core/supabaseClient';
 import { Project } from '../../../types';
+import { accountsService } from './treasuryService';
 
 export const projectsService = {
   async getAll() {
@@ -45,6 +46,35 @@ export const projectsService = {
     if (error) throw error;
     
     const result = data?.[0];
+    
+    // ✅ إنشاء الحسابات المالية تلقائياً للمشروع الجديد
+    if (result?.id) {
+      try {
+        // إنشاء صندوق المشروع (Cash)
+        await accountsService.create({
+          name: `صندوق ${project.name}`,
+          type: 'Cash',
+          initialBalance: 0,
+          projectId: result.id,
+          description: `صندوق نقدي خاص بمشروع ${project.name}`,
+        });
+        
+        // إنشاء حساب بنكي للمشروع (Bank)
+        await accountsService.create({
+          name: `بنك ${project.name}`,
+          type: 'Bank',
+          initialBalance: 0,
+          projectId: result.id,
+          description: `حساب بنكي خاص بمشروع ${project.name}`,
+        });
+        
+        console.log(`✅ تم إنشاء الحسابات المالية لمشروع: ${project.name}`);
+      } catch (accountError) {
+        // لا نوقف إنشاء المشروع إذا فشل إنشاء الحسابات
+        console.warn('⚠️ تعذر إنشاء الحسابات المالية للمشروع:', accountError);
+      }
+    }
+    
     return result ? {
       ...result,
       assignedUserId: result.assigned_user_id,

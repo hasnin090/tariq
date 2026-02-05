@@ -33,6 +33,7 @@ const BookingsArchive = lazy(() => import('./components/pages/sales/BookingsArch
 const GeneralArchive = lazy(() => import('./components/pages/sales/GeneralArchive'));
 const DataImport = lazy(() => import('./components/pages/sales/DataImport'));
 const SalesActivityLog = lazy(() => import('./components/pages/sales/ActivityLog'));
+const ScheduledPayments = lazy(() => import('./components/pages/sales/ScheduledPayments').then(m => ({ default: m.ScheduledPayments })));
 
 // ✅ Lazy Loading - صفحات المحاسبة
 const FinancialDashboard = lazy(() => import('./components/pages/accounting/FinancialDashboard'));
@@ -215,6 +216,7 @@ const App: React.FC = () => {
       case 'payments': return <Payments />;
       case 'sales': return <UnitSales />;
       case 'sales-documents': return <SalesDocuments />;
+      case 'scheduled-payments': return <ScheduledPayments />;
       
       // Expenses
       case 'expense_dashboard': return <FinancialDashboard />;

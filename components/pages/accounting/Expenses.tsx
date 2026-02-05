@@ -149,10 +149,145 @@ export const Expenses: React.FC = () => {
     const ITEMS_PER_PAGE = 100;
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+    
+    // ════════════════════════════════════════════════════════════════════════
+    // التصدير
+    // ════════════════════════════════════════════════════════════════════════
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+    
+    // إغلاق قائمة التصدير عند النقر خارجها
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setIsExportMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const canEdit = canShow('expenses', 'edit');
     const canDelete = canShow('expenses', 'delete');
     const canAdd = canShow('expenses', 'add');
+    
+    // دالة تصدير CSV
+    const handleExportCSV = () => {
+        if (filteredExpenses.length === 0) {
+            addToast('لا توجد بيانات للتصدير', 'warning');
+            return;
+        }
+        
+        const headers = ['التاريخ', 'الوصف', 'الفئة', 'المشروع', 'المبلغ'];
+        const csvRows = [headers.join(',')];
+        
+        filteredExpenses.forEach(exp => {
+            const category = categories.find(c => c.id === exp.categoryId);
+            const project = projects.find(p => p.id === exp.projectId);
+            const row = [
+                exp.date,
+                `"${(exp.description || '').replace(/"/g, '""')}"`,
+                `"${(category?.name || '').replace(/"/g, '""')}"`,
+                `"${(project?.name || '').replace(/"/g, '""')}"`,
+                exp.amount.toString()
+            ];
+            csvRows.push(row.join(','));
+        });
+        
+        const csv = '\uFEFF' + csvRows.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const projectName = activeProject?.name || 'جميع_المشاريع';
+        link.download = `مصروفات_${projectName}_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        addToast('تم تصدير البيانات بنجاح', 'success');
+        setIsExportMenuOpen(false);
+    };
+    
+    // دالة تصدير Excel
+    const handleExportExcel = () => {
+        if (filteredExpenses.length === 0) {
+            addToast('لا توجد بيانات للتصدير', 'warning');
+            return;
+        }
+        
+        let html = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="UTF-8">
+                <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+                <x:Name>المصروفات</x:Name>
+                <x:WorksheetOptions><x:DisplayGridlines/><x:DisplayRightToLeft/></x:WorksheetOptions>
+                </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+                <style>
+                    table { border-collapse: collapse; direction: rtl; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                    th { background-color: #DC2626; color: white; font-weight: bold; }
+                    tr:nth-child(even) { background-color: #f9f9f9; }
+                    .amount { color: #DC2626; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>الوصف</th>
+                            <th>الفئة</th>
+                            <th>المشروع</th>
+                            <th>المبلغ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        filteredExpenses.forEach(exp => {
+            const category = categories.find(c => c.id === exp.categoryId);
+            const project = projects.find(p => p.id === exp.projectId);
+            html += `
+                <tr>
+                    <td>${exp.date}</td>
+                    <td>${exp.description || ''}</td>
+                    <td>${category?.name || ''}</td>
+                    <td>${project?.name || ''}</td>
+                    <td class="amount">${formatCurrency(exp.amount)}</td>
+                </tr>
+            `;
+        });
+        
+        // إضافة سطر المجموع
+        const total = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+        html += `
+                        <tr style="font-weight: bold; background-color: #fee2e2;">
+                            <td colspan="4">إجمالي المصروفات</td>
+                            <td class="amount">${formatCurrency(total)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `;
+        
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const projectName = activeProject?.name || 'جميع_المشاريع';
+        link.download = `مصروفات_${projectName}_${new Date().toISOString().split('T')[0]}.xls`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        addToast('تم تصدير البيانات إلى Excel بنجاح', 'success');
+        setIsExportMenuOpen(false);
+    };
 
     const [visibleColumns, setVisibleColumns] = useState(() => {
         const saved = localStorage.getItem('expenseVisibleColumns');
@@ -723,26 +858,27 @@ export const Expenses: React.FC = () => {
         const baseStyles = `
             * { margin: 0; padding: 0; box-sizing: border-box; }
             :root { --accent-600: ${accent.accent600}; --accent-700: ${accent.accent700}; --accent-50: ${accent.accent50}; --accent-100: ${accent.accent100}; }
-            @page { size: A4; margin: 12mm; }
+            @page { size: A4; margin: 10mm; }
             body { font-family: Arial, sans-serif; direction: rtl; color: #0f172a; background: #ffffff; }
-            .sheet { border: 2px solid var(--accent-700); border-radius: 10px; padding: 14px; }
-            .header { padding-bottom: 10px; border-bottom: 2px solid var(--accent-700); margin-bottom: 14px; }
-            .brandbar { height: 8px; background: var(--accent-700); border-radius: 999px; margin-bottom: 10px; }
-            .title { font-size: 18px; font-weight: 800; color: var(--accent-700); margin-bottom: 6px; }
-            .subtitle { font-size: 12px; color: #475569; margin-top: 2px; }
-            .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 12px; color: #334155; margin-top: 8px; }
+            .sheet { border: 2px solid var(--accent-700); border-radius: 10px; padding: 12px; }
+            .header { padding-bottom: 8px; border-bottom: 2px solid var(--accent-700); margin-bottom: 10px; }
+            .brandbar { height: 6px; background: var(--accent-700); border-radius: 999px; margin-bottom: 8px; }
+            .title { font-size: 16px; font-weight: 800; color: var(--accent-700); margin-bottom: 4px; }
+            .subtitle { font-size: 11px; color: #475569; margin-top: 2px; }
+            .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: #334155; margin-top: 6px; }
             .meta b { color: #0f172a; }
-            .section { margin-top: 12px; break-inside: avoid; }
-            .section-title { font-size: 13px; font-weight: 800; color: #0f172a; background: var(--accent-50); border: 1px solid var(--accent-100); padding: 8px 10px; border-radius: 8px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #cbd5e1; }
+            .section { margin-top: 8px; }
+            .section-title { font-size: 12px; font-weight: 800; color: #0f172a; background: var(--accent-50); border: 1px solid var(--accent-100); padding: 6px 8px; border-radius: 6px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; border: 1px solid #cbd5e1; }
             thead { display: table-header-group; }
-            th { background: var(--accent-700); color: #fff; padding: 9px 8px; text-align: right; font-size: 12px; border: 1px solid var(--accent-700); }
-            td { padding: 9px 8px; text-align: right; font-size: 12px; border: 1px solid #cbd5e1; color: #0f172a; vertical-align: top; }
+            th { background: var(--accent-700); color: #fff; padding: 6px 6px; text-align: right; font-size: 11px; border: 1px solid var(--accent-700); }
+            td { padding: 5px 6px; text-align: right; font-size: 10px; border: 1px solid #cbd5e1; color: #0f172a; vertical-align: top; }
             tbody tr:nth-child(even) { background: #f8fafc; }
-            .summary { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; }
-            .summary .card { border: 1px solid var(--accent-100); background: var(--accent-50); border-radius: 10px; padding: 10px; }
+            tbody tr { break-inside: avoid; }
+            .summary { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; }
+            .summary .card { border: 1px solid var(--accent-100); background: var(--accent-50); border-radius: 8px; padding: 8px; }
             .summary .card b { color: var(--accent-700); }
-            .footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #475569; text-align: center; }
+            .footer { margin-top: 10px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 10px; color: #475569; text-align: center; }
             .nowrap { white-space: nowrap; }
             @media print { a { color: inherit; text-decoration: none; } }
         `;
@@ -772,13 +908,11 @@ export const Expenses: React.FC = () => {
         const rows = filteredExpenses
             .map(exp => {
                 const cat = categories.find(c => c.id === exp.categoryId)?.name || '—';
-                const proj = projects.find(p => p.id === exp.projectId)?.name || '—';
                 return `
                     <tr>
                         <td class="nowrap">${escapeHtml(exp.date)}</td>
                         <td>${escapeHtml(exp.description)}</td>
                         <td>${escapeHtml(cat)}</td>
-                        <td>${escapeHtml(proj)}</td>
                         <td class="nowrap">${formatForPrint(exp.amount)}</td>
                     </tr>
                 `;
@@ -820,12 +954,11 @@ export const Expenses: React.FC = () => {
                                     <th>التاريخ</th>
                                     <th>الوصف</th>
                                     <th>الفئة</th>
-                                    <th>المشروع</th>
                                     <th>المبلغ</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${rows || '<tr><td colspan="5">لا توجد بيانات للطباعة</td></tr>'}
+                                ${rows || '<tr><td colspan="4">لا توجد بيانات للطباعة</td></tr>'}
                             </tbody>
                         </table>
                     </div>
@@ -850,6 +983,15 @@ export const Expenses: React.FC = () => {
     };
 
     const handleOpenModal = (expense: Expense | null) => {
+        // ✅ فحص الصلاحيات قبل فتح المودال
+        if (expense === null && !canAdd) {
+            console.warn('🚫 handleOpenModal blocked: No add permission');
+            return;
+        }
+        if (expense !== null && !canEdit) {
+            console.warn('🚫 handleOpenModal blocked: No edit permission');
+            return;
+        }
         setEditingExpense(expense);
         setIsModalOpen(true);
     };
@@ -872,18 +1014,12 @@ export const Expenses: React.FC = () => {
                 const { documents, ...expenseDataWithoutDocs } = expenseData;
                 
                 const updatedExpense = await expensesService.update(editingExpense.id, expenseDataWithoutDocs);
-                // Only update transaction if it exists and user is not assigned to a project
-                if (updatedExpense && updatedExpense.transactionId && !currentUser?.assignedProjectId) {
-                    // جلب صندوق المشروع تلقائياً إذا كان هناك مشروع محدد
-                    let accountId = expenseData.accountId;
-                    if (expenseData.projectId && !accountId) {
-                        const projectCashbox = await accountsService.getOrCreateProjectCashbox(expenseData.projectId);
-                        accountId = projectCashbox.id;
-                    }
-                    
+                
+                // ✅ تحديث الـ transaction المرتبط إذا وجد
+                if (updatedExpense && updatedExpense.transactionId && expenseData.accountId) {
                     await transactionsService.update(updatedExpense.transactionId, {
-                        accountId: accountId,
-                        accountName: '', // Account name will be populated by the backend
+                        accountId: expenseData.accountId,
+                        accountName: '',
                         date: expenseData.date,
                         description: expenseData.description,
                         amount: expenseData.amount,
@@ -893,61 +1029,55 @@ export const Expenses: React.FC = () => {
                 addToast(`تم تحديث الحركة المالية "${expenseData.description}" بمبلغ ${formatCurrency(expenseData.amount)} بنجاح`, 'success');
                 logActivity('Update Expense', `Updated expense: ${expenseData.description} (Amount: ${expenseData.amount})`, 'expenses');
             } else {
-                // جلب صندوق المشروع تلقائياً إذا كان هناك مشروع محدد ولم يتم تحديد حساب
+                // ✅ الربط الكامل: كل مصروف يُخصم من حساب
                 let accountId = expenseData.accountId;
+                
+                // جلب صندوق المشروع تلقائياً إذا لم يتم تحديد حساب
                 if (expenseData.projectId && !accountId) {
                     const projectCashbox = await accountsService.getOrCreateProjectCashbox(expenseData.projectId);
                     accountId = projectCashbox.id;
                 }
                 
-                // تحقق من وجود حساب فقط إذا لم يكن المستخدم مرتبط بمشروع
-                if (!currentUser?.assignedProjectId && !accountId) {
-                    addToast('لا يوجد صندوق للمشروع. يرجى إنشاء صندوق أولاً.', 'error');
+                // التحقق من وجود حساب
+                if (!accountId) {
+                    addToast('يرجى اختيار حساب أو تحديد مشروع للمصروف', 'error');
                     setIsSaving(false);
                     return;
                 }
                 
-                // تحديث accountId في البيانات
-                const expenseDataWithAccount = { ...expenseData, accountId };
-                
-                // Optimistic update - add temporary expense immediately
+                // Optimistic update
                 const tempId = `temp_${Date.now()}`;
-                const tempExpense = { ...expenseDataWithAccount, id: tempId };
+                const tempExpense = { ...expenseData, id: tempId, accountId };
                 setAllExpenses(prev => [tempExpense, ...prev]);
-                
-                let newTransaction = null;
-                
-                // إنشاء الحركة المالية - تخصم من صندوق المشروع تلقائياً
-                if (accountId) {
-                    newTransaction = await transactionsService.create({
-                        accountId: accountId,
-                        accountName: '', // Account name will be populated by the backend
-                        type: 'Withdrawal',
-                        date: expenseData.date,
-                        description: expenseData.description,
-                        amount: expenseData.amount,
-                        projectId: expenseData.projectId || null,
-                        sourceType: 'Expense',
-                    });
 
-                    if (!newTransaction) {
-                        throw new Error("Failed to create transaction");
-                    }
-                }
-
-                // Remove documents field before creating expense (documents are stored separately)
-                const { documents, ...expenseDataWithoutDocs } = expenseData;
-
-                // Then create expense and link it to the transaction (if exists)
-                const newExpense = await expensesService.create({ 
-                    ...expenseDataWithoutDocs, 
-                    transactionId: newTransaction?.id || null 
+                // ✅ إنشاء transaction من نوع Withdrawal (خصم من الحساب)
+                const newTransaction = await transactionsService.create({
+                    accountId: accountId,
+                    accountName: '',
+                    type: 'Withdrawal',
+                    date: expenseData.date,
+                    description: expenseData.description,
+                    amount: expenseData.amount,
+                    projectId: expenseData.projectId || null,
+                    sourceType: 'Expense',
                 });
 
-                // Update transaction with the sourceId (if transaction exists)
-                if (newTransaction) {
-                    await transactionsService.update(newTransaction.id, { sourceId: newExpense.id });
+                if (!newTransaction) {
+                    throw new Error('فشل إنشاء الحركة المالية');
                 }
+
+                // Remove documents field before creating expense
+                const { documents, ...expenseDataWithoutDocs } = expenseData;
+
+                // ✅ إنشاء المصروف مع ربطه بالـ transaction والحساب
+                const newExpense = await expensesService.create({ 
+                    ...expenseDataWithoutDocs,
+                    accountId: accountId,
+                    transactionId: newTransaction.id
+                });
+
+                // ربط الـ transaction بالمصروف
+                await transactionsService.update(newTransaction.id, { sourceId: newExpense.id });
 
                 // Upload document if exists
                 if (documents && documents.length > 0 && documents[0].content) {
@@ -1008,10 +1138,32 @@ export const Expenses: React.FC = () => {
                 // Start delete animation
                 setDeletingId(expenseId);
                 
-                // Delete from database first (before updating UI)
+                // ✅ الربط الكامل: حذف الـ transaction المرتبط أولاً
                 if (transactionId) {
-                    await transactionsService.delete(transactionId);
+                    try {
+                        await transactionsService.delete(transactionId);
+                        console.log(`✅ Deleted linked transaction: ${transactionId}`);
+                    } catch (txError) {
+                        console.warn(`⚠️ Failed to delete transaction ${transactionId}:`, txError);
+                        // Continue with expense deletion even if transaction delete fails
+                    }
                 }
+                
+                // ✅ حذف المستندات المرتبطة بالمصروف
+                try {
+                    const expenseDocs = await documentsService.getForExpense(expenseId);
+                    for (const doc of expenseDocs) {
+                        await documentsService.delete(doc.id);
+                    }
+                    if (expenseDocs.length > 0) {
+                        console.log(`✅ Deleted ${expenseDocs.length} documents linked to expense`);
+                    }
+                } catch (docError) {
+                    console.warn('⚠️ Failed to delete expense documents:', docError);
+                    // Continue with expense deletion even if document delete fails
+                }
+                
+                // ✅ حذف المصروف
                 await expensesService.delete(expenseId);
                 
                 // ✅ تحديث الحالة المحلية فوراً لإزالة الحركة من الواجهة
@@ -1021,7 +1173,7 @@ export const Expenses: React.FC = () => {
                 await new Promise(resolve => setTimeout(resolve, 300));
                 
                 // Precise success message
-                addToast(`تم حذف الحركة المالية "${expenseDescription}" بمبلغ ${formatCurrency(expenseAmount)} بنجاح من قاعدة البيانات`, 'success');
+                addToast(`تم حذف الحركة المالية "${expenseDescription}" بمبلغ ${formatCurrency(expenseAmount)} بنجاح`, 'success');
                 logActivity('Delete Expense', `Deleted expense: ${expenseDescription} (Amount: ${expenseAmount}, ID: ${expenseId})`, 'expenses');
                 
             } catch (error) {
@@ -1040,7 +1192,8 @@ export const Expenses: React.FC = () => {
     const inputStyle = "w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200 text-sm";
     const selectStyle = `${inputStyle} bg-white dark:bg-slate-700`;
     
-    const FilterBar = () => (
+    // ✅ تم تحويل FilterBar من inline component إلى JSX مباشر لحل مشكلة فقدان التركيز
+    const filterBarContent = (
         <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl mb-6 border border-slate-200 dark:border-slate-700">
             {/* Search Bar - محسّن */}
             <div className="mb-4">
@@ -1124,6 +1277,61 @@ export const Expenses: React.FC = () => {
                             <span>طباعة</span>
                         </button>
                     )}
+                    {/* ✅ زر التصدير */}
+                    <div className="relative" ref={exportMenuRef}>
+                        <button
+                            onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                            disabled={filteredExpenses.length === 0}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold border transition-colors shadow-sm
+                                ${filteredExpenses.length === 0 
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed'
+                                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'
+                                }`}
+                        >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            <span>تصدير</span>
+                            <svg className={`h-4 w-4 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        
+                        {/* قائمة خيارات التصدير */}
+                        {isExportMenuOpen && filteredExpenses.length > 0 && (
+                            <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg
+                                border border-slate-200 dark:border-slate-700 py-1 z-50 animate-fade-in-scale-up">
+                                <button
+                                    onClick={handleExportExcel}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200
+                                        hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                >
+                                    <svg className="h-5 w-5 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12.9,14.5L15.8,19H14L12,15.6L10,19H8.2L11.1,14.5L8.2,10H10L12,13.4L14,10H15.8L12.9,14.5Z"/>
+                                    </svg>
+                                    <div className="text-right">
+                                        <p className="font-medium">تصدير Excel</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">.xls</p>
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={handleExportCSV}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200
+                                        hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                >
+                                    <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <div className="text-right">
+                                        <p className="font-medium">تصدير CSV</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">ملف نصي</p>
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <ColumnToggler visibleColumns={visibleColumns} onToggle={handleToggleColumn} />
                     {canAdd && (
                         <button 
@@ -1146,7 +1354,7 @@ export const Expenses: React.FC = () => {
                 />
             )}
             
-            {showFilters && <FilterBar />}
+            {showFilters && filterBarContent}
              {filteredExpenses.length > 0 ? (
                 <>
                     <div className="glass-card overflow-hidden">
@@ -1172,9 +1380,9 @@ export const Expenses: React.FC = () => {
                                     }`}>
                                         {visibleColumns.date && <td className="p-2 sm:p-3 text-sm text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 first:border-l-0 whitespace-nowrap align-top">{exp.date}</td>}
                                         {visibleColumns.description && (
-                                            <td className="p-2 sm:p-3 text-[11px] sm:text-xs text-slate-800 dark:text-slate-100 border-l border-slate-200 dark:border-slate-700 first:border-l-0 align-top">
+                                            <td className="p-2 sm:p-3 text-xs sm:text-sm text-slate-800 dark:text-slate-100 border-l border-slate-200 dark:border-slate-700 first:border-l-0 align-top">
                                                 <div
-                                                    className="w-full whitespace-normal break-words leading-5 max-h-14 sm:max-h-16 overflow-hidden"
+                                                    className="w-full whitespace-normal break-words leading-5 max-h-14 sm:max-h-16 overflow-hidden font-medium"
                                                     title={exp.description}
                                                 >
                                                     {exp.description}
@@ -1195,7 +1403,7 @@ export const Expenses: React.FC = () => {
                                                 </div>
                                             </td>
                                         )}
-                                        {visibleColumns.amount && <td className="p-2 sm:p-3 text-sm font-semibold text-rose-600 dark:text-rose-400 border-l border-slate-200 dark:border-slate-700 first:border-l-0 whitespace-nowrap align-top">{formatCurrency(exp.amount)}</td>}
+                                        {visibleColumns.amount && <td className="p-2 sm:p-3 text-sm font-semibold text-rose-600 dark:text-rose-400 border-l border-slate-200 dark:border-slate-700 first:border-l-0 whitespace-nowrap align-top text-center">{formatCurrency(exp.amount)}</td>}
                                         {visibleColumns.attachments && <td className="p-2 sm:p-3 text-center border-l border-slate-200 dark:border-slate-700 first:border-l-0 align-top">
                                             {((exp.documents && exp.documents.length > 0) || expenseHasDocumentsById[exp.id]) && (
                                                 <button onClick={() => handleViewFirstAttachment(exp)} className="text-primary-600 hover:text-primary-800 p-2 rounded-full hover:bg-primary-100 dark:hover:bg-primary-500/10" title="عرض المرفق">
@@ -1243,7 +1451,8 @@ export const Expenses: React.FC = () => {
                     />
                 )
             )}
-            {isModalOpen && <ExpensePanel expense={editingExpense} categories={categories} projects={projects} accounts={accounts} onClose={handleCloseModal} onSave={handleSave} isSaving={isSaving} />}
+            {/* ✅ حماية المودال بفحص الصلاحيات */}
+            {isModalOpen && ((editingExpense === null && canAdd) || (editingExpense !== null && canEdit)) && <ExpensePanel expense={editingExpense} categories={categories} projects={projects} accounts={accounts} onClose={handleCloseModal} onSave={handleSave} isSaving={isSaving} />}
             <ConfirmModal isOpen={!!expenseToDelete} onClose={() => setExpenseToDelete(null)} onConfirm={confirmDelete} title="تأكيد الحذف" message="هل أنت متأكد من حذف هذه الحركة المالية؟" />
             <AttachmentViewerModal document={viewingAttachment} onClose={() => setViewingAttachment(null)} />
         </div>
@@ -1265,6 +1474,7 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { activeProject } = useProject();
+    // ✅ الربط الكامل: المصروف مرتبط بحساب
     const [formData, setFormData] = useState({
         date: expense?.date || new Date().toISOString().split('T')[0],
         description: expense?.description || '',
@@ -1296,9 +1506,10 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
     
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const accountRequired = !currentUser?.assignedProjectId;
-        if (!formData.description || formData.amount <= 0 || !formData.categoryId || (accountRequired && !formData.accountId)) {
-            addToast('يرجى ملء الحقول الإلزامية.', 'error');
+        // ✅ الربط الكامل: التحقق من الحساب (إلا إذا كان المستخدم مرتبط بمشروع)
+        const needsAccount = !currentUser?.assignedProjectId && !formData.projectId;
+        if (!formData.description || formData.amount <= 0 || !formData.categoryId || (needsAccount && !formData.accountId)) {
+            addToast('يرجى ملء الحقول الإلزامية (الوصف، المبلغ، الفئة، والحساب).', 'error');
             return;
         }
         const expenseData = { ...formData, documents: document ? [document] : [] };
@@ -1332,12 +1543,15 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
                                 placeholder="المبلغ"
                             />
                         </div>
-                        {!currentUser?.assignedProjectId && (
-                            <select name="accountId" value={formData.accountId} onChange={handleChange} className={selectStyle} required>
-                                <option value="">اختر الحساب</option>
-                                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({a.type === 'Bank' ? 'بنك' : 'نقدي'})</option>)}
-                            </select>
-                        )}
+                        {/* ✅ الربط الكامل: اختيار الحساب لخصم المصروف */}
+                        <select name="accountId" value={formData.accountId} onChange={handleChange} className={selectStyle} required>
+                            <option value="">اختر الحساب (مطلوب)</option>
+                            {accounts.map(acc => (
+                                <option key={acc.id} value={acc.id}>
+                                    {acc.name} ({acc.type === 'Cash' ? 'صندوق' : 'بنك'})
+                                </option>
+                            ))}
+                        </select>
                         <select name="categoryId" value={formData.categoryId} onChange={handleChange} className={selectStyle} required><option value="">اختر فئة</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                         {currentUser?.assignedProjectId ? (
                             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">

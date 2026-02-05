@@ -97,32 +97,52 @@ const Header: React.FC<{
                         <MenuIcon />
                     </button>
                     {currentUser?.role === 'Admin' && (
-                        <div className="hidden md:flex items-center bg-slate-700/30 p-1 rounded-xl border border-slate-600/30 shadow-sm backdrop-blur-sm">
-                            <button 
-                                onClick={() => setInterfaceMode('projects')}
-                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group mode-switcher-btn ${interfaceMode === 'projects' ? 'mode-active' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
-                            >
-                                <span className="relative z-10 flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                                    إدارة المبيعات
-                                </span>
-                                {interfaceMode === 'projects' && (
-                                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></span>
-                                )}
-                            </button>
-                             <button 
-                                onClick={() => setInterfaceMode('expenses')}
-                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group mode-switcher-btn ${interfaceMode === 'expenses' ? 'mode-active' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
-                            >
-                                <span className="relative z-10 flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                                    الإدارة المحاسبية
-                                </span>
-                                {interfaceMode === 'expenses' && (
-                                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></span>
-                                )}
-                            </button>
-                        </div>
+                        <>
+                            {/* ✅ نسخة الموبايل - أيقونات فقط */}
+                            <div className="flex md:hidden items-center bg-slate-700/30 p-1 rounded-lg border border-slate-600/30 shadow-sm backdrop-blur-sm">
+                                <button 
+                                    onClick={() => setInterfaceMode('projects')}
+                                    className={`p-2 rounded-md transition-all duration-200 ${interfaceMode === 'projects' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                                    title="إدارة المبيعات"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                                </button>
+                                <button 
+                                    onClick={() => setInterfaceMode('expenses')}
+                                    className={`p-2 rounded-md transition-all duration-200 ${interfaceMode === 'expenses' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                                    title="الإدارة المحاسبية"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                </button>
+                            </div>
+                            {/* ✅ نسخة الديسكتوب - مع النص */}
+                            <div className="hidden md:flex items-center bg-slate-700/30 p-1 rounded-xl border border-slate-600/30 shadow-sm backdrop-blur-sm">
+                                <button 
+                                    onClick={() => setInterfaceMode('projects')}
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group mode-switcher-btn ${interfaceMode === 'projects' ? 'mode-active' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
+                                >
+                                    <span className="relative z-10 flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                                        إدارة المبيعات
+                                    </span>
+                                    {interfaceMode === 'projects' && (
+                                        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></span>
+                                    )}
+                                </button>
+                                 <button 
+                                    onClick={() => setInterfaceMode('expenses')}
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all duration-200 ease-in-out relative overflow-hidden group mode-switcher-btn ${interfaceMode === 'expenses' ? 'mode-active' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 hover:scale-[1.01] active:scale-100'}`}
+                                >
+                                    <span className="relative z-10 flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                        الإدارة المحاسبية
+                                    </span>
+                                    {interfaceMode === 'expenses' && (
+                                        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></span>
+                                    )}
+                                </button>
+                            </div>
+                        </>
                     )}
                      <h1 className="text-sm sm:text-base lg:text-lg font-semibold text-slate-200 hidden sm:block truncate max-w-[150px] sm:max-w-[200px] lg:max-w-none">
                         {pageName}

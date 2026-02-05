@@ -4,6 +4,7 @@ import { FileIcon, SpinnerIcon, SearchIcon, CloseIcon, EyeIcon, TrashIcon } from
 import { useProject } from '../../../contexts/ProjectContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
+import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import ProjectSelector from '../../shared/ProjectSelector';
 import Modal from '../../shared/Modal';
 import { customersService, bookingsService, unitsService, documentsService } from '../../../src/services/supabaseService';
@@ -128,6 +129,11 @@ const SalesDocuments: React.FC = () => {
     const { activeProject, availableProjects, setActiveProject } = useProject();
     const { currentUser } = useAuth();
     const { addToast } = useToast();
+    
+    // ✅ صلاحيات الأزرار
+    const { canShow } = useButtonPermissions();
+    const canDelete = canShow('sales-documents', 'delete');
+    
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
@@ -313,6 +319,12 @@ const SalesDocuments: React.FC = () => {
     };
 
     const handleDeleteDocument = async (docId: string) => {
+        // ✅ حماية الصلاحيات: التحقق من صلاحية الحذف
+        if (!canDelete) {
+            addToast('ليس لديك صلاحية حذف المستندات', 'error');
+            return;
+        }
+        
         if (!window.confirm('هل أنت متأكد من حذف هذا المستند؟')) return;
         
         try {
@@ -415,13 +427,15 @@ const SalesDocuments: React.FC = () => {
                                                     >
                                                         <EyeIcon className="h-3.5 w-3.5" />
                                                     </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteDocument(doc.id)}
-                                                        className="p-1 rounded hover:bg-rose-500/20 text-rose-400"
-                                                        title="حذف"
-                                                    >
-                                                        <TrashIcon className="h-3.5 w-3.5" />
-                                                    </button>
+                                                    {canDelete && (
+                                                        <button 
+                                                            onClick={() => handleDeleteDocument(doc.id)}
+                                                            className="p-1 rounded hover:bg-rose-500/20 text-rose-400"
+                                                            title="حذف"
+                                                        >
+                                                            <TrashIcon className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -469,13 +483,15 @@ const SalesDocuments: React.FC = () => {
                                                                     >
                                                                         <EyeIcon className="h-3 w-3" />
                                                                     </button>
-                                                                    <button 
-                                                                        onClick={() => handleDeleteDocument(doc.id)}
-                                                                        className="p-0.5 rounded hover:bg-rose-500/20 text-rose-400"
-                                                                        title="حذف"
-                                                                    >
-                                                                        <TrashIcon className="h-3 w-3" />
-                                                                    </button>
+                                                                    {canDelete && (
+                                                                        <button 
+                                                                            onClick={() => handleDeleteDocument(doc.id)}
+                                                                            className="p-0.5 rounded hover:bg-rose-500/20 text-rose-400"
+                                                                            title="حذف"
+                                                                        >
+                                                                            <TrashIcon className="h-3 w-3" />
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         ))}

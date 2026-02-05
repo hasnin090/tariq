@@ -81,19 +81,27 @@ const Units: React.FC = () => {
 
     // ✅ التعامل مع البحث والتنقل للعنصر المحدد
     useEffect(() => {
+        let isCancelled = false;
+        const timeoutIds: number[] = []; // ✅ تتبع جميع الـ timeouts
+        
         const handleSearchNavigate = (e: CustomEvent) => {
             if (e.detail?.page !== 'units' || !e.detail?.id) return;
             
-            setTimeout(() => {
+            const searchTimeout = window.setTimeout(() => {
+                if (isCancelled) return;
                 const element = document.getElementById(`item-${e.detail.id}`) || 
                                document.querySelector(`[data-id="${e.detail.id}"]`);
                 if (element) {
                     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     element.classList.add('search-highlight');
-                    setTimeout(() => element.classList.remove('search-highlight'), 3000);
+                    const highlightTimeout = window.setTimeout(() => {
+                        if (!isCancelled) element.classList.remove('search-highlight');
+                    }, 3000);
+                    timeoutIds.push(highlightTimeout);
                 }
                 sessionStorage.removeItem('searchFocus');
             }, 300);
+            timeoutIds.push(searchTimeout);
         };
         
         // فحص عند التحميل
@@ -112,7 +120,11 @@ const Units: React.FC = () => {
         
         // الاستماع للحدث المخصص
         window.addEventListener('searchNavigate', handleSearchNavigate as EventListener);
-        return () => window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        return () => {
+            isCancelled = true;
+            timeoutIds.forEach(id => clearTimeout(id)); // ✅ تنظيف جميع الـ timeouts
+            window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        };
     }, [units]);
 
     const loadData = async () => {
@@ -137,6 +149,15 @@ const Units: React.FC = () => {
     };
 
     const handleOpenModal = (unit: Unit | null) => {
+        // ✅ فحص الصلاحيات قبل فتح المودال
+        if (unit === null && !canAdd) {
+            console.warn('🚫 handleOpenModal blocked: No add permission');
+            return;
+        }
+        if (unit !== null && !canEdit) {
+            console.warn('🚫 handleOpenModal blocked: No edit permission');
+            return;
+        }
         setEditingUnit(unit);
         setIsModalOpen(true);
     };
@@ -287,7 +308,8 @@ const Units: React.FC = () => {
                 <EmptyState Icon={UnitsEmptyIcon} title="لا توجد وحدات" message="ابدأ بإضافة الوحدات العقارية الخاصة بك." actionButton={canAdd ? { text: 'إضافة وحدة', onClick: () => handleOpenModal(null)} : undefined} />
             )}
             
-            {isModalOpen && <UnitPanel unit={editingUnit} unitTypes={unitTypes} unitStatuses={unitStatuses} customers={customers} activeProjectId={activeProject?.id} onClose={handleCloseModal} onSave={handleSave} />}
+            {/* ✅ حماية المودال بفحص الصلاحيات */}
+            {isModalOpen && ((editingUnit === null && canAdd) || (editingUnit !== null && canEdit)) && <UnitPanel unit={editingUnit} unitTypes={unitTypes} unitStatuses={unitStatuses} customers={customers} activeProjectId={activeProject?.id} onClose={handleCloseModal} onSave={handleSave} />}
             <ConfirmModal isOpen={!!unitToDelete} onClose={() => setUnitToDelete(null)} onConfirm={confirmDelete} title="تأكيد الحذف" message={`هل أنت متأكد من حذف الوحدة "${unitToDelete?.name}"؟`} />
         </div>
     );

@@ -2,11 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Budget, ExpenseCategory, Expense } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { useToast } from '../../../contexts/ToastContext';
+import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import { expensesService, expenseCategoriesService } from '../../../src/services/supabaseService';
 import AmountInput from '../../shared/AmountInput';
 
 const Budgets: React.FC = () => {
     const { addToast } = useToast();
+    
+    // ✅ نظام الصلاحيات
+    const { canShow } = useButtonPermissions();
+    const canAdd = canShow('budgets', 'add');
+    
     const [budgets, setBudgets] = useState<Budget[]>([]);
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -87,24 +93,26 @@ const Budgets: React.FC = () => {
                         );
                     })}
                 </div>
-                <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 p-6 rounded-xl shadow-lg border border-white/20 dark:border-white/10 self-start">
-                    <h3 className="font-bold text-lg mb-4">إضافة/تعديل ميزانية</h3>
-                    <div className="space-y-4">
-                        <select value={newBudget.categoryId} onChange={e => setNewBudget({ ...newBudget, categoryId: e.target.value })} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700">
-                            <option value="">اختر فئة</option>
-                            {availableCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                        <AmountInput
-                            value={newBudget.amount || ''}
-                            onValueChange={(amount) => setNewBudget({ ...newBudget, amount })}
-                            className="w-full p-2.5 border rounded-lg dark:bg-slate-700"
-                            placeholder="مبلغ الميزانية"
-                        />
-                        <button onClick={handleAddBudget} className="w-full bg-primary-600 text-white p-2.5 rounded-lg font-semibold hover:bg-primary-700">
-                            حفظ الميزانية
-                        </button>
+                {canAdd && (
+                    <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 p-6 rounded-xl shadow-lg border border-white/20 dark:border-white/10 self-start">
+                        <h3 className="font-bold text-lg mb-4">إضافة/تعديل ميزانية</h3>
+                        <div className="space-y-4">
+                            <select value={newBudget.categoryId} onChange={e => setNewBudget({ ...newBudget, categoryId: e.target.value })} className="w-full p-2.5 border rounded-lg bg-white dark:bg-slate-700">
+                                <option value="">اختر فئة</option>
+                                {availableCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                            <AmountInput
+                                value={newBudget.amount || ''}
+                                onValueChange={(amount) => setNewBudget({ ...newBudget, amount })}
+                                className="w-full p-2.5 border rounded-lg dark:bg-slate-700"
+                                placeholder="مبلغ الميزانية"
+                            />
+                            <button onClick={handleAddBudget} className="w-full bg-primary-600 text-white p-2.5 rounded-lg font-semibold hover:bg-primary-700">
+                                حفظ الميزانية
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

@@ -13,33 +13,8 @@ import {
   sanitizeText,
   ValidationError 
 } from '../../utils/validation';
-
-/**
- * HELPER: Generate unique ID
- */
-const generateUniqueId = (prefix: string): string => {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 15);
-  const counter = Math.floor(Math.random() * 10000);
-  return `${prefix}_${timestamp}_${random}_${counter}`;
-};
-
-/**
- * HELPER: Generate UUID v4
- */
-const generateUUID = (): string => {
-  // Fallback for browsers that don't support crypto.randomUUID()
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  
-  // Manual UUID v4 generation
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
+// ✅ استيراد دوال توليد المعرّفات من الملف الموحد
+import { generateUniqueId, generateUUID } from '../../utils/uuid';
 
 /**
  * HELPER: Compare two numbers with epsilon tolerance
@@ -1453,20 +1428,21 @@ export const transactionsService = {
   async delete(id: string) {
     console.log('🗑️ Attempting to delete transaction:', id);
     
-    // First verify the record exists
+    // First verify the record exists using maybeSingle to avoid 406 error
     const { data: existingRecord, error: checkError } = await supabase
       .from('transactions')
       .select('id')
       .eq('id', id)
-      .single();
+      .maybeSingle();
     
     if (checkError) {
       console.error('❌ Error checking transaction existence:', checkError);
-      if (checkError.code === 'PGRST116') {
-        console.log('ℹ️ Transaction not found - may already be deleted');
-        return; // Record doesn't exist, consider it deleted
-      }
-      throw checkError;
+      // If any error, try to delete anyway
+    }
+    
+    if (!existingRecord) {
+      console.log('ℹ️ Transaction not found - may already be deleted');
+      return; // Record doesn't exist, consider it deleted
     }
     
     const { error } = await supabase
@@ -1573,55 +1549,370 @@ export const unitSalesService = {
 
 /**
  * EMPLOYEES SERVICE
+ * ✅ تم تحديثها لدعم ربط الموظفين بالمشاريع
  */
 export const employeesService = {
-  async getAll() {
+  // ✅ متغير للتخزين المؤقت - هل عمود project_id موجود؟
+  _hasProjectIdColumn: null as boolean | null,
+
+  /**
+   * التحقق من وجود عمود project_id في جدول employees
+   */
+  async _checkProjectIdColumn(): Promise<boolean> {
+    if (this._hasProjectIdColumn !== null) {
+      return this._hasProjectIdColumn;
+    }
+    
+    try {
+      // استعلام بسيط للتحقق من وجود العمود
+      const { data, error } = await supabase
+        .from('employees')
+        .select('project_id')
+        .limit(1);
+      
+      // إذا نجح الاستعلام، العمود موجود
+      this._hasProjectIdColumn = !error;
+      return this._hasProjectIdColumn;
+    } catch {
+      this._hasProjectIdColumn = false;
+      return false;
+    }
+  },
+
+  /**
+   * جلب جميع الموظفين مع إمكانية الفلترة حسب المشروع
+   * الموظفين العامين (project_id = NULL) يظهرون دائماً
+   */
+  async getAll(filters?: { projectId?: string | null; includeGeneral?: boolean }): Promise<Employee[]> {
+    // ✅ التحقق من وجود العمود أولاً
+    const hasColumn = await this._checkProjectIdColumn();
+    
+    if (!hasColumn) {
+      return this._getSimpleEmployees();
+    }
+
+    try {
+      let query = supabase
+        .from('employees')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      // ✅ فلترة حسب المشروع:
+      // - إذا لم يتم تحديد projectId: إرجاع قائمة فارغة (يجب تحديد مشروع)
+      // - إذا includeGeneral = true: إظهار موظفي المشروع + الموظفين العامين (NULL)
+      // - إذا includeGeneral = false: إظهار موظفي المشروع المحدد فقط
+      if (filters?.projectId) {
+        console.log('🔍 Filtering employees by projectId:', filters.projectId);
+        if (filters.includeGeneral) {
+          query = query.or(`project_id.eq.${filters.projectId},project_id.is.null`);
+        } else {
+          // ✅ فقط موظفي هذا المشروع
+          query = query.eq('project_id', filters.projectId);
+        }
+      } else {
+        // ✅ لا يوجد مشروع محدد - إرجاع قائمة فارغة
+        console.log('⚠️ No projectId provided, returning empty array');
+        return [];
+      }
+      
+      const { data, error } = await query;
+      
+      console.log('📊 Employees fetched:', data?.length || 0, 'records');
+      console.log('📊 Employees data:', data?.map(e => ({ id: e.id, name: e.name, project_id: e.project_id })));
+      
+      if (error) throw error;
+      
+      // ✅ جلب أسماء المشاريع بشكل منفصل
+      const projectIds = [...new Set((data || []).map(emp => emp.project_id).filter(Boolean))];
+      let projectMap = new Map<string, string>();
+      
+      if (projectIds.length > 0) {
+        const { data: projects } = await supabase
+          .from('projects')
+          .select('id, name')
+          .in('id', projectIds);
+        
+        projects?.forEach(p => projectMap.set(p.id, p.name));
+      }
+      
+      // Map database fields to frontend fields
+      return (data || []).map((emp: any) => ({
+        id: emp.id,
+        name: emp.name,
+        position: emp.position || '',
+        salary: emp.salary || 0,
+        projectId: emp.project_id,
+        projectName: projectMap.get(emp.project_id) || null,
+        phone: emp.phone,
+        email: emp.email,
+        hireDate: emp.hire_date,
+        isActive: emp.is_active ?? true,
+      }));
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+      // ✅ Fallback: العمود غير موجود
+      this._hasProjectIdColumn = false;
+      return this._getSimpleEmployees();
+    }
+  },
+
+  /**
+   * استعلام بسيط بدون project_id (للتوافق مع قواعد البيانات القديمة)
+   */
+  async _getSimpleEmployees(): Promise<Employee[]> {
     const { data, error } = await supabase
       .from('employees')
       .select('*')
       .order('created_at', { ascending: false });
+    
     if (error) throw error;
-    return data || [];
+    
+    return (data || []).map(emp => ({
+      id: emp.id,
+      name: emp.name,
+      position: emp.position || '',
+      salary: emp.salary || 0,
+      phone: emp.phone,
+      email: emp.email,
+      hireDate: emp.hire_date,
+      isActive: emp.is_active ?? true,
+    }));
+  },
+
+  /**
+   * جلب موظفي مشروع معين
+   */
+  async getByProject(projectId: string): Promise<Employee[]> {
+    return this.getAll({ projectId });
   },
 
   async upsertFromAppEmployee(employee: Employee) {
     // The app historically stored employees in localStorage; this ensures a DB row exists
     // so we can reference it from expenses.employee_id without FK failures.
-    const payload = {
+    
+    // ✅ التحقق من وجود العمود أولاً
+    const hasColumn = await this._checkProjectIdColumn();
+    
+    const payload: any = {
       id: employee.id,
       name: employee.name,
       position: employee.position || null,
       salary: employee.salary,
     };
+    
+    // ✅ إضافة project_id إذا موجود والعمود متاح
+    if (hasColumn && employee.projectId) {
+      payload.project_id = employee.projectId;
+    }
 
-    const { data, error } = await supabase
-      .from('employees')
-      .upsert(payload, { onConflict: 'id' })
-      .select('*')
-      .single();
+    try {
+      // ✅ استعلام بسيط بدون JOIN
+      const { data, error } = await supabase
+        .from('employees')
+        .upsert(payload, { onConflict: 'id' })
+        .select('*')
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+      
+      // ✅ التحقق من وجود العمود
+      if ('project_id' in data) {
+        this._hasProjectIdColumn = true;
+      }
+      
+      // ✅ جلب اسم المشروع بشكل منفصل
+      let projectName: string | null = null;
+      if (data.project_id) {
+        const { data: project } = await supabase
+          .from('projects')
+          .select('name')
+          .eq('id', data.project_id)
+          .single();
+        projectName = project?.name || null;
+      }
+      
+      return {
+        id: data.id,
+        name: data.name,
+        position: data.position || '',
+        salary: data.salary || 0,
+        projectId: data.project_id,
+        projectName,
+      };
+    } catch (error: any) {
+      // fallback if project_id column doesn't exist
+      this._hasProjectIdColumn = false;
+      
+      const { data: simpleData, error: simpleError } = await supabase
+        .from('employees')
+        .upsert({
+          id: employee.id,
+          name: employee.name,
+          position: employee.position || null,
+          salary: employee.salary,
+        }, { onConflict: 'id' })
+        .select('*')
+        .single();
+      
+      if (simpleError) throw simpleError;
+      return simpleData;
+    }
   },
 
   async create(employee: Omit<Employee, 'id'>) {
     const id = generateUniqueId('emp');
-    const { data, error } = await supabase
-      .from('employees')
-      .insert([{ ...employee, id }])
-      .select();
-    if (error) throw error;
-    return data?.[0];
+    
+    // ✅ التحقق من وجود العمود أولاً
+    const hasColumn = await this._checkProjectIdColumn();
+    
+    // Build insert object
+    const baseData: any = {
+      id,
+      name: employee.name,
+      position: employee.position || null,
+      salary: employee.salary || 0,
+    };
+    
+    // ✅ أضف project_id إذا كان العمود موجود وتم تمرير قيمة
+    if (hasColumn && employee.projectId) {
+      baseData.project_id = employee.projectId;
+    }
+    
+    try {
+      // ✅ استعلام بسيط بدون JOIN
+      const { data, error } = await supabase
+        .from('employees')
+        .insert([baseData])
+        .select('*');
+      
+      if (error) throw error;
+      
+      const emp = data?.[0];
+      if (!emp) return undefined;
+      
+      // ✅ التحقق من وجود project_id وتحديث الحالة
+      if ('project_id' in emp) {
+        this._hasProjectIdColumn = true;
+      }
+      
+      // ✅ جلب اسم المشروع بشكل منفصل إذا لزم الأمر
+      let projectName: string | null = null;
+      if (emp.project_id) {
+        const { data: project } = await supabase
+          .from('projects')
+          .select('name')
+          .eq('id', emp.project_id)
+          .single();
+        projectName = project?.name || null;
+      }
+      
+      return {
+        id: emp.id,
+        name: emp.name,
+        position: emp.position || '',
+        salary: emp.salary || 0,
+        projectId: emp.project_id,
+        projectName,
+      };
+    } catch (error: any) {
+      // ✅ fallback: العمود غير موجود
+      this._hasProjectIdColumn = false;
+      console.warn('Employee create fallback - project_id column may not exist');
+      
+      const { data: simpleData, error: simpleError } = await supabase
+        .from('employees')
+        .insert([{
+          id,
+          name: employee.name,
+          position: employee.position || null,
+          salary: employee.salary || 0,
+        }])
+        .select('*');
+      
+      if (simpleError) throw simpleError;
+      
+      const emp = simpleData?.[0];
+      return emp ? {
+        id: emp.id,
+        name: emp.name,
+        position: emp.position || '',
+        salary: emp.salary || 0,
+      } : undefined;
+    }
   },
 
   async update(id: string, employee: Partial<Employee>) {
-    const { data, error } = await supabase
-      .from('employees')
-      .update(employee)
-      .eq('id', id)
-      .select();
-    if (error) throw error;
-    return data?.[0];
+    // ✅ التحقق من وجود العمود أولاً
+    const hasColumn = await this._checkProjectIdColumn();
+    
+    // Build update object with snake_case
+    const updateData: any = {};
+    if (employee.name !== undefined) updateData.name = employee.name;
+    if (employee.position !== undefined) updateData.position = employee.position;
+    if (employee.salary !== undefined) updateData.salary = employee.salary;
+    
+    // ✅ أضف project_id فقط إذا علمنا أن العمود موجود
+    if (hasColumn && employee.projectId !== undefined) {
+      updateData.project_id = employee.projectId || null;
+    }
+    
+    try {
+      // ✅ استعلام بسيط بدون JOIN
+      const { data, error } = await supabase
+        .from('employees')
+        .update(updateData)
+        .eq('id', id)
+        .select('*');
+      
+      if (error) throw error;
+      
+      const emp = data?.[0];
+      if (!emp) return undefined;
+      
+      // ✅ جلب اسم المشروع بشكل منفصل
+      let projectName: string | null = null;
+      if (emp.project_id) {
+        const { data: project } = await supabase
+          .from('projects')
+          .select('name')
+          .eq('id', emp.project_id)
+          .single();
+        projectName = project?.name || null;
+      }
+      
+      return {
+        id: emp.id,
+        name: emp.name,
+        position: emp.position || '',
+        salary: emp.salary || 0,
+        projectId: emp.project_id,
+        projectName,
+      };
+    } catch (error: any) {
+      // fallback if project_id column doesn't exist
+      this._hasProjectIdColumn = false;
+      
+      const basicUpdate: any = {};
+      if (employee.name !== undefined) basicUpdate.name = employee.name;
+      if (employee.position !== undefined) basicUpdate.position = employee.position;
+      if (employee.salary !== undefined) basicUpdate.salary = employee.salary;
+      
+      const { data: simpleData, error: simpleError } = await supabase
+        .from('employees')
+        .update(basicUpdate)
+        .eq('id', id)
+        .select('*');
+      
+      if (simpleError) throw simpleError;
+      
+      const emp = simpleData?.[0];
+      return emp ? {
+        id: emp.id,
+        name: emp.name,
+        position: emp.position || '',
+        salary: emp.salary || 0,
+      } : undefined;
+    }
   },
 
   async delete(id: string) {
@@ -1630,6 +1921,17 @@ export const employeesService = {
       .delete()
       .eq('id', id);
     if (error) throw error;
+  },
+
+  subscribe(callback: (employees: Employee[]) => void) {
+    const subscription = supabase
+      .channel('employees')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => {
+        employeesService.getAll().then(callback).catch(console.error);
+      })
+      .subscribe();
+    
+    return subscription;
   }
 };
 
@@ -1678,6 +1980,35 @@ export const projectsService = {
     
     // Map back to camelCase
     const result = data?.[0];
+    
+    // ✅ إنشاء الحسابات المالية تلقائياً للمشروع الجديد
+    if (result?.id) {
+      try {
+        // إنشاء صندوق المشروع (Cash)
+        await accountsService.create({
+          name: `صندوق ${project.name}`,
+          type: 'Cash',
+          initialBalance: 0,
+          projectId: result.id,
+          description: `صندوق نقدي خاص بمشروع ${project.name}`,
+        });
+        
+        // إنشاء حساب بنكي للمشروع (Bank)
+        await accountsService.create({
+          name: `بنك ${project.name}`,
+          type: 'Bank',
+          initialBalance: 0,
+          projectId: result.id,
+          description: `حساب بنكي خاص بمشروع ${project.name}`,
+        });
+        
+        console.log(`✅ تم إنشاء الحسابات المالية لمشروع: ${project.name}`);
+      } catch (accountError) {
+        // لا نوقف إنشاء المشروع إذا فشل إنشاء الحسابات
+        console.warn('⚠️ تعذر إنشاء الحسابات المالية للمشروع:', accountError);
+      }
+    }
+    
     return result ? {
       ...result,
       assignedUserId: result.assigned_user_id,
@@ -2524,11 +2855,15 @@ export const accountsService = {
   /**
    * جلب جميع الحسابات مع إمكانية الفلترة حسب المشروع
    * الحسابات المشتركة (project_id = NULL) تظهر دائماً
+   * ✅ يتم جلب اسم المشروع من جدول projects
    */
   async getAll(filters?: { projectId?: string | null }): Promise<Account[]> {
     let query = supabase
       .from('accounts')
-      .select('*')
+      .select(`
+        *,
+        projects:project_id (name)
+      `)
       .order('created_at', { ascending: false });
     
     // فلترة: إظهار حسابات المشروع المحدد + الحسابات المشتركة (NULL)
@@ -2568,13 +2903,14 @@ export const accountsService = {
       throw error;
     }
     
-    // Map database fields to frontend fields
-    return (data || []).map(acc => ({
+    // Map database fields to frontend fields - مع اسم المشروع
+    return (data || []).map((acc: any) => ({
       id: acc.id,
       name: acc.name,
       type: acc.account_type as 'Bank' | 'Cash',
       initialBalance: acc.balance || 0,
       projectId: acc.project_id,
+      projectName: acc.projects?.name || null, // ✅ اسم المشروع من JOIN
       description: acc.description,
       isActive: acc.is_active ?? true,
       createdAt: acc.created_at,
@@ -3827,5 +4163,457 @@ export const paymentNotificationsService = {
       .lt('due_date', today);
     
     return createdCount;
+  },
+};
+
+// ============================================================================
+// خدمة الدفعات المؤجلة - Deferred Payments Service
+// نظام منفصل تماماً عن الحركات المالية العادية
+// ============================================================================
+
+import { DeferredPayment, DeferredPaymentInstallment } from '../../types';
+
+export const deferredPaymentsService = {
+  /**
+   * جلب جميع الحسابات الآجلة
+   */
+  async getAll(filters?: { projectId?: string | null }): Promise<DeferredPayment[]> {
+    let query = supabase
+      .from('deferred_accounts')
+      .select(`
+        *,
+        projects:project_id (name),
+        vendors:vendor_id (name)
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (filters?.projectId) {
+      query = query.eq('project_id', filters.projectId);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      // إذا الجدول غير موجود، إرجاع مصفوفة فارغة
+      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        console.warn('جدول deferred_accounts غير موجود، يرجى إنشاءه');
+        return [];
+      }
+      throw error;
+    }
+    
+    return (data || []).map((dp: any) => ({
+      id: dp.id,
+      description: dp.description,
+      projectId: dp.project_id,
+      projectName: dp.projects?.name || '',
+      vendorId: dp.vendor_id,
+      vendorName: dp.vendors?.name || '',
+      totalAmount: dp.total_amount || 0,
+      amountPaid: dp.amount_paid || 0,
+      dueDate: dp.due_date,
+      status: dp.status || 'Pending',
+      notes: dp.notes,
+      createdAt: dp.created_at,
+      updatedAt: dp.updated_at,
+      createdBy: dp.created_by,
+    }));
+  },
+
+  /**
+   * جلب حساب آجل بالمعرف
+   */
+  async getById(id: string): Promise<DeferredPayment | null> {
+    const { data, error } = await supabase
+      .from('deferred_accounts')
+      .select(`
+        *,
+        projects:project_id (name),
+        vendors:vendor_id (name)
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+    
+    return {
+      id: data.id,
+      description: data.description,
+      projectId: data.project_id,
+      projectName: data.projects?.name || '',
+      vendorId: data.vendor_id,
+      vendorName: data.vendors?.name || '',
+      totalAmount: data.total_amount || 0,
+      amountPaid: data.amount_paid || 0,
+      dueDate: data.due_date,
+      status: data.status || 'Pending',
+      notes: data.notes,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      createdBy: data.created_by,
+    };
+  },
+
+  /**
+   * إنشاء حساب آجل جديد
+   */
+  async create(payment: Omit<DeferredPayment, 'id' | 'amountPaid' | 'status' | 'createdAt' | 'updatedAt'>): Promise<DeferredPayment> {
+    const id = generateUniqueId('deferred');
+    
+    const { data, error } = await supabase
+      .from('deferred_accounts')
+      .insert([{
+        id,
+        description: payment.description,
+        project_id: payment.projectId,
+        vendor_id: payment.vendorId || null,
+        total_amount: payment.totalAmount,
+        amount_paid: 0,
+        due_date: payment.dueDate || null,
+        status: 'Pending',
+        notes: payment.notes || null,
+        created_by: payment.createdBy || null,
+      }])
+      .select(`
+        *,
+        projects:project_id (name),
+        vendors:vendor_id (name)
+      `)
+      .single();
+    
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      description: data.description,
+      projectId: data.project_id,
+      projectName: data.projects?.name || '',
+      vendorId: data.vendor_id,
+      vendorName: data.vendors?.name || '',
+      totalAmount: data.total_amount || 0,
+      amountPaid: data.amount_paid || 0,
+      dueDate: data.due_date,
+      status: data.status || 'Pending',
+      notes: data.notes,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      createdBy: data.created_by,
+    };
+  },
+
+  /**
+   * تحديث حساب آجل
+   */
+  async update(id: string, updates: Partial<DeferredPayment>): Promise<DeferredPayment | null> {
+    const dbUpdates: any = {};
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.projectId !== undefined) dbUpdates.project_id = updates.projectId;
+    if (updates.vendorId !== undefined) dbUpdates.vendor_id = updates.vendorId || null;
+    if (updates.totalAmount !== undefined) dbUpdates.total_amount = updates.totalAmount;
+    if (updates.amountPaid !== undefined) dbUpdates.amount_paid = updates.amountPaid;
+    if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate || null;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    dbUpdates.updated_at = new Date().toISOString();
+    
+    const { data, error } = await supabase
+      .from('deferred_accounts')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select(`
+        *,
+        projects:project_id (name),
+        vendors:vendor_id (name)
+      `)
+      .single();
+    
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      description: data.description,
+      projectId: data.project_id,
+      projectName: data.projects?.name || '',
+      vendorId: data.vendor_id,
+      vendorName: data.vendors?.name || '',
+      totalAmount: data.total_amount || 0,
+      amountPaid: data.amount_paid || 0,
+      dueDate: data.due_date,
+      status: data.status || 'Pending',
+      notes: data.notes,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      createdBy: data.created_by,
+    };
+  },
+
+  /**
+   * حذف حساب آجل وجميع دفعاته
+   */
+  async delete(id: string): Promise<void> {
+    // أولاً: استرجاع الدفعات لإعادة الأرصدة للحسابات
+    const installments = await deferredInstallmentsService.getByPaymentId(id);
+    
+    // إعادة الأرصدة للحسابات
+    for (const inst of installments) {
+      if (inst.accountId) {
+        await deferredInstallmentsService._updateAccountBalance(inst.accountId, inst.amount, 'add');
+      }
+    }
+    
+    // حذف الدفعات
+    await supabase
+      .from('deferred_installments')
+      .delete()
+      .eq('deferred_account_id', id);
+    
+    // حذف الحساب الآجل
+    const { error } = await supabase
+      .from('deferred_accounts')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  },
+
+  /**
+   * تحديث حالة الحساب الآجل بناءً على المدفوعات
+   */
+  async _updateStatus(id: string): Promise<void> {
+    const payment = await this.getById(id);
+    if (!payment) return;
+    
+    let newStatus: DeferredPayment['status'] = 'Pending';
+    if (payment.amountPaid >= payment.totalAmount) {
+      newStatus = 'Paid';
+    } else if (payment.amountPaid > 0) {
+      newStatus = 'Partially Paid';
+    }
+    
+    if (newStatus !== payment.status) {
+      await this.update(id, { status: newStatus });
+    }
+  },
+};
+
+/**
+ * خدمة دفعات/أقساط الحسابات الآجلة
+ */
+export const deferredInstallmentsService = {
+  /**
+   * جلب جميع الدفعات لحساب آجل معين
+   */
+  async getByPaymentId(deferredPaymentId: string): Promise<DeferredPaymentInstallment[]> {
+    const { data, error } = await supabase
+      .from('deferred_installments')
+      .select(`
+        *,
+        accounts:account_id (name)
+      `)
+      .eq('deferred_account_id', deferredPaymentId)
+      .order('payment_date', { ascending: false });
+    
+    if (error) {
+      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        return [];
+      }
+      throw error;
+    }
+    
+    return (data || []).map((inst: any) => ({
+      id: inst.id,
+      deferredPaymentId: inst.deferred_account_id,
+      paymentDate: inst.payment_date,
+      amount: inst.amount,
+      accountId: inst.account_id,
+      accountName: inst.accounts?.name || '',
+      notes: inst.notes,
+      receiptNumber: inst.receipt_number,
+      createdAt: inst.created_at,
+      createdBy: inst.created_by,
+    }));
+  },
+
+  /**
+   * جلب جميع الدفعات لمشروع معين
+   */
+  async getByProject(projectId: string): Promise<DeferredPaymentInstallment[]> {
+    const { data, error } = await supabase
+      .from('deferred_installments')
+      .select(`
+        *,
+        accounts:account_id (name),
+        deferred_accounts:deferred_account_id (project_id, description)
+      `)
+      .order('payment_date', { ascending: false });
+    
+    if (error) {
+      if (error.code === 'PGRST205') return [];
+      throw error;
+    }
+    
+    // فلترة حسب المشروع
+    return (data || [])
+      .filter((inst: any) => inst.deferred_accounts?.project_id === projectId)
+      .map((inst: any) => ({
+        id: inst.id,
+        deferredPaymentId: inst.deferred_account_id,
+        paymentDate: inst.payment_date,
+        amount: inst.amount,
+        accountId: inst.account_id,
+        accountName: inst.accounts?.name || '',
+        notes: inst.notes,
+        receiptNumber: inst.receipt_number,
+        createdAt: inst.created_at,
+        createdBy: inst.created_by,
+      }));
+  },
+
+  /**
+   * إنشاء دفعة جديدة للحساب الآجل
+   * ✅ يخصم من رصيد الحساب (الصندوق/البنك) مباشرة
+   */
+  async create(installment: Omit<DeferredPaymentInstallment, 'id' | 'createdAt'>): Promise<DeferredPaymentInstallment> {
+    const id = generateUniqueId('dinst');
+    
+    // 1. إنشاء سجل الدفعة
+    const { data, error } = await supabase
+      .from('deferred_installments')
+      .insert([{
+        id,
+        deferred_account_id: installment.deferredPaymentId,
+        payment_date: installment.paymentDate,
+        amount: installment.amount,
+        account_id: installment.accountId,
+        notes: installment.notes || null,
+        receipt_number: installment.receiptNumber || null,
+        created_by: installment.createdBy || null,
+      }])
+      .select(`
+        *,
+        accounts:account_id (name)
+      `)
+      .single();
+    
+    if (error) throw error;
+    
+    // 2. خصم من رصيد الحساب (الصندوق/البنك) - سحب
+    await this._updateAccountBalance(installment.accountId, installment.amount, 'subtract');
+    
+    // 3. تحديث المبلغ المدفوع في الحساب الآجل
+    await this._updateDeferredPaymentAmount(installment.deferredPaymentId, installment.amount, 'add');
+    
+    return {
+      id: data.id,
+      deferredPaymentId: data.deferred_account_id,
+      paymentDate: data.payment_date,
+      amount: data.amount,
+      accountId: data.account_id,
+      accountName: data.accounts?.name || '',
+      notes: data.notes,
+      receiptNumber: data.receipt_number,
+      createdAt: data.created_at,
+      createdBy: data.created_by,
+    };
+  },
+
+  /**
+   * حذف دفعة
+   * ✅ يُعيد المبلغ لرصيد الحساب
+   */
+  async delete(id: string): Promise<void> {
+    // جلب بيانات الدفعة أولاً
+    const { data: installment, error: fetchError } = await supabase
+      .from('deferred_installments')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    
+    // حذف الدفعة
+    const { error } = await supabase
+      .from('deferred_installments')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    // إعادة المبلغ لرصيد الحساب (إيداع)
+    await this._updateAccountBalance(installment.account_id, installment.amount, 'add');
+    
+    // تحديث المبلغ المدفوع في الحساب الآجل
+    await this._updateDeferredPaymentAmount(installment.deferred_account_id, installment.amount, 'subtract');
+  },
+
+  /**
+   * تحديث رصيد الحساب (الصندوق/البنك)
+   * @param operation 'add' للإيداع، 'subtract' للسحب
+   */
+  async _updateAccountBalance(accountId: string, amount: number, operation: 'add' | 'subtract'): Promise<void> {
+    // جلب الرصيد الحالي
+    const { data: account, error: fetchError } = await supabase
+      .from('accounts')
+      .select('balance')
+      .eq('id', accountId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    
+    const currentBalance = account?.balance || 0;
+    const newBalance = operation === 'add' 
+      ? currentBalance + amount 
+      : currentBalance - amount;
+    
+    // تحديث الرصيد
+    const { error: updateError } = await supabase
+      .from('accounts')
+      .update({ balance: newBalance })
+      .eq('id', accountId);
+    
+    if (updateError) throw updateError;
+  },
+
+  /**
+   * تحديث المبلغ المدفوع في الحساب الآجل
+   */
+  async _updateDeferredPaymentAmount(deferredPaymentId: string, amount: number, operation: 'add' | 'subtract'): Promise<void> {
+    // جلب البيانات الحالية
+    const { data: dp, error: fetchError } = await supabase
+      .from('deferred_accounts')
+      .select('amount_paid, total_amount')
+      .eq('id', deferredPaymentId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    
+    const currentPaid = dp?.amount_paid || 0;
+    const totalAmount = dp?.total_amount || 0;
+    const newPaid = operation === 'add' 
+      ? currentPaid + amount 
+      : Math.max(0, currentPaid - amount);
+    
+    // تحديد الحالة الجديدة
+    let newStatus: DeferredPayment['status'] = 'Pending';
+    if (newPaid >= totalAmount) {
+      newStatus = 'Paid';
+    } else if (newPaid > 0) {
+      newStatus = 'Partially Paid';
+    }
+    
+    // تحديث
+    const { error: updateError } = await supabase
+      .from('deferred_accounts')
+      .update({ 
+        amount_paid: newPaid,
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', deferredPaymentId);
+    
+    if (updateError) throw updateError;
   },
 };

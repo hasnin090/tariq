@@ -18,7 +18,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
     showAllProjectsOption = true
 }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -62,15 +61,9 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         );
     }
 
-    const filteredProjects = projects.filter(p => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-
     const handleSelectProject = (project: Project | null) => {
         onSelectProject(project);
         setIsOpen(false);
-        setSearchTerm('');
     };
 
     return (
@@ -153,23 +146,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 {/* Dropdown Menu */}
                 {isOpen && (
                     <div className="absolute top-full left-0 right-0 mt-1 backdrop-blur-2xl bg-white/10 rounded-xl shadow-2xl border border-white/20 z-50 overflow-hidden transition-all duration-500 animate-fade-in-scale-up">
-                        {/* Search Bar */}
-                        <div className="p-2 border-b border-white/20">
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    placeholder="ابحث..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-8 pr-3 py-2 border border-white/30 rounded-lg backdrop-blur-lg bg-white/10 focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500/50 text-slate-100 placeholder:text-slate-400 text-xs transition-all duration-300"
-                                    autoFocus
-                                />
-                                <svg xmlns="http://www.w3.org/2000/svg" className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                            </div>
-                        </div>
-
                         {/* Projects List */}
                         <div className="max-h-96 overflow-y-auto">
                             {/* All Projects Option */}
@@ -202,8 +178,8 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                             </button>
 
                             {/* Individual Projects */}
-                            {filteredProjects.length > 0 ? (
-                                filteredProjects.map((project) => {
+                            {projects.length > 0 ? (
+                                projects.map((project) => {
                                     const isActive = activeProject?.id === project.id;
                                     return (
                                         <button
@@ -242,7 +218,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                     <p className="text-xs font-semibold">لا توجد مشاريع</p>
-                                    <p className="text-[10px] mt-0.5">جرب البحث مرة أخرى</p>
                                 </div>
                             )}
                         </div>
@@ -252,9 +227,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                             <div className="flex items-center justify-between text-[10px]">
                                 <span className="text-slate-500 dark:text-slate-400">
                                     عدد المشاريع: <strong className="text-slate-700 dark:text-slate-300">{projects.length}</strong>
-                                </span>
-                                <span className="text-slate-500 dark:text-slate-400">
-                                    المعروض: <strong className="text-slate-700 dark:text-slate-300">{filteredProjects.length}</strong>
                                 </span>
                             </div>
                         </div>

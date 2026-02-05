@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { Project } from '../types';
 import { projectsService } from '../src/services/supabaseService';
 import { useAuth } from './AuthContext';
@@ -95,7 +95,17 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     }, [currentUser]);
 
     useEffect(() => {
-        loadProjects();
+        let isCancelled = false;
+        
+        const load = async () => {
+            await loadProjects();
+        };
+        
+        load();
+        
+        return () => {
+            isCancelled = true;
+        };
     }, [loadProjects]);
 
     const setActiveProject = useCallback((project: Project | null) => {
@@ -107,8 +117,16 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     }, []);
 
+    // ✅ useMemo لمنع re-renders غير ضرورية
+    const value = useMemo(() => ({
+        activeProject,
+        setActiveProject,
+        availableProjects,
+        loading
+    }), [activeProject, setActiveProject, availableProjects, loading]);
+
     return (
-        <ProjectContext.Provider value={{ activeProject, setActiveProject, availableProjects, loading }}>
+        <ProjectContext.Provider value={value}>
             {children}
         </ProjectContext.Provider>
     );

@@ -11,6 +11,7 @@
   "dependencies": {
     "@google/genai": "^1.28.0",
     "@supabase/supabase-js": "^2.81.1",
+    "apexcharts": "^5.3.6",
     "bcryptjs": "^3.0.3",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.26",
@@ -19,6 +20,7 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",
+    "react-apexcharts": "^1.9.0",
     "react-dom": "^19.2.0",
     "react-pdf": "^10.2.0",
     "recharts": "^3.6.0",

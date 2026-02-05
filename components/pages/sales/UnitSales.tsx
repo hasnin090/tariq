@@ -7,9 +7,11 @@ import { useProject } from '../../../contexts/ProjectContext';
 import ProjectSelector from '../../shared/ProjectSelector';
 import logActivity from '../../../utils/activityLogger';
 import { formatCurrency } from '../../../utils/currencyFormatter';
-import { CloseIcon, TrendingUpIcon, PaperClipIcon } from '../../shared/Icons';
+import { CloseIcon, TrendingUpIcon, PaperClipIcon, TrashIcon } from '../../shared/Icons';
 import Modal from '../../shared/Modal';
 import DocumentViewerModal from '../../shared/DocumentViewerModal';
+import ConfirmDialog from '../../shared/ConfirmDialog';
+import { useButtonPermission } from '../../../hooks';
 import { unitSalesService, unitsService, customersService, transactionsService, documentsService, accountsService } from '../../../src/services/supabaseService';
 
 const UnitSales: React.FC = () => {
@@ -25,6 +27,12 @@ const UnitSales: React.FC = () => {
     const [saleDocuments, setSaleDocuments] = useState<Map<string, Document[]>>(new Map());
     const [documentUrls, setDocumentUrls] = useState<Map<string, string>>(new Map());
     const [viewDoc, setViewDoc] = useState<{ url: string; name: string; mimeType?: string } | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; sale: UnitSaleRecord | null }>({ isOpen: false, sale: null });
+    const [isDeleting, setIsDeleting] = useState(false);
+    
+    // ✅ صلاحية الحذف والإضافة
+    const canDelete = useButtonPermission('sales', 'delete');
+    const canAdd = useButtonPermission('sales', 'add');
     
     // GSAP Table Animation Ref
     const tableBodyRef = useRef<HTMLTableSectionElement>(null);
@@ -222,13 +230,71 @@ const UnitSales: React.FC = () => {
         }
     };
 
+    // ✅ دالة حذف المبيعات
+    const handleDeleteSale = async (sale: UnitSaleRecord) => {
+        if (!sale) return;
+        
+        setIsDeleting(true);
+        try {
+            // 1. حذف المستندات المرتبطة بالمبيعة
+            const docs = saleDocuments.get(sale.id) || [];
+            for (const doc of docs) {
+                try {
+                    await documentsService.delete(doc.id);
+                } catch (err) {
+                    console.warn('Error deleting document:', err);
+                }
+            }
+
+            // 2. حذف الحركة المالية المرتبطة
+            if (sale.transactionId) {
+                try {
+                    await transactionsService.delete(sale.transactionId);
+                } catch (err) {
+                    console.warn('Error deleting transaction:', err);
+                }
+            }
+
+            // 3. إعادة حالة الوحدة إلى "متاح"
+            const unit = units.find(u => u.id === sale.unitId);
+            if (unit) {
+                await unitsService.update(unit.id, { 
+                    status: 'Available',
+                    customerId: undefined
+                });
+            }
+
+            // 4. حذف سجل المبيعة
+            await unitSalesService.delete(sale.id);
+
+            // تحديث القوائم المحلية
+            setSales(prev => prev.filter(s => s.id !== sale.id));
+            setSaleDocuments(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(sale.id);
+                return newMap;
+            });
+
+            addToast('تم حذف عملية البيع بنجاح', 'success');
+            logActivity('Delete Sale', `Deleted sale of unit ${sale.unitName} to ${sale.customerName}`, 'projects');
+        } catch (error) {
+            console.error('Error deleting sale:', error);
+            addToast('فشل في حذف عملية البيع', 'error');
+        } finally {
+            setIsDeleting(false);
+            setDeleteConfirm({ isOpen: false, sale: null });
+        }
+    };
+
     return (
         <div className="container mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">سجل المبيعات</h2>
-                <button onClick={() => setIsModalOpen(true)} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700">
-                    تسجيل عملية بيع
-                </button>
+                {canAdd && (
+                    <button onClick={() => setIsModalOpen(true)} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700">
+                        تسجيل عملية بيع
+                    </button>
+                )}
             </div>
             
             <ProjectSelector 
@@ -243,7 +309,7 @@ const UnitSales: React.FC = () => {
                 <div className="glass-card overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-right min-w-[700px]">
-                        <thead><tr className="border-b-2 border-white/20 bg-white/5"><th className="p-4 font-bold text-sm text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-200">تاريخ البيع</th><th className="p-4 font-bold text-sm text-slate-200">سعر البيع النهائي</th><th className="p-4 font-bold text-sm text-slate-200">المستندات</th></tr></thead>
+                        <thead><tr className="border-b-2 border-white/20 bg-white/5"><th className="p-4 font-bold text-sm text-slate-200">الوحدة</th><th className="p-4 font-bold text-sm text-slate-200">العميل</th><th className="p-4 font-bold text-sm text-slate-200">تاريخ البيع</th><th className="p-4 font-bold text-sm text-slate-200">سعر البيع النهائي</th><th className="p-4 font-bold text-sm text-slate-200">المستندات</th>{canDelete && <th className="p-4 font-bold text-sm text-slate-200">الإجراءات</th>}</tr></thead>
                         <tbody ref={tableBodyRef}>
                             {filteredSales.map(sale => {
                                 const docs = saleDocuments.get(sale.id) || [];
@@ -282,6 +348,17 @@ const UnitSales: React.FC = () => {
                                                 <span className="text-slate-400 text-sm">لا يوجد</span>
                                             )}
                                         </td>
+                                        {canDelete && (
+                                            <td className="p-4">
+                                                <button
+                                                    onClick={() => setDeleteConfirm({ isOpen: true, sale })}
+                                                    className="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                                    title="حذف المبيعة"
+                                                >
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })}
@@ -291,7 +368,8 @@ const UnitSales: React.FC = () => {
                     {sales.length === 0 && <p className="text-center p-8 text-slate-300">لا توجد عمليات بيع مسجلة.</p>}
                 </div>
             )}
-            {isModalOpen && <SalePanel units={units.filter(u => u.status === 'Available' || u.status === 'متاح')} customers={customers} accounts={accounts} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}
+            {/* ✅ حماية المودال بفحص الصلاحيات */}
+            {isModalOpen && canAdd && <SalePanel units={units.filter(u => u.status === 'Available' || u.status === 'متاح')} customers={customers} accounts={accounts} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}
             {viewDoc && (
                 <DocumentViewerModal
                     isOpen={true}
@@ -301,6 +379,18 @@ const UnitSales: React.FC = () => {
                     mimeType={viewDoc.mimeType}
                 />
             )}
+            
+            {/* ✅ مربع تأكيد الحذف */}
+            <ConfirmDialog
+                isOpen={deleteConfirm.isOpen}
+                title="تأكيد حذف المبيعة"
+                message={deleteConfirm.sale ? `هل أنت متأكد من حذف عملية بيع الوحدة "${deleteConfirm.sale.unitName}" للعميل "${deleteConfirm.sale.customerName}"؟ سيتم أيضاً حذف الحركة المالية المرتبطة وإعادة حالة الوحدة إلى "متاح".` : ''}
+                onConfirm={() => deleteConfirm.sale && handleDeleteSale(deleteConfirm.sale)}
+                onCancel={() => setDeleteConfirm({ isOpen: false, sale: null })}
+                confirmText={isDeleting ? 'جاري الحذف...' : 'حذف'}
+                cancelText="إلغاء"
+                type="danger"
+            />
         </div>
     );
 };

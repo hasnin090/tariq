@@ -3,6 +3,7 @@ import { UnitType, UnitStatus, ExpenseCategory, Project, InterfaceMode } from '.
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useProject } from '../../../contexts/ProjectContext';
+import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import logActivity from '../../../utils/activityLogger';
 import { unitTypesService, unitStatusesService, expenseCategoriesService, settingsService, userMenuAccessService, projectsService } from '../../../src/services/supabaseService';
 import { refreshCurrencyCache } from '../../../utils/currencyFormatter';
@@ -24,7 +25,10 @@ const CustomizationSection: React.FC<{
     projects?: Project[];
     activeProjectId?: string | null;
     userAssignedProjectId?: string | null; // المشروع المخصص للمستخدم (إذا وُجد)
-}> = ({ title, items, storageKey, onUpdate, projects, activeProjectId, userAssignedProjectId }) => {
+    canAdd?: boolean;
+    canEdit?: boolean;
+    canDelete?: boolean;
+}> = ({ title, items, storageKey, onUpdate, projects, activeProjectId, userAssignedProjectId, canAdd = true, canEdit = true, canDelete = true }) => {
     const { addToast } = useToast();
     const [newItemName, setNewItemName] = useState('');
     const [isExpanded, setIsExpanded] = useState(false);
@@ -54,6 +58,12 @@ const CustomizationSection: React.FC<{
     }, [activeProjectId, storageKey, userAssignedProjectId]);
 
     const handleAddItem = async () => {
+        // ✅ حماية الصلاحيات
+        if (!canAdd) {
+            addToast('ليس لديك صلاحية الإضافة', 'error');
+            return;
+        }
+        
         if (!newItemName.trim()) {
             addToast('الاسم لا يمكن أن يكون فارغًا.', 'error');
             return;
@@ -87,6 +97,12 @@ const CustomizationSection: React.FC<{
     };
 
     const handleDeleteItem = async (itemId: string, itemName: string) => {
+        // ✅ حماية الصلاحيات
+        if (!canDelete) {
+            addToast('ليس لديك صلاحية الحذف', 'error');
+            return;
+        }
+        
         try {
             await service.delete(itemId);
             const updatedItems = items.filter(item => item.id !== itemId);
@@ -100,6 +116,12 @@ const CustomizationSection: React.FC<{
     };
 
     const handleStartEdit = (item: EditableListItem) => {
+        // ✅ حماية الصلاحيات
+        if (!canEdit) {
+            addToast('ليس لديك صلاحية التعديل', 'error');
+            return;
+        }
+        
         setEditingId(item.id);
         setEditingName(item.name);
     };
@@ -110,6 +132,12 @@ const CustomizationSection: React.FC<{
     };
 
     const handleSaveEdit = async (itemId: string) => {
+        // ✅ حماية الصلاحيات
+        if (!canEdit) {
+            addToast('ليس لديك صلاحية التعديل', 'error');
+            return;
+        }
+        
         if (!editingName.trim()) {
             addToast('الاسم لا يمكن أن يكون فارغًا.', 'error');
             return;
@@ -158,7 +186,8 @@ const CustomizationSection: React.FC<{
 
             {isExpanded && (
                 <div className="border-t border-white/10">
-                    {/* Add New Item */}
+                    {/* Add New Item - يظهر فقط إذا كان لديه صلاحية الإضافة */}
+                    {canAdd && (
                     <div className="p-4 bg-white/5 border-b border-white/10">
                         {/* Project selector for expense categories - يظهر فقط للمدير */}
                         {storageKey === 'expenseCategories' && projects && projects.length > 0 && !userAssignedProjectId && (
@@ -206,6 +235,7 @@ const CustomizationSection: React.FC<{
                             </button>
                         </div>
                     </div>
+                    )}
 
                     {/* Items List with max height and scroll */}
                     <div className="max-h-96 overflow-y-auto">
@@ -244,7 +274,7 @@ const CustomizationSection: React.FC<{
                                                     </>
                                                 )}
                                             </div>
-                                            {!item.isSystem ? (
+                                            {!item.isSystem && (canEdit || canDelete) ? (
                                                 <div className="flex items-center gap-1">
                                                     {isEditing ? (
                                                         <>
@@ -265,6 +295,7 @@ const CustomizationSection: React.FC<{
                                                         </>
                                                     ) : (
                                                         <>
+                                                            {canEdit && (
                                                             <button 
                                                                 onClick={() => handleStartEdit(item)} 
                                                                 className="text-blue-400 hover:text-blue-300 p-2 rounded-lg hover:bg-blue-500/10 transition-colors"
@@ -272,6 +303,8 @@ const CustomizationSection: React.FC<{
                                                             >
                                                                 <PencilIcon className="h-4 w-4" />
                                                             </button>
+                                                            )}
+                                                            {canDelete && (
                                                             <button 
                                                                 onClick={() => handleDeleteItem(item.id, item.name)} 
                                                                 className="text-rose-400 hover:text-rose-300 p-2 rounded-lg hover:bg-rose-500/10 transition-colors"
@@ -279,6 +312,7 @@ const CustomizationSection: React.FC<{
                                                             >
                                                                 <TrashIcon className="h-4 w-4" />
                                                             </button>
+                                                            )}
                                                         </>
                                                     )}
                                                 </div>
@@ -310,6 +344,13 @@ const Customization: React.FC<CustomizationProps> = ({ interfaceMode = 'projects
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
+    
+    // ✅ صلاحيات الأزرار
+    const { canShow } = useButtonPermissions();
+    const canAdd = canShow('customization', 'add');
+    const canEdit = canShow('customization', 'edit');
+    const canDelete = canShow('customization', 'delete');
+    
     const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
     const [unitStatuses, setUnitStatuses] = useState<UnitStatus[]>([]);
     const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
@@ -605,7 +646,15 @@ const Customization: React.FC<CustomizationProps> = ({ interfaceMode = 'projects
                 <h3 className="font-bold text-xl text-slate-100 mb-4">تخصيص البيانات</h3>
                 {/* أنواع الوحدات - تظهر فقط في واجهة المبيعات */}
                 {interfaceMode === 'projects' && sectionPermissions.unitTypes && (
-                    <CustomizationSection title="أنواع الوحدات" items={unitTypes} storageKey="unitTypes" onUpdate={setUnitTypes} />
+                    <CustomizationSection 
+                        title="أنواع الوحدات" 
+                        items={unitTypes} 
+                        storageKey="unitTypes" 
+                        onUpdate={setUnitTypes}
+                        canAdd={canAdd}
+                        canEdit={canEdit}
+                        canDelete={canDelete}
+                    />
                 )}
                 {/* حالات الوحدات مخفية لأنها ثوابت نظام (متاح، محجوز، مباع) ولا يجب تعديلها */}
                 {/* فئات المصروفات - تظهر فقط في واجهة الحسابات */}
@@ -618,6 +667,9 @@ const Customization: React.FC<CustomizationProps> = ({ interfaceMode = 'projects
                         projects={projects}
                         activeProjectId={activeProject?.id || null}
                         userAssignedProjectId={currentUser?.assignedProjectId || null}
+                        canAdd={canAdd}
+                        canEdit={canEdit}
+                        canDelete={canDelete}
                     />
                 )}
                 {/* رسالة عند عدم وجود صلاحيات */}

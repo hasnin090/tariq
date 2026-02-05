@@ -3,6 +3,7 @@ import { Booking, Unit, Customer, Payment, Account, Transaction } from '../../..
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useProject } from '../../../contexts/ProjectContext';
+import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import ProjectSelector from '../../shared/ProjectSelector';
 import { filterBookingsByProject } from '../../../utils/projectFilters';
 import logActivity from '../../../utils/activityLogger';
@@ -22,6 +23,10 @@ export const Bookings: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
+    const { canShow } = useButtonPermissions();
+    const canAdd = canShow('bookings', 'add');
+    const canEdit = canShow('bookings', 'edit');
+    const canDelete = canShow('bookings', 'delete');
     const canEditPayment = currentUser?.role === 'Admin';
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
@@ -100,6 +105,9 @@ export const Bookings: React.FC = () => {
 
     // ✅ التعامل مع البحث والتنقل للعنصر المحدد
     useEffect(() => {
+        let isCancelled = false;
+        const timeoutIds: number[] = []; // ✅ تتبع جميع الـ timeouts
+        
         const handleSearchNavigate = (e: CustomEvent) => {
             if (e.detail?.page !== 'bookings' || !e.detail?.id) return;
             
@@ -108,12 +116,15 @@ export const Bookings: React.FC = () => {
             
             // ✅ دالة للبحث مع محاولات متعددة
             const tryFindAndScroll = (attempts = 0) => {
+                if (isCancelled) return; // ✅ فحص الإلغاء
+                
                 const element = document.getElementById(`item-${bookingId}`) || 
                                document.querySelector(`[data-id="${bookingId}"]`);
                 
                 if (!element && attempts < 10) {
                     console.log(`⏳ Booking element not found yet, attempt ${attempts + 1}/10...`);
-                    setTimeout(() => tryFindAndScroll(attempts + 1), 300);
+                    const retryTimeout = window.setTimeout(() => tryFindAndScroll(attempts + 1), 300);
+                    timeoutIds.push(retryTimeout); // ✅ حفظ الـ timeout
                     return;
                 }
                 
@@ -121,7 +132,10 @@ export const Bookings: React.FC = () => {
                     console.log('✅ Found booking element, scrolling...');
                     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     element.classList.add('search-highlight');
-                    setTimeout(() => element.classList.remove('search-highlight'), 3000);
+                    const highlightTimeout = window.setTimeout(() => {
+                        if (!isCancelled) element.classList.remove('search-highlight');
+                    }, 3000);
+                    timeoutIds.push(highlightTimeout); // ✅ حفظ الـ timeout
                 } else {
                     console.log('❌ Booking element not found after all attempts:', bookingId);
                 }
@@ -130,7 +144,8 @@ export const Bookings: React.FC = () => {
             };
             
             // بدء البحث بعد تأخير قصير
-            setTimeout(() => tryFindAndScroll(0), 200);
+            const startTimeout = window.setTimeout(() => tryFindAndScroll(0), 200);
+            timeoutIds.push(startTimeout); // ✅ حفظ الـ timeout
         };
         
         // فحص عند التحميل
@@ -149,7 +164,11 @@ export const Bookings: React.FC = () => {
         
         // الاستماع للحدث المخصص
         window.addEventListener('searchNavigate', handleSearchNavigate as EventListener);
-        return () => window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        return () => {
+            isCancelled = true;
+            timeoutIds.forEach(id => clearTimeout(id)); // ✅ تنظيف جميع الـ timeouts
+            window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        };
     }, [bookings]);
 
     const loadData = async () => {
@@ -208,6 +227,15 @@ export const Bookings: React.FC = () => {
     };
 
     const handleOpenModal = (booking: Booking | null) => {
+        // ✅ فحص الصلاحيات قبل فتح المودال
+        if (booking === null && !canAdd) {
+            console.warn('🚫 handleOpenModal blocked: No add permission');
+            return;
+        }
+        if (booking !== null && !canEdit) {
+            console.warn('🚫 handleOpenModal blocked: No edit permission');
+            return;
+        }
         setEditingBooking(booking);
         setIsModalOpen(true);
     };
@@ -481,9 +509,11 @@ export const Bookings: React.FC = () => {
         <div className="container mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">إدارة الحجوزات</h2>
-                <button onClick={() => handleOpenModal(null)} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors">
-                    حجز جديد
-                </button>
+                {canAdd && (
+                    <button onClick={() => handleOpenModal(null)} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors">
+                        حجز جديد
+                    </button>
+                )}
             </div>
             
             <ProjectSelector 
@@ -613,7 +643,8 @@ export const Bookings: React.FC = () => {
                 </div>
                  {bookings.length === 0 && <p className="text-center p-8 text-slate-500 dark:text-slate-400">لا توجد حجوزات حالية.</p>}
             </div>
-            {isModalOpen && <BookingPanel booking={editingBooking} units={units} customers={customers} accounts={accounts} onClose={handleCloseModal} onSave={handleSave} />}
+            {/* ✅ حماية المودال بفحص الصلاحيات */}
+            {isModalOpen && ((editingBooking === null && canAdd) || (editingBooking !== null && canEdit)) && <BookingPanel booking={editingBooking} units={units} customers={customers} accounts={accounts} onClose={handleCloseModal} onSave={handleSave} />}
             {isDocManagerOpen && selectedBookingForDocs && (
                 <DocumentManager
                     isOpen={isDocManagerOpen}

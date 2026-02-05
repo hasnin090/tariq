@@ -10,6 +10,7 @@ import { formatCurrency } from '../../../utils/currencyFormatter';
 import { FileIcon, CloseIcon, UploadIcon, SearchIcon, ArchiveIcon, LinkIcon, CheckCircleIcon, TrashIcon } from '../../shared/Icons';
 import EmptyState from '../../shared/EmptyState';
 import { documentsService, expensesService } from '../../../src/services/supabaseService';
+import { useButtonPermission } from '../../../hooks/useButtonPermission';
 
 const AttachmentViewerModal: React.FC<{ document: SaleDocument | null, onClose: () => void }> = ({ document, onClose }) => {
     const overlayRef = useRef<HTMLDivElement>(null);
@@ -625,6 +626,10 @@ const DocumentsAccounting: React.FC = () => {
     const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
 
+    // ✅ التحقق من صلاحيات الأزرار
+    const canAdd = useButtonPermission('documents-accounting', 'add');
+    const canDelete = useButtonPermission('documents-accounting', 'delete');
+
     // ✅ المشروع الذي تُعرض ضمنه مستندات/حركات الصفحة (للمستخدم المخصص أو المشروع النشط)
     const projectIdToFilter = currentUser?.assignedProjectId || activeProject?.id || null;
     
@@ -1131,7 +1136,8 @@ const DocumentsAccounting: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">مستودع المستندات</h2>
                 <div className="flex items-center gap-3">
-                    {selectedDocuments.size > 0 && (
+                    {/* ✅ أزرار الحذف المتعدد - تظهر فقط مع صلاحية الحذف */}
+                    {canDelete && selectedDocuments.size > 0 && (
                         <>
                             <button
                                 onClick={() => setSelectedDocuments(new Set())}
@@ -1161,14 +1167,17 @@ const DocumentsAccounting: React.FC = () => {
                             </button>
                         </>
                     )}
-                    <button
-                        onClick={() => setIsUploadModalOpen(true)}
-                        disabled={isServerUploading}
-                        className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <UploadIcon className="h-5 w-5" />
-                        <span>رفع مستندات</span>
-                    </button>
+                    {/* ✅ زر رفع المستندات - يظهر فقط مع صلاحية الإضافة */}
+                    {canAdd && (
+                        <button
+                            onClick={() => setIsUploadModalOpen(true)}
+                            disabled={isServerUploading}
+                            className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <UploadIcon className="h-5 w-5" />
+                            <span>رفع مستندات</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1209,15 +1218,18 @@ const DocumentsAccounting: React.FC = () => {
                     <table className="w-full text-right">
                         <thead>
                             <tr className="border-b-2 border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700">
-                                <th className="p-4 w-12">
-                                    <input
-                                        type="checkbox"
-                                        checked={paginatedDocuments.length > 0 && selectedDocuments.size === paginatedDocuments.length}
-                                        onChange={toggleSelectAll}
-                                        className="w-4 h-4 text-primary-600 bg-white border-slate-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600 cursor-pointer"
-                                        title="تحديد/إلغاء تحديد الكل"
-                                    />
-                                </th>
+                                {/* ✅ checkbox التحديد الكل - يظهر فقط مع صلاحية الحذف */}
+                                {canDelete && (
+                                    <th className="p-4 w-12">
+                                        <input
+                                            type="checkbox"
+                                            checked={paginatedDocuments.length > 0 && selectedDocuments.size === paginatedDocuments.length}
+                                            onChange={toggleSelectAll}
+                                            className="w-4 h-4 text-primary-600 bg-white border-slate-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600 cursor-pointer"
+                                            title="تحديد/إلغاء تحديد الكل"
+                                        />
+                                    </th>
+                                )}
                                 <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200 w-16">#</th>
                                 <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">المستند</th>
                                 <th className="p-4 font-bold text-sm text-slate-700 dark:text-slate-200">تاريخ الرفع</th>
@@ -1240,15 +1252,18 @@ const DocumentsAccounting: React.FC = () => {
                                     hasError ? 'bg-rose-50 dark:bg-rose-900/10' : 
                                     isDuplicate ? 'bg-amber-50 dark:bg-amber-900/10' : ''
                                 }`}>
-                                    <td className="p-4">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedDocuments.has(doc.id)}
-                                            onChange={() => toggleSelectDocument(doc.id)}
-                                            className="w-4 h-4 text-primary-600 bg-white border-slate-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600 cursor-pointer"
-                                            onClick={(e) => e.stopPropagation()}
-                                        />
-                                    </td>
+                                    {/* ✅ checkbox التحديد - يظهر فقط مع صلاحية الحذف */}
+                                    {canDelete && (
+                                        <td className="p-4">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedDocuments.has(doc.id)}
+                                                onChange={() => toggleSelectDocument(doc.id)}
+                                                className="w-4 h-4 text-primary-600 bg-white border-slate-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600 cursor-pointer"
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </td>
+                                    )}
                                     <td className="p-4 text-sm font-medium text-slate-500 dark:text-slate-400">{rowNumber}</td>
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-100">
                                         <button 
@@ -1298,12 +1313,17 @@ const DocumentsAccounting: React.FC = () => {
                                     <td className="p-4 whitespace-nowrap">
                                         <div className="flex items-center gap-2">
                                             {hasError ? (
-                                                <button 
-                                                    onClick={() => setDocumentToDelete(doc)} 
-                                                    className="text-rose-600 hover:underline font-semibold flex items-center gap-1"
-                                                >
-                                                    <TrashIcon className="h-4 w-4"/> حذف السجل
-                                                </button>
+                                                // ✅ زر حذف السجل التالف - يظهر فقط مع صلاحية الحذف
+                                                canDelete ? (
+                                                    <button 
+                                                        onClick={() => setDocumentToDelete(doc)} 
+                                                        className="text-rose-600 hover:underline font-semibold flex items-center gap-1"
+                                                    >
+                                                        <TrashIcon className="h-4 w-4"/> حذف السجل
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-slate-400 text-sm">ملف تالف</span>
+                                                )
                                             ) : (
                                                 <>
                                                     {linkedExpense ? (
@@ -1313,14 +1333,19 @@ const DocumentsAccounting: React.FC = () => {
                                                             <LinkIcon className="h-4 w-4"/> ربط بحركة
                                                         </button>
                                                     )}
-                                                    <span className="text-slate-300 dark:text-slate-600">|</span>
-                                                    <button 
-                                                        onClick={() => setDocumentToDelete(doc)} 
-                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                                                        title="حذف المستند"
-                                                    >
-                                                        <TrashIcon className="h-4 w-4" />
-                                                    </button>
+                                                    {/* ✅ زر الحذف الفردي - يظهر فقط مع صلاحية الحذف */}
+                                                    {canDelete && (
+                                                        <>
+                                                            <span className="text-slate-300 dark:text-slate-600">|</span>
+                                                            <button 
+                                                                onClick={() => setDocumentToDelete(doc)} 
+                                                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                                                title="حذف المستند"
+                                                            >
+                                                                <TrashIcon className="h-4 w-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -1399,11 +1424,12 @@ const DocumentsAccounting: React.FC = () => {
                     Icon={ArchiveIcon}
                     title="لا توجد مستندات"
                     message={filter === 'all' ? "ابدأ برفع الفواتير والإيصالات لإدارتها من هنا." : `لا توجد مستندات تطابق الفلتر المحدد.`}
-                    actionButton={{ text: 'رفع مستندات', onClick: () => setIsUploadModalOpen(true) }}
+                    actionButton={canAdd ? { text: 'رفع مستندات', onClick: () => setIsUploadModalOpen(true) } : undefined}
                 />
             )}
 
-            {isUploadModalOpen && <UploadDocumentPanel onClose={() => setIsUploadModalOpen(false)} onSave={handleSaveUploads} />}
+            {/* ✅ حماية مزدوجة: Modal الرفع يظهر فقط مع صلاحية add */}
+            {canAdd && isUploadModalOpen && <UploadDocumentPanel onClose={() => setIsUploadModalOpen(false)} onSave={handleSaveUploads} />}
             {isLinkModalOpen && documentToLink && (
                 <LinkExpenseModal
                     documentToLink={documentToLink}

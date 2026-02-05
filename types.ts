@@ -308,6 +308,11 @@ export interface Employee {
     position: string;
     salary: number;
     projectId?: string;
+    projectName?: string;  // اسم المشروع (للعرض - يأتي من JOIN)
+    phone?: string;
+    email?: string;
+    hireDate?: string;
+    isActive?: boolean;
 }
 
 export interface Expense {
@@ -325,24 +330,40 @@ export interface Expense {
     employeeId?: string;
 }
 
+// ============================================================================
+// نظام الدفعات المؤجلة (منفصل عن الحركات المالية)
+// ============================================================================
+
+/** الحساب الآجل / الدين */
 export interface DeferredPayment {
     id: string;
-    description: string;
-    projectId: string;
-    projectName: string;
-    totalAmount: number;
-    amountPaid: number;
+    description: string;       // وصف الحساب (مثال: "دين مورد البناء")
+    projectId: string;         // المشروع المرتبط
+    projectName?: string;      // اسم المشروع (للعرض - من JOIN)
+    vendorId?: string;         // المورد (اختياري)
+    vendorName?: string;       // اسم المورد (للعرض)
+    totalAmount: number;       // المبلغ الإجمالي المستحق
+    amountPaid: number;        // إجمالي المدفوع حتى الآن
+    dueDate?: string;          // تاريخ الاستحقاق (اختياري)
     status: 'Pending' | 'Partially Paid' | 'Paid';
+    notes?: string;            // ملاحظات إضافية
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: string;
 }
 
+/** دفعة/قسط من الحساب الآجل */
 export interface DeferredPaymentInstallment {
     id: string;
-    deferredPaymentId: string;
-    paymentDate: string;
-    amount: number;
-    accountId: string;
-    transactionId: string;
-    expenseId: string;
+    deferredPaymentId: string; // الحساب الآجل المرتبط
+    paymentDate: string;       // تاريخ الدفع
+    amount: number;            // المبلغ المدفوع
+    accountId: string;         // الحساب المسحوب منه (صندوق/بنك)
+    accountName?: string;      // اسم الحساب (للعرض)
+    notes?: string;            // ملاحظات
+    receiptNumber?: string;    // رقم الإيصال
+    createdAt?: string;
+    createdBy?: string;
 }
 
 export interface Budget {

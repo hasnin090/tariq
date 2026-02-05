@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 're
 import gsap from 'gsap';
 import { User, Project, UserResourcePermission, UserMenuAccess, UserButtonAccess, UserProjectAssignment } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
+import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import logActivity from '../../../utils/activityLogger';
 import { 
     usersService, 
@@ -845,6 +846,13 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
 
 const Users: React.FC = () => {
     const { addToast } = useToast();
+    
+    // ✅ نظام الصلاحيات
+    const { canShow } = useButtonPermissions();
+    const canAdd = canShow('users', 'add');
+    const canEdit = canShow('users', 'edit');
+    const canDelete = canShow('users', 'delete');
+    
     const [users, setUsers] = useState<User[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1028,12 +1036,14 @@ const Users: React.FC = () => {
         <div className="container mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">إدارة المستخدمين</h2>
-                <button
-                    onClick={() => { setEditingUser(null); setIsModalOpen(true); }}
-                    className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm"
-                >
-                    إضافة مستخدم
-                </button>
+                {canAdd && (
+                    <button
+                        onClick={() => { setEditingUser(null); setIsModalOpen(true); }}
+                        className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-sm"
+                    >
+                        إضافة مستخدم
+                    </button>
+                )}
             </div>
 
             <div className="glass-card p-4 mb-6">
@@ -1103,10 +1113,12 @@ const Users: React.FC = () => {
                                     </td>
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
-                                            <button onClick={() => { setEditingUser(user); setIsModalOpen(true); }} className="text-blue-300 hover:text-blue-200 font-semibold transition-colors">
-                                                <EditIcon className="h-5 w-5" />
-                                            </button>
-                                            {user.role !== 'Admin' && (
+                                            {canEdit && (
+                                                <button onClick={() => { setEditingUser(user); setIsModalOpen(true); }} className="text-blue-300 hover:text-blue-200 font-semibold transition-colors">
+                                                    <EditIcon className="h-5 w-5" />
+                                                </button>
+                                            )}
+                                            {canDelete && user.role !== 'Admin' && (
                                                 <button onClick={() => handleDeleteRequest(user)} className="text-rose-400 hover:text-rose-300 font-semibold transition-colors">
                                                     <TrashIcon className="h-5 w-5" />
                                                 </button>
@@ -1126,7 +1138,7 @@ const Users: React.FC = () => {
                     </div>
                 )}
             </div>
-             {isModalOpen && (
+             {isModalOpen && ((editingUser === null && canAdd) || (editingUser !== null && canEdit)) && (
                 <UserPanel 
                     user={editingUser} 
                     projects={projects} 

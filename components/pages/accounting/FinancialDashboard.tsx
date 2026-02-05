@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import gsap from 'gsap';
-import { UnitSaleRecord, Payment, Expense, ExpenseCategory } from '../../../types';
+import { 
+    LineChart as RechartsLineChart, 
+    Line, 
+    XAxis, 
+    YAxis, 
+    CartesianGrid, 
+    Tooltip, 
+    ResponsiveContainer,
+    Area,
+    AreaChart,
+    Legend,
+    PieChart,
+    Pie,
+    Cell
+} from 'recharts';
+import { UnitSaleRecord, Payment, Expense, ExpenseCategory, Project, Booking, Transaction, Account } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 // FIX: Replaced non-existent PresentationChartLineIcon with ChartBarIcon.
 import { TrendingUpIcon, ScaleIcon, BanknotesIcon, ChartBarIcon } from '../../shared/Icons';
+import ProjectSelector from '../../shared/ProjectSelector';
 import { useAuth } from '../../../contexts/AuthContext';
 
 const StatCard: React.FC<{ 
@@ -50,115 +66,235 @@ const StatCard: React.FC<{
     );
 };
 
-const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string; data: number[]; color: string }[] } }> = ({ data }) => {
-    const chartRef = useRef<SVGSVGElement>(null);
-    const hasAnimated = useRef(false);
-    const chartHeight = 250;
-    const chartWidth = 700;
-    const padding = { top: 20, right: 30, bottom: 45, left: 60 };
-
-    // 🎬 GSAP Line Chart Animation - runs only once
-    useLayoutEffect(() => {
-        if (chartRef.current && !hasAnimated.current && data.datasets.some(ds => ds.data.length > 0)) {
-            hasAnimated.current = true;
-            const paths = chartRef.current.querySelectorAll('.chart-line');
-            const areas = chartRef.current.querySelectorAll('.chart-area');
-            const dots = chartRef.current.querySelectorAll('.chart-dot');
-            
-            const tl = gsap.timeline();
-            
-            // Animate lines drawing
-            paths.forEach((path) => {
-                const length = (path as SVGPathElement).getTotalLength();
-                tl.fromTo(path,
-                    { strokeDasharray: length, strokeDashoffset: length },
-                    { strokeDashoffset: 0, duration: 1.2, ease: "power2.out" },
-                    0.2
-                );
-            });
-            
-            // Animate areas fading in
-            tl.fromTo(areas,
-                { opacity: 0 },
-                { opacity: 1, duration: 0.8, ease: "power2.out" },
-                0.6
-            );
-            
-            // Animate dots appearing
-            tl.fromTo(dots,
-                { scale: 0, opacity: 0, transformOrigin: 'center center' },
-                { scale: 1, opacity: 1, duration: 0.3, stagger: 0.05, ease: "back.out(2)" },
-                0.8
-            );
-        }
-    }, [data]);
-
-    const maxValue = useMemo(() => {
-        const allData = data.datasets.flatMap(ds => ds.data);
-        const max = Math.max(...allData);
-        return max > 0 ? Math.ceil(max / 1000) * 1000 : 1000;
-    }, [data]);
-    
-    const yAxisLabels = useMemo(() => {
-        const labels = [];
-        for (let i = 0; i <= 5; i++) {
-            labels.push((maxValue / 5) * i);
-        }
-        return labels;
-    }, [maxValue]);
-
-    const toPath = (points: number[], color: string) => {
-        if (points.length === 0) return <g></g>;
-        const path = points.map((point, i) => {
-            const x = padding.left + (i * (chartWidth - padding.left - padding.right)) / (points.length - 1);
-            const y = padding.top + chartHeight - padding.top - padding.bottom - (point / maxValue) * (chartHeight - padding.top - padding.bottom);
-            return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
-        }).join(' ');
-
-        const areaPath = `${path} L ${chartWidth - padding.right},${chartHeight-padding.bottom} L ${padding.left},${chartHeight-padding.bottom} Z`;
-
-        // Generate dots for each data point
-        const dots = points.map((point, i) => {
-            const x = padding.left + (i * (chartWidth - padding.left - padding.right)) / (points.length - 1);
-            const y = padding.top + chartHeight - padding.top - padding.bottom - (point / maxValue) * (chartHeight - padding.top - padding.bottom);
-            return <circle key={i} className="chart-dot" cx={x} cy={y} r="3" fill={color} stroke="white" strokeWidth="1.5" />;
-        });
-
+// ✨ Custom Tooltip للمخطط
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
         return (
-            <g>
-                <defs><linearGradient id={`gradient-${color}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.2" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
-                <path className="chart-area" d={areaPath} fill={`url(#gradient-${color})`} />
-                <path className="chart-line" d={path} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                {dots}
-            </g>
+            <div className="bg-slate-800/95 dark:bg-slate-900/95 backdrop-blur-sm text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-700/50">
+                <p className="text-slate-300 text-sm font-medium mb-2 border-b border-slate-700 pb-2">{label}</p>
+                {payload.map((entry: any, index: number) => (
+                    <div key={index} className="flex items-center gap-3 py-1">
+                        <span 
+                            className="w-3 h-3 rounded-full shadow-sm" 
+                            style={{ backgroundColor: entry.color }}
+                        />
+                        <span className="text-slate-400 text-sm">{entry.name}:</span>
+                        <span className="text-white font-bold text-sm">{formatCurrency(entry.value)}</span>
+                    </div>
+                ))}
+            </div>
         );
+    }
+    return null;
+};
+
+// ✨ Custom Legend للمخطط
+const CustomLegend = ({ payload }: any) => {
+    return (
+        <div className="flex justify-center items-center gap-6 mt-4">
+            {payload?.map((entry: any, index: number) => (
+                <div key={index} className="flex items-center gap-2 cursor-pointer group">
+                    <span 
+                        className="w-3 h-3 rounded-full shadow-sm group-hover:scale-110 transition-transform" 
+                        style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-slate-600 dark:text-slate-400 text-sm font-medium group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
+                        {entry.value}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+// ✨ مخطط خطي احترافي باستخدام Recharts
+const ProfessionalLineChart: React.FC<{ data: { labels: string[]; datasets: { label: string; data: number[]; color: string }[] } }> = ({ data }) => {
+    // تحويل البيانات لصيغة Recharts
+    const chartData = useMemo(() => {
+        return data.labels.map((label, index) => {
+            const point: any = { name: label };
+            data.datasets.forEach(dataset => {
+                point[dataset.label] = dataset.data[index] || 0;
+            });
+            return point;
+        });
+    }, [data]);
+
+    const formatYAxis = (value: number) => {
+        if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+        if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
+        return value.toString();
     };
 
     return (
-        <div>
-            <svg ref={chartRef} viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto">
-                <g className="text-slate-500 dark:text-slate-400 text-xs">
-                    {yAxisLabels.map((label, i) => (
-                        <g key={i}>
-                            <line x1={padding.left} y1={chartHeight - padding.bottom - (i * (chartHeight-padding.top-padding.bottom) / 5)} x2={chartWidth-padding.right} y2={chartHeight - padding.bottom - (i * (chartHeight-padding.top-padding.bottom) / 5)} stroke="currentColor" className="stroke-slate-200 dark:stroke-slate-700" strokeDasharray="2,3"/>
-                            <text x={padding.left - 10} y={chartHeight - padding.bottom - (i * (chartHeight-padding.top-padding.bottom) / 5) + 3} textAnchor="end" className="fill-current">{label/1000}k</text>
-                        </g>
+        <div className="w-full h-full">
+            <ResponsiveContainer width="100%" height="100%">
+                <AreaChart 
+                    data={chartData} 
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                    <defs>
+                        {data.datasets.map((dataset, index) => (
+                            <linearGradient key={index} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={dataset.color} stopOpacity={0.3} />
+                                <stop offset="95%" stopColor={dataset.color} stopOpacity={0.05} />
+                            </linearGradient>
+                        ))}
+                    </defs>
+                    <CartesianGrid 
+                        strokeDasharray="3 3" 
+                        stroke="currentColor" 
+                        className="text-slate-200 dark:text-slate-700/50"
+                        vertical={false}
+                    />
+                    <XAxis 
+                        dataKey="name" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'currentColor', fontSize: 12 }}
+                        className="text-slate-500 dark:text-slate-400"
+                        dy={10}
+                    />
+                    <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={formatYAxis}
+                        tick={{ fill: 'currentColor', fontSize: 11 }}
+                        className="text-slate-500 dark:text-slate-400"
+                        width={50}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend content={<CustomLegend />} />
+                    {data.datasets.map((dataset, index) => (
+                        <Area
+                            key={dataset.label}
+                            type="monotone"
+                            dataKey={dataset.label}
+                            stroke={dataset.color}
+                            strokeWidth={2.5}
+                            fill={`url(#gradient-${index})`}
+                            dot={{ 
+                                r: 4, 
+                                fill: 'white', 
+                                stroke: dataset.color, 
+                                strokeWidth: 2,
+                            }}
+                            activeDot={{ 
+                                r: 6, 
+                                fill: dataset.color, 
+                                stroke: 'white', 
+                                strokeWidth: 2,
+                                className: 'drop-shadow-lg'
+                            }}
+                        />
                     ))}
-                     {data.labels.map((label, i) => (
-                        <text key={i} x={padding.left + (i * (chartWidth-padding.left-padding.right)) / (data.labels.length - 1)} y={chartHeight-padding.bottom + 20} textAnchor="middle" className="fill-current">{label}</text>
-                    ))}
-                </g>
-                {data.datasets.map((ds, index) => (
-                    <React.Fragment key={ds.label || `${ds.color}-${index}`}>
-                        {toPath(ds.data, ds.color)}
-                    </React.Fragment>
-                ))}
-            </svg>
-            <div className="flex justify-center gap-6 mt-4">
-                {data.datasets.map(ds => (
-                    <div key={ds.label} className="flex items-center gap-2 text-sm font-semibold">
-                        <span className="w-3 h-3 rounded-full" style={{backgroundColor: ds.color}}></span>
-                        <span className="text-slate-700 dark:text-slate-300">{ds.label}</span>
+                </AreaChart>
+            </ResponsiveContainer>
+        </div>
+    );
+};
+
+// ✨ مخطط دائري احترافي باستخدام Recharts
+const ProfessionalDonutChart: React.FC<{ data: { label: string; value: number; color: string }[], title: string }> = ({ data, title }) => {
+    const total = useMemo(() => data.reduce((sum, item) => sum + item.value, 0), [data]);
+    const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+    const chartData = useMemo(() => 
+        data.map(item => ({
+            name: item.label,
+            value: item.value,
+            color: item.color,
+            percentage: total > 0 ? ((item.value / total) * 100).toFixed(1) : '0'
+        })),
+        [data, total]
+    );
+
+    const onPieEnter = (_: any, index: number) => setActiveIndex(index);
+    const onPieLeave = () => setActiveIndex(null);
+
+    return (
+        <div className="flex flex-col h-full">
+            <h4 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4 text-center">{title}</h4>
+            
+            <div className="flex-1 min-h-[200px] relative">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={chartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius="55%"
+                            outerRadius="80%"
+                            paddingAngle={2}
+                            dataKey="value"
+                            onMouseEnter={onPieEnter}
+                            onMouseLeave={onPieLeave}
+                            animationBegin={0}
+                            animationDuration={800}
+                        >
+                            {chartData.map((entry, index) => (
+                                <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={entry.color}
+                                    stroke={activeIndex === index ? entry.color : 'transparent'}
+                                    strokeWidth={activeIndex === index ? 3 : 0}
+                                    style={{
+                                        filter: activeIndex === index ? 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))' : 'none',
+                                        transform: activeIndex === index ? 'scale(1.02)' : 'scale(1)',
+                                        transformOrigin: 'center',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                />
+                            ))}
+                        </Pie>
+                        <Tooltip 
+                            content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                    const data = payload[0].payload;
+                                    return (
+                                        <div className="bg-slate-800/95 text-white px-3 py-2 rounded-lg shadow-xl">
+                                            <p className="font-medium">{data.name}</p>
+                                            <p className="text-primary-400">{formatCurrency(data.value)}</p>
+                                            <p className="text-slate-400 text-sm">{data.percentage}%</p>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            }}
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
+                
+                {/* Center text */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                        <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">
+                            {formatCurrency(total)}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">الإجمالي</p>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Legend */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+                {chartData.map((item, index) => (
+                    <div 
+                        key={index} 
+                        className={`flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer ${
+                            activeIndex === index ? 'bg-slate-100 dark:bg-slate-700/50' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'
+                        }`}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onMouseLeave={() => setActiveIndex(null)}
+                    >
+                        <span 
+                            className="w-3 h-3 rounded-full flex-shrink-0" 
+                            style={{ backgroundColor: item.color }}
+                        />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{item.name}</p>
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{item.percentage}%</p>
+                        </div>
                     </div>
                 ))}
             </div>
@@ -166,106 +302,42 @@ const LineChart: React.FC<{ data: { labels: string[]; datasets: { label: string;
     );
 };
 
-const DonutChart: React.FC<{ data: { label: string; value: number; color: string }[], title: string }> = ({ data, title }) => {
-    const chartRef = useRef<SVGSVGElement>(null);
-    const centerRef = useRef<HTMLDivElement>(null);
-    const hasAnimated = useRef(false);
-    const size = 180;
-    const strokeWidth = 24;
-    const radius = (size - strokeWidth) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const total = data.reduce((sum, item) => sum + item.value, 0);
-
-    // 🎬 GSAP Donut Chart Animation - runs only once
-    useLayoutEffect(() => {
-        if (chartRef.current && centerRef.current && total > 0 && !hasAnimated.current) {
-            hasAnimated.current = true;
-            const circles = chartRef.current.querySelectorAll('.donut-segment');
-            
-            const tl = gsap.timeline();
-            
-            // Animate each segment
-            circles.forEach((circle, index) => {
-                const percentage = data[index]?.value / total || 0;
-                const offset = circumference * (1 - percentage);
-                
-                tl.fromTo(circle,
-                    { strokeDashoffset: circumference },
-                    { 
-                        strokeDashoffset: offset, 
-                        duration: 0.8, 
-                        ease: "power2.out" 
-                    },
-                    0.2 + (index * 0.15)
-                );
-            });
-            
-            // Animate center number
-            tl.fromTo(centerRef.current,
-                { scale: 0, opacity: 0 },
-                { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(2)" },
-                0.3
-            );
-        }
-    }, [data, total, circumference]);
-
-    let cumulativeOffset = 0;
-
-    return (
-        <div className="flex flex-col items-center">
-            <h4 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">{title}</h4>
-            <div className="relative" style={{ width: size, height: size }}>
-                 <svg ref={chartRef} width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-                    <circle cx={size/2} cy={size/2} r={radius} fill="none" strokeWidth={strokeWidth} className="stroke-slate-200 dark:stroke-slate-700" />
-                    {total > 0 && data.map((item, index) => {
-                        const percentage = item.value / total;
-                        const rotation = cumulativeOffset * 360;
-                        cumulativeOffset += percentage;
-                        return <circle key={item.label} className="donut-segment" cx={size/2} cy={size/2} r={radius} fill="none" stroke={item.color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={circumference} strokeLinecap="round" transform={`rotate(${rotation - 90} ${size/2} ${size/2})`} />;
-                    })}
-                </svg>
-                <div ref={centerRef} style={{opacity: 0}} className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Total</span>
-                    <span className="font-bold text-xl text-slate-800 dark:text-slate-200">{formatCurrency(total)}</span>
-                </div>
-            </div>
-            <ul className="mt-4 w-full space-y-2">
-                {data.map(item => (
-                    <li key={item.label} className="flex justify-between items-center text-sm">
-                        <div className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded-full" style={{backgroundColor: item.color}}></span>
-                            <span className="text-slate-700 dark:text-slate-300">{item.label}</span>
-                        </div>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                            {((item.value/total)*100).toFixed(1)}%
-                        </span>
-                    </li>
-                ))}
-            </ul>
-        </div>
-    )
-}
-
 const FinancialDashboard: React.FC = () => {
     const { currentUser } = useAuth();
     const [sales, setSales] = useState<UnitSaleRecord[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [manualRevenues, setManualRevenues] = useState<Transaction[]>([]); // ✅ الإيرادات اليدوية من الخزينة
+    const [accounts, setAccounts] = useState<Account[]>([]); // ✅ الحسابات للرصيد الافتتاحي
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                const { unitSalesService, paymentsService, expensesService, expenseCategoriesService } = await import('../../../src/services/supabaseService');
+                const { unitSalesService, paymentsService, expensesService, expenseCategoriesService, projectsService, bookingsService, transactionsService, accountsService } = await import('../../../src/services/supabaseService');
                 
-                let [salesData, paymentsData, expensesData, categoriesData] = await Promise.all([
+                let [salesData, paymentsData, expensesData, categoriesData, projectsData, bookingsData, transactionsData, accountsData] = await Promise.all([
                     unitSalesService.getAll(),
                     paymentsService.getAll(),
                     expensesService.getAll(),
-                    expenseCategoriesService.getAll()
+                    expenseCategoriesService.getAll(),
+                    projectsService.getAll(),
+                    bookingsService.getAll(),
+                    transactionsService.getAll(), // ✅ جلب جميع المعاملات
+                    accountsService.getAll() // ✅ جلب الحسابات للرصيد الافتتاحي
                 ]);
+                
+                // ✅ فلترة الإيرادات اليدوية فقط (Deposit بدون مصدر Payment أو Sale)
+                const manualRevenuesData = transactionsData.filter(t => 
+                    t.type === 'Deposit' && 
+                    (t.sourceType === 'Manual' || !t.sourceType || 
+                     (t.sourceType !== 'Payment' && t.sourceType !== 'Sale'))
+                );
                 
                 // Filter expenses by assigned project for project users
                 if (currentUser?.assignedProjectId) {
@@ -276,6 +348,10 @@ const FinancialDashboard: React.FC = () => {
                 setPayments(paymentsData);
                 setExpenses(expensesData);
                 setExpenseCategories(categoriesData);
+                setProjects(projectsData);
+                setBookings(bookingsData);
+                setManualRevenues(manualRevenuesData); // ✅ تخزين الإيرادات اليدوية
+                setAccounts(accountsData); // ✅ تخزين الحسابات
             } catch (error) {
                 console.error('Error fetching financial data:', error);
             } finally {
@@ -286,17 +362,57 @@ const FinancialDashboard: React.FC = () => {
         fetchData();
     }, [currentUser]);
 
+    // ✅ تصفية البيانات حسب المشروع المختار (للمدير فقط)
+    const filteredData = useMemo(() => {
+        // إذا كان المستخدم ليس مدير أو لم يختر مشروع، نعرض كل البيانات
+        if (currentUser?.role !== 'Admin' || !selectedProjectId) {
+            return { sales, payments, expenses, manualRevenues, accounts };
+        }
+        
+        // الحصول على معرفات الحجوزات الخاصة بالمشروع المختار
+        const projectBookingIds = bookings
+            .filter(b => b.projectId === selectedProjectId)
+            .map(b => b.id);
+        
+        return {
+            // المبيعات: تصفية حسب projectId مباشرة
+            sales: sales.filter(s => s.projectId === selectedProjectId),
+            // المدفوعات: تصفية حسب الحجوزات التابعة للمشروع
+            payments: payments.filter(p => projectBookingIds.includes(p.bookingId)),
+            // المصروفات: تصفية حسب projectId مباشرة
+            expenses: expenses.filter(e => e.projectId === selectedProjectId),
+            // ✅ الإيرادات اليدوية: تصفية حسب projectId
+            manualRevenues: manualRevenues.filter(r => r.projectId === selectedProjectId),
+            // ✅ الحسابات: تصفية حسب projectId
+            accounts: accounts.filter(a => a.projectId === selectedProjectId)
+        };
+    }, [sales, payments, expenses, bookings, manualRevenues, accounts, selectedProjectId, currentUser?.role]);
+
     const kpiData = useMemo(() => {
-        const totalRevenue = sales.reduce((sum, s) => sum + s.finalSalePrice, 0) + payments.reduce((sum, p) => sum + p.amount, 0);
-        const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+        const { sales: filteredSales, payments: filteredPayments, expenses: filteredExpenses, manualRevenues: filteredManualRevenues } = filteredData;
+        
+        // ⚠️ ملاحظة: لا نستخدم initialBalance هنا لأن:
+        // 1. الـ Trigger في DB يُحدث balance تلقائياً مع كل معاملة
+        // 2. الإيرادات اليدوية (manualRevenues) مُحسوبة منفصلة
+        // 3. إضافة كليهما يُسبب حساب مُضاعف
+        
+        // ✅ حساب الإيرادات: المبيعات + المدفوعات + الإيرادات اليدوية
+        const salesRevenue = filteredSales.reduce((sum, s) => sum + s.finalSalePrice, 0);
+        const paymentsRevenue = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+        const manualRevenueTotal = filteredManualRevenues.reduce((sum, r) => sum + r.amount, 0);
+        const totalRevenue = salesRevenue + paymentsRevenue + manualRevenueTotal;
+        
+        const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
         const netIncome = totalRevenue - totalExpenses;
         const profitMargin = totalRevenue > 0 ? ((netIncome / totalRevenue) * 100).toFixed(1) + '%' : '0%';
-        const totalTransactions = expenses.length;
+        const totalTransactions = filteredExpenses.length + filteredManualRevenues.length;
         
         return { totalRevenue, totalExpenses, netIncome, profitMargin, totalTransactions };
-    }, [sales, payments, expenses]);
+    }, [filteredData]);
 
     const monthlyChartData = useMemo(() => {
+        const { sales: filteredSales, payments: filteredPayments, expenses: filteredExpenses, manualRevenues: filteredManualRevenues } = filteredData;
+        
         const labels: string[] = [];
         const revenueData: number[] = [];
         const expenseData: number[] = [];
@@ -311,7 +427,8 @@ const FinancialDashboard: React.FC = () => {
 
         const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1);
 
-        [...sales, ...payments].forEach(item => {
+        // ✅ إضافة المبيعات والمدفوعات
+        [...filteredSales, ...filteredPayments].forEach(item => {
             const date = new Date('saleDate' in item ? item.saleDate : item.paymentDate);
             if (date >= sixMonthsAgo) {
                 const monthDiff = (date.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (date.getMonth() - sixMonthsAgo.getMonth());
@@ -321,7 +438,18 @@ const FinancialDashboard: React.FC = () => {
             }
         });
 
-        expenses.forEach(item => {
+        // ✅ إضافة الإيرادات اليدوية من الخزينة
+        filteredManualRevenues.forEach(revenue => {
+            const date = new Date(revenue.date);
+            if (date >= sixMonthsAgo) {
+                const monthDiff = (date.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (date.getMonth() - sixMonthsAgo.getMonth());
+                if(monthDiff >= 0 && monthDiff < 6) {
+                    revenueData[monthDiff] += revenue.amount;
+                }
+            }
+        });
+
+        filteredExpenses.forEach(item => {
             const date = new Date(item.date);
             if (date >= sixMonthsAgo) {
                  const monthDiff = (date.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (date.getMonth() - sixMonthsAgo.getMonth());
@@ -338,33 +466,52 @@ const FinancialDashboard: React.FC = () => {
                 { label: "المصروفات", data: expenseData, color: "#f43f5e" },
             ]
         };
-    }, [sales, payments, expenses]);
+    }, [filteredData]);
     
     const revenueSourcesData = useMemo(() => {
-        const totalFromSales = sales.reduce((sum, s) => sum + s.finalSalePrice, 0);
-        const totalFromPayments = payments.reduce((sum, p) => sum + p.amount, 0);
+        const { sales: filteredSales, payments: filteredPayments, manualRevenues: filteredManualRevenues } = filteredData;
         
-        // Return data with at least 1 IQD if both are zero to show chart structure
-        if (totalFromSales === 0 && totalFromPayments === 0) {
+        const totalFromSales = filteredSales.reduce((sum, s) => sum + s.finalSalePrice, 0);
+        const totalFromPayments = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+        const totalFromManual = filteredManualRevenues.reduce((sum, r) => sum + r.amount, 0); // ✅ الإيرادات اليدوية (Deposits)
+        
+        // ⚠️ لا نستخدم initialBalance لأنه الرصيد الحالي (ليس الرصيد الافتتاحي)
+        // والإيرادات اليدوية (manualRevenues) تشمل كل الـ Deposits
+        
+        // Return data with at least 1 IQD if all are zero to show chart structure
+        if (totalFromSales === 0 && totalFromPayments === 0 && totalFromManual === 0) {
+            return [
+                { label: "المبيعات", value: 1, color: "#14b8a6"},
+                { label: "الدفعات", value: 1, color: "#5eead4"},
+                { label: "إيرادات أخرى", value: 1, color: "#8b5cf6"},
+            ];
+        }
+        
+        const data = [];
+        if (totalFromSales > 0) data.push({ label: "المبيعات", value: totalFromSales, color: "#14b8a6"});
+        if (totalFromPayments > 0) data.push({ label: "الدفعات", value: totalFromPayments, color: "#5eead4"});
+        if (totalFromManual > 0) data.push({ label: "إيرادات أخرى", value: totalFromManual, color: "#8b5cf6"}); // ✅ الإيرادات اليدوية
+        
+        // If no data, show placeholders
+        if (data.length === 0) {
             return [
                 { label: "المبيعات", value: 1, color: "#14b8a6"},
                 { label: "الدفعات", value: 1, color: "#5eead4"},
             ];
         }
         
-        return [
-            { label: "المبيعات", value: totalFromSales || 1, color: "#14b8a6"},
-            { label: "الدفعات", value: totalFromPayments || 1, color: "#5eead4"},
-        ];
-    }, [sales, payments]);
+        return data;
+    }, [filteredData]);
 
     const expenseBreakdownData = useMemo(() => {
-        if (expenses.length === 0) {
+        const { expenses: filteredExpenses } = filteredData;
+        
+        if (filteredExpenses.length === 0) {
             return [{ label: "لا توجد بيانات", value: 1, color: "#64748b" }];
         }
         
         const byCategory: { [key:string]: number } = {};
-        expenses.forEach(e => {
+        filteredExpenses.forEach(e => {
             const catId = e.categoryId || 'uncategorized';
             byCategory[catId] = (byCategory[catId] || 0) + e.amount;
         });
@@ -382,7 +529,7 @@ const FinancialDashboard: React.FC = () => {
         if(other > 0) data.push({ label: "أخرى", value: other, color: colors[4] });
         
         return data.length > 0 ? data : [{ label: "لا توجد بيانات", value: 1, color: "#64748b" }];
-    }, [expenses, expenseCategories]);
+    }, [filteredData, expenseCategories]);
 
 
     if (isLoading) {
@@ -396,13 +543,40 @@ const FinancialDashboard: React.FC = () => {
         );
     }
 
+    // الحصول على اسم المشروع المختار
+    const selectedProject = selectedProjectId
+        ? projects.find(p => p.id === selectedProjectId) || null
+        : null;
+    const selectedProjectName = selectedProject?.name || null;
+
     return (
         <div className="container mx-auto">
             <div className="mb-8">
-                <h2 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                    ملخص الأداء المالي
-                </h2>
-                <p className="text-slate-600 dark:text-slate-400">نظرة شاملة على الإيرادات والمصروفات</p>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h2 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                            ملخص الأداء المالي
+                        </h2>
+                        <p className="text-slate-600 dark:text-slate-400">
+                            {selectedProjectName 
+                                ? `بيانات مشروع: ${selectedProjectName}` 
+                                : 'نظرة شاملة على جميع المشاريع'
+                            }
+                        </p>
+                    </div>
+                    
+                    {/* فلتر المشاريع - للمدير فقط */}
+                    {currentUser?.role === 'Admin' && projects.length > 0 && (
+                        <div className="flex items-center gap-3">
+                            <ProjectSelector
+                                projects={projects}
+                                activeProject={selectedProject}
+                                onSelectProject={(project) => setSelectedProjectId(project ? project.id : null)}
+                                showAllProjectsOption
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className={`grid grid-cols-1 md:grid-cols-2 ${currentUser?.role === 'Admin' ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-6 mb-8`}>
@@ -449,22 +623,31 @@ const FinancialDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">الإيرادات مقابل المصروفات (آخر 6 أشهر)</h3>
-                    <div className="h-80">
-                        <LineChart data={monthlyChartData} />
+                <div className={`${currentUser?.role === 'Admin' ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden`}>
+                    <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700">
+                        <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200">الإيرادات مقابل المصروفات</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">آخر 6 أشهر</p>
+                    </div>
+                    <div className="p-4 sm:p-6 relative" style={{ height: '340px' }}>
+                        <ProfessionalLineChart data={monthlyChartData} />
                     </div>
                 </div>
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <DonutChart data={revenueSourcesData} title="مصادر الإيرادات" />
-                </div>
+                {/* مصادر الإيرادات - تظهر فقط للمدير */}
+                {currentUser?.role === 'Admin' && (
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <ProfessionalDonutChart data={revenueSourcesData} title="مصادر الإيرادات" />
+                    </div>
+                )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                    <DonutChart data={expenseBreakdownData} title="توزيع المصروفات" />
+            {/* توزيع المصروفات - يظهر فقط للمدير */}
+            {currentUser?.role === 'Admin' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <ProfessionalDonutChart data={expenseBreakdownData} title="توزيع المصروفات" />
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

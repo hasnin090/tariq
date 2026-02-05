@@ -2,12 +2,16 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import gsap from 'gsap';
 import { Project, User } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import logActivity from '../../../utils/activityLogger';
 import { CloseIcon, BriefcaseIcon } from '../../shared/Icons';
 import { projectsService, usersService } from '../../../src/services/supabaseService';
 
 const Projects: React.FC = () => {
     const { addToast } = useToast();
+    const { currentUser } = useAuth();
+    // ✅ فحص الصلاحيات
+    const canEdit = currentUser?.role === 'Admin';
     const [projects, setProjects] = useState<Project[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,26 +102,27 @@ const Projects: React.FC = () => {
                     <BriefcaseIcon className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-500 mb-4" />
                     <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">لا توجد مشاريع</h3>
                     <p className="text-slate-600 dark:text-slate-400 mb-4">ابدأ بإضافة مشروع جديد</p>
-                    <button onClick={() => { setEditingProject(null); setIsModalOpen(true); }} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700">إضافة مشروع</button>
+                    {canEdit && <button onClick={() => { setEditingProject(null); setIsModalOpen(true); }} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700">إضافة مشروع</button>}
                 </div>
             ) : (
                 <div className="backdrop-blur-xl bg-white/10 dark:bg-white/5 rounded-xl shadow-lg border border-white/20 dark:border-white/10 overflow-hidden">
                     <table className="w-full text-right">
-                        <thead><tr className="border-b-2 bg-slate-100/50 dark:bg-slate-700/50"><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">اسم المشروع</th><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">الوصف</th><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">المحاسب المسؤول</th><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">إجراءات</th></tr></thead>
+                        <thead><tr className="border-b-2 bg-slate-100/50 dark:bg-slate-700/50"><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">اسم المشروع</th><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">الوصف</th><th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">المحاسب المسؤول</th>{canEdit && <th className="p-4 font-bold text-sm text-slate-900 dark:text-slate-100">إجراءات</th>}</tr></thead>
                         <tbody ref={tableBodyRef}>
                             {projects.map(project => (
                                 <tr key={project.id} className="border-b border-white/10 dark:border-slate-700 hover:bg-white/5 transition-colors">
                                     <td className="p-4 font-medium text-slate-900 dark:text-slate-100">{project.name}</td>
                                     <td className="p-4 max-w-sm truncate text-slate-700 dark:text-slate-300">{project.description || '-'}</td>
                                     <td className="p-4 text-slate-700 dark:text-slate-300">{users.find(u => u.id === project.assignedUserId)?.name || '-'}</td>
-                                    <td className="p-4"><button onClick={() => { setEditingProject(project); setIsModalOpen(true); }} className="text-primary-600 dark:text-primary-400 hover:underline font-semibold">تعديل</button></td>
+                                    {canEdit && <td className="p-4"><button onClick={() => { setEditingProject(project); setIsModalOpen(true); }} className="text-primary-600 dark:text-primary-400 hover:underline font-semibold">تعديل</button></td>}
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             )}
-            {isModalOpen && <ProjectPanel project={editingProject} users={users} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}
+            {/* ✅ حماية المودال بفحص الصلاحيات */}
+            {isModalOpen && canEdit && <ProjectPanel project={editingProject} users={users} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}
         </div>
     );
 };

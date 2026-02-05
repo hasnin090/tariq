@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { User, UserResourcePermission, UserMenuAccess, UserButtonAccess, UserProjectAssignment } from '../types';
 import { supabase } from '../src/lib/supabase';
 import { rateLimiter } from '../utils/rateLimiter';
@@ -281,6 +281,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Listen for auth state changes
   useEffect(() => {
+    let isCancelled = false; // ✅ Flag لمنع تسريب الذاكرة
+    
     // Check current session
     const initAuth = async () => {
       try {
@@ -289,7 +291,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         if (session?.user) {
           const userData = await loadUserData(session.user.id);
-          if (userData) {
+          if (userData && !isCancelled) {
             setCurrentUser(userData);
             setLoading(false);
             return;
@@ -311,14 +313,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               
               const fullUserData = await loadUserDataByUserId(userId);
               
-              if (fullUserData) {
+              if (fullUserData && !isCancelled) {
                 console.log('✅ Successfully restored user session with permissions:', {
                   username: fullUserData.username,
                   buttonAccessCount: fullUserData.customButtonAccess?.length || 0,
                   menuAccessCount: fullUserData.customMenuAccess?.length || 0,
                 });
                 setCurrentUser(fullUserData);
-              } else {
+              } else if (!isCancelled) {
                 // إزالة الجلسة غير الصالحة
                 console.warn('⚠️ Failed to restore user session, removing legacy session');
                 localStorage.removeItem('legacy_user_session');
@@ -332,9 +334,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        if (!isCancelled) {
+          console.error('Error initializing auth:', error);
+        }
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     };
 
@@ -666,14 +672,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const value = {
+  const value = useMemo(() => ({
     currentUser,
     login,
     logout,
     loading,
     refreshPermissions,
     setUser,
-  };
+  }), [currentUser, loading]); // ✅ useMemo لمنع re-renders غير ضرورية
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

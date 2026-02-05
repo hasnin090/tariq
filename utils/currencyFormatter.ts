@@ -29,20 +29,35 @@ export const formatCurrency = (amount: number): string => {
     }
     
     try {
-        return new Intl.NumberFormat('ar-EG', {
-            style: 'currency',
-            currency: currencyCode,
+        // استخدام الأرقام اللاتينية (الإنجليزية) لتجنب مشاكل RTL مع الأرقام العربية
+        const formatted = new Intl.NumberFormat('en-US', {
             minimumFractionDigits: decimalPlaces,
             maximumFractionDigits: decimalPlaces,
         }).format(amount);
+        
+        // إضافة رمز العملة بشكل يدوي
+        const currencySymbols: Record<string, string> = {
+            'IQD': 'د.ع',
+            'USD': '$',
+            'EUR': '€',
+            'SAR': 'ر.س',
+            'AED': 'د.إ',
+            'KWD': 'د.ك',
+            'JOD': 'د.أ',
+            'EGP': 'ج.م',
+            'SYP': 'ل.س',
+            'LBP': 'ل.ل',
+        };
+        
+        const symbol = currencySymbols[currencyCode] || currencyCode;
+        return `${formatted} ${symbol}`;
     } catch (error) {
         devError(error, `formatCurrency with code ${currencyCode}`);
         // Fallback to simple formatting
-        return new Intl.NumberFormat('ar-EG', {
-            style: 'currency',
-            currency: 'IQD',
+        const formatted = new Intl.NumberFormat('en-US', {
             minimumFractionDigits: decimalPlaces,
             maximumFractionDigits: decimalPlaces,
         }).format(amount);
+        return `${formatted} د.ع`;
     }
 };

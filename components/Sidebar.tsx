@@ -16,6 +16,7 @@ interface NavLinkProps {
     page: string;
     activePage: string;
     onClick: (page: string) => void;
+    onCloseSidebar?: () => void;
     isEditMode?: boolean;
     onDragStart?: (e: React.DragEvent) => void;
     onDragOver?: (e: React.DragEvent) => void;
@@ -23,9 +24,19 @@ interface NavLinkProps {
     isDragging?: boolean;
 }
 
-const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClick, isEditMode, onDragStart, onDragOver, onDrop, isDragging }) => {
+const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClick, onCloseSidebar, isEditMode, onDragStart, onDragOver, onDrop, isDragging }) => {
     const isActive = activePage === page;
     const [isHovered, setIsHovered] = React.useState(false);
+    
+    const handleClick = () => {
+        if (!isEditMode) {
+            onClick(page);
+            // إغلاق القائمة الجانبية فوراً
+            if (onCloseSidebar) {
+                onCloseSidebar();
+            }
+        }
+    };
     
     return (
         <li 
@@ -36,7 +47,7 @@ const NavLink: React.FC<NavLinkProps> = ({ icon, label, page, activePage, onClic
             onDrop={onDrop}
         >
             <button
-                onClick={() => !isEditMode && onClick(page)}
+                onClick={handleClick}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 className={`w-full flex items-center gap-2 sm:gap-4 px-2 sm:px-4 py-2.5 sm:py-3.5 mx-auto rounded-xl text-xs sm:text-sm font-medium transition-all duration-500 group relative overflow-hidden ${
@@ -165,17 +176,42 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         }
     }, [interfaceMode]);
 
-    // تحريك فتح/إغلاق الشريط الجانبي على الموبايل
+    // تحريك فتح/إغلاق الشريط الجانبي على الموبايل فقط
     useEffect(() => {
-        if (sidebarRef.current) {
-            if (isOpen) {
-                gsap.to(sidebarRef.current, {
-                    x: 0,
-                    duration: 0.4,
-                    ease: "power3.out"
-                });
+        const handleSidebarAnimation = () => {
+            // ✅ تطبيق الأنيميشن فقط على الشاشات الصغيرة (أقل من 1024px)
+            const isLargeScreen = window.innerWidth >= 1024;
+            
+            if (sidebarRef.current) {
+                if (isLargeScreen) {
+                    // ✅ على الشاشات الكبيرة: التأكد من أن الـ sidebar مرئي دائماً
+                    // إزالة أي transform قد يكون مُعيّن من GSAP
+                    gsap.set(sidebarRef.current, { x: 0, clearProps: "transform" });
+                } else {
+                    // على الشاشات الصغيرة: تطبيق الأنيميشن
+                    if (isOpen) {
+                        gsap.to(sidebarRef.current, {
+                            x: 0,
+                            duration: 0.4,
+                            ease: "power3.out"
+                        });
+                    } else {
+                        // ✅ إغلاق القائمة الجانبية على الموبايل فقط
+                        gsap.to(sidebarRef.current, {
+                            x: '100%',
+                            duration: 0.3,
+                            ease: "power3.in"
+                        });
+                    }
+                }
             }
-        }
+        };
+        
+        handleSidebarAnimation();
+        
+        // ✅ الاستماع لتغيير حجم الشاشة
+        window.addEventListener('resize', handleSidebarAnimation);
+        return () => window.removeEventListener('resize', handleSidebarAnimation);
     }, [isOpen]);
 
     // التمرير التلقائي عند فتح القائمة
@@ -194,7 +230,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         { icon: <UsersIcon />, label: 'العملاء', page: 'customers', adminOnly: false },
         { icon: <DocumentTextIcon />, label: 'الحجوزات', page: 'bookings', adminOnly: false },
         { icon: <CreditCardIcon />, label: 'الدفعات', page: 'payments', adminOnly: false },
+        { icon: <CalendarIcon />, label: 'جدول الدفعات', page: 'scheduled-payments', adminOnly: false },
         { icon: <TrendingUpIcon />, label: 'المبيعات', page: 'sales', adminOnly: false },
+        { icon: <DocumentReportIcon />, label: 'التقارير المالية', page: 'financial-reports', adminOnly: false },
+        { icon: <BellIcon />, label: 'مركز الإشعارات', page: 'notification-center', adminOnly: false },
         { icon: <ArchiveIcon />, label: 'مستندات البيع', page: 'sales-documents', adminOnly: true },
         { icon: <ArchiveIcon />, label: 'أرشيف الحجوزات', page: 'bookings-archive', adminOnly: false },
         { icon: <ArchiveIcon />, label: 'الأرشيف العام', page: 'general-archive', adminOnly: false },
@@ -204,8 +243,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
     const defaultExpensesLinks = [
         { icon: <HomeIcon />, label: 'لوحة التحكم', page: 'expense_dashboard', adminOnly: false },
         { icon: <ReceiptIcon />, label: 'الحركات المالية', page: 'expenses', adminOnly: false },
-        { icon: <DocumentReportIcon />, label: 'التقارير المالية', page: 'financial-reports', adminOnly: false },
-        { icon: <BellIcon />, label: 'مركز الإشعارات', page: 'notification-center', adminOnly: false },
         { icon: <CalendarIcon />, label: 'الدفعات الآجلة', page: 'deferred-payments', adminOnly: true },
         { icon: <UsersIcon />, label: 'الموظفين', page: 'employees', adminOnly: true },
         { icon: <TagIcon />, label: 'دفتر الأستاذ', page: 'category-accounting', adminOnly: true },
@@ -342,6 +379,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
         return canAccessPage(currentUser.role, page, customMenuAccess);
     };
     
+    // ✅ دالة للتعامل مع اختيار صفحة - تغلق القائمة على الموبايل
+    const handleNavClick = (page: string) => {
+        setActivePage(page);
+        // إغلاق القائمة الجانبية دائماً (App.tsx سيتجاهل على الديسكتوب)
+        onClose();
+    };
+
     let linksToShow: typeof defaultProjectsLinks = [];
     let sectionTitle = '';
     let systemTitle = '';
@@ -432,6 +476,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                                     {...link} 
                                     activePage={activePage} 
                                     onClick={setActivePage}
+                                    onCloseSidebar={onClose}
                                     isEditMode={isEditMode}
                                     onDragStart={handleDragStart(index, currentSection)}
                                     onDragOver={handleDragOver}
@@ -482,6 +527,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, interfaceM
                                                 {...link} 
                                                 activePage={activePage} 
                                                 onClick={setActivePage}
+                                                onCloseSidebar={onClose}
                                                 isEditMode={isEditMode}
                                                 onDragStart={handleDragStart(index, 'system')}
                                                 onDragOver={handleDragOver}

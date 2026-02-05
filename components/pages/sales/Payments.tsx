@@ -3,6 +3,7 @@ import { Payment, Customer, Booking, Unit, ScheduledPayment } from '../../../typ
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useProject } from '../../../contexts/ProjectContext';
+import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import ProjectSelector from '../../shared/ProjectSelector';
 import { filterPaymentsByProject } from '../../../utils/projectFilters';
 import { formatCurrency } from '../../../utils/currencyFormatter';
@@ -37,6 +38,12 @@ const Payments: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
     const { activeProject, availableProjects, setActiveProject } = useProject();
+    
+    // ✅ نظام الصلاحيات
+    const { canShow } = useButtonPermissions();
+    const canAdd = canShow('payments', 'add');
+    const canDelete = canShow('payments', 'delete');
+    
     const [payments, setPayments] = useState<Payment[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
@@ -1169,10 +1176,12 @@ const Payments: React.FC = () => {
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">سجل الدفعات</h2>
                 <div className="flex flex-col sm:flex-row gap-3">
-                    <button onClick={() => setShowAddPayment(true)} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2">
-                        <PlusIcon className="h-5 w-5" />
-                        إضافة دفعة
-                    </button>
+                    {canAdd && (
+                        <button onClick={() => setShowAddPayment(true)} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2">
+                            <PlusIcon className="h-5 w-5" />
+                            إضافة دفعة
+                        </button>
+                    )}
                     <button onClick={handlePrint} className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors flex items-center gap-2">
                         <PrinterIcon className="h-5 w-5" />
                         طباعة
@@ -1203,7 +1212,7 @@ const Payments: React.FC = () => {
             </div>
 
             {/* Add Payment Modal */}
-            {showAddPayment && (
+            {showAddPayment && canAdd && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 pt-20">
                     <div className="glass-card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="p-6">
@@ -1817,8 +1826,8 @@ const Payments: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 
-                                                {/* زر إضافة دفعة - يظهر فقط إذا كان هناك مبلغ متبقي */}
-                                                {group.remaining > 0 ? (
+                                                {/* زر إضافة دفعة - يظهر فقط إذا كان هناك مبلغ متبقي وصلاحية الإضافة */}
+                                                {group.remaining > 0 && canAdd ? (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -1830,11 +1839,11 @@ const Payments: React.FC = () => {
                                                         <PlusIcon className="h-4 w-4" />
                                                         إضافة دفعة
                                                     </button>
-                                                ) : (
+                                                ) : group.remaining <= 0 ? (
                                                     <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-1">
                                                         ✓ مكتمل
                                                     </span>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </div>
                                         
@@ -1920,7 +1929,7 @@ const Payments: React.FC = () => {
                                                                                         />
                                                                                     );
                                                                                 })()}
-                                                                                {currentUser?.role === 'Admin' && !isBookingPayment && (
+                                                                                {canDelete && !isBookingPayment && (
                                                                                     <button
                                                                                         onClick={(e) => {
                                                                                             e.stopPropagation();

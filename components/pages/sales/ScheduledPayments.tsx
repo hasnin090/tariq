@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ScheduledPayment, PaymentNotification, Booking, Customer } from '../../../types';
 import { useToast } from '../../../contexts/ToastContext';
 import { useProject } from '../../../contexts/ProjectContext';
+import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import { scheduledPaymentsService, paymentNotificationsService, bookingsService, customersService, paymentsService } from '../../../src/services/supabaseService';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import ProjectSelector from '../../shared/ProjectSelector';
@@ -12,6 +13,11 @@ import ExtraPaymentModal from '../../shared/ExtraPaymentModal';
 export const ScheduledPayments: React.FC = () => {
     const { addToast } = useToast();
     const { activeProject, availableProjects, setActiveProject } = useProject();
+    
+    // ✅ نظام الصلاحيات
+    const { canShow } = useButtonPermissions();
+    const canAdd = canShow('scheduled-payments', 'add');
+    
     const [scheduledPayments, setScheduledPayments] = useState<ScheduledPayment[]>([]);
     const [notifications, setNotifications] = useState<PaymentNotification[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
@@ -144,6 +150,11 @@ export const ScheduledPayments: React.FC = () => {
 
     // تحديث حالة الدفعة إلى مدفوعة
     const handleMarkAsPaid = async (payment: ScheduledPayment) => {
+        // ✅ التحقق من صلاحية الإضافة
+        if (!canAdd) {
+            addToast('ليس لديك صلاحية تسديد الدفعات', 'error');
+            return;
+        }
         // حفظ الدفعة المعلقة وفتح نافذة رفع المرفق
         setPendingPayment(payment);
         setShowAttachmentModal(true);
@@ -227,6 +238,12 @@ export const ScheduledPayments: React.FC = () => {
     
     // فتح نافذة الدفع الإضافي
     const handleExtraPayment = (bookingId: string) => {
+        // ✅ حماية الصلاحيات: التحقق من صلاحية الإضافة
+        if (!canAdd) {
+            addToast('ليس لديك صلاحية إضافة دفعات', 'error');
+            return;
+        }
+        
         const booking = bookingsMap.get(bookingId);
         if (!booking || !booking.unitSaleId) {
             addToast('لا يمكن العثور على معلومات البيع', 'error');
@@ -787,7 +804,7 @@ export const ScheduledPayments: React.FC = () => {
             )}
             
             {/* Modal لرفع المرفقات */}
-            {showAttachmentModal && pendingPayment && (
+            {showAttachmentModal && pendingPayment && canAdd && (
                 <PaymentAttachmentModal
                     isOpen={showAttachmentModal}
                     onClose={() => {
@@ -805,7 +822,7 @@ export const ScheduledPayments: React.FC = () => {
             )}
             
             {/* Modal للدفع الإضافي */}
-            {showExtraPaymentModal && selectedBookingId && selectedUnitSaleId && (
+            {showExtraPaymentModal && selectedBookingId && selectedUnitSaleId && canAdd && (
                 <ExtraPaymentModal
                     isOpen={showExtraPaymentModal}
                     onClose={() => {

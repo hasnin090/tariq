@@ -6,6 +6,9 @@
 import { useAuth } from '../contexts/AuthContext';
 import { canShowButton } from '../utils/permissions';
 
+// ✅ تفعيل/تعطيل سجلات التصحيح
+const DEBUG_PERMISSIONS = false;
+
 /**
  * Hook للتحقق من صلاحية إظهار زر معين
  * @param pageKey - مفتاح الصفحة (مثل 'customers', 'units', 'bookings')
@@ -15,16 +18,33 @@ import { canShowButton } from '../utils/permissions';
 export function useButtonPermission(pageKey: string, buttonKey: string): boolean {
   const { currentUser } = useAuth();
   
+  // ✅ لا مستخدم = لا صلاحيات
   if (!currentUser) {
+    if (DEBUG_PERMISSIONS) {
+      console.log(`🔒 useButtonPermission(${pageKey}, ${buttonKey}): No user - DENIED`);
+    }
     return false;
   }
   
-  return canShowButton(
+  const result = canShowButton(
     currentUser.role as 'Admin' | 'Accounting' | 'Sales',
     pageKey,
     buttonKey,
     currentUser.customButtonAccess
   );
+  
+  // ✅ تسجيل شامل للتصحيح - مهم جداً لفهم سلوك الصلاحيات
+  if (DEBUG_PERMISSIONS) {
+    console.log(`🔐 useButtonPermission(${pageKey}, ${buttonKey}):`, {
+      user: currentUser.username,
+      role: currentUser.role,
+      hasCustomButtonAccess: currentUser.customButtonAccess !== undefined && currentUser.customButtonAccess !== null,
+      customButtonAccessCount: currentUser.customButtonAccess?.length || 0,
+      result: result ? '✅ ALLOWED' : '❌ DENIED'
+    });
+  }
+  
+  return result;
 }
 
 /**
@@ -37,7 +57,9 @@ export function useButtonPermissions() {
   
   const canShow = (pageKey: string, buttonKey: string): boolean => {
     if (!currentUser) {
-      console.log(`🔒 canShow(${pageKey}, ${buttonKey}): No current user - DENIED`);
+      if (DEBUG_PERMISSIONS) {
+        console.log(`🔒 canShow(${pageKey}, ${buttonKey}): No current user - DENIED`);
+      }
       return false;
     }
     
@@ -48,13 +70,14 @@ export function useButtonPermissions() {
       currentUser.customButtonAccess
     );
     
-    // Debug logging - only log when result is false to reduce noise
-    if (!result) {
-      console.log(`🔒 canShow(${pageKey}, ${buttonKey}):`, {
+    // ✅ تسجيل شامل للتصحيح
+    if (DEBUG_PERMISSIONS) {
+      console.log(`🔐 canShow(${pageKey}, ${buttonKey}):`, {
+        user: currentUser.username,
         role: currentUser.role,
-        hasCustomAccess: !!currentUser.customButtonAccess,
+        hasCustomAccess: currentUser.customButtonAccess !== undefined && currentUser.customButtonAccess !== null,
         customAccessCount: currentUser.customButtonAccess?.length || 0,
-        result
+        result: result ? '✅ ALLOWED' : '❌ DENIED'
       });
     }
     

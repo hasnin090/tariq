@@ -15,32 +15,52 @@ import { Account, Transaction, Project } from '../../../types';
 import { formatCurrency } from '../../../utils/currencyFormatter';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useButtonPermissions } from '../../../hooks/useButtonPermission';
 import logActivity from '../../../utils/activityLogger';
 import { CloseIcon, BankIcon, CashIcon, ArrowUpIcon, ArrowDownIcon, PlusIcon, EditIcon, TrashIcon } from '../../shared/Icons';
-import { accountsService, transactionsService, projectsService } from '../../../src/services/supabaseService';
+import { accountsService, transactionsService, projectsService, expensesService } from '../../../src/services/supabaseService';
 import AmountInput from '../../shared/AmountInput';
 import { SkeletonListItem } from '../../shared/Skeleton';
 
 const Treasury: React.FC = () => {
     const { addToast } = useToast();
     const { currentUser } = useAuth();
+    const { canShow } = useButtonPermissions();
     
-    // التحقق من صلاحيات Admin
+    // ✅ التحقق من صلاحيات الخزينة
+    const canAdd = canShow('treasury', 'add');
+    const canEdit = canShow('treasury', 'edit');
+    const canDelete = canShow('treasury', 'delete');
+    
+    // التحقق من صلاحيات Admin فقط
     const isAdmin = currentUser?.role === 'Admin';
+    
+    // ✅ المشروع المخصص للمستخدم (لغير المدراء)
+    const userAssignedProjectId = currentUser?.assignedProjectId || null;
     
     // State
     const [projects, setProjects] = useState<Project[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [accounts, setAccounts] = useState<Account[]>([]);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [allTransactions, setAllTransactions] = useState<Transaction[]>([]); // ✅ جميع معاملات المشروع
+    const [transactions, setTransactions] = useState<Transaction[]>([]); // معاملات الحساب المحدد فقط
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
     const [loading, setLoading] = useState(true);
     const [loadingTransactions, setLoadingTransactions] = useState(false);
     
+    // ✅ تعريف selectedProject مبكراً باستخدام useMemo
+    const selectedProject = useMemo(() => 
+        projects.find(p => p.id === selectedProjectId), 
+        [projects, selectedProjectId]
+    );
+    
     // Modals
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isRevenueModalOpen, setIsRevenueModalOpen] = useState(false);
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+    const [isDeleteWithTransferModalOpen, setIsDeleteWithTransferModalOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+    const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
     
     // 🎬 GSAP Animation refs
     const accountsListRef = useRef<HTMLDivElement>(null);
@@ -54,11 +74,22 @@ const Treasury: React.FC = () => {
     useEffect(() => {
         const loadProjects = async () => {
             try {
-                const loadedProjects = await projectsService.getAll();
-                setProjects(loadedProjects);
-                if (loadedProjects.length > 0 && !selectedProjectId) {
-                    setSelectedProjectId(loadedProjects[0].id);
+                let loadedProjects = await projectsService.getAll();
+                
+                // ✅ إذا كان المستخدم غير Admin، يرى فقط المشروع المخصص له
+                if (!isAdmin && userAssignedProjectId) {
+                    loadedProjects = loadedProjects.filter(p => p.id === userAssignedProjectId);
                 }
+                
+                setProjects(loadedProjects);
+                
+                // ✅ تعيين المشروع فقط لغير المدير (إذا لديه مشروع واحد مخصص)
+                // ⚠️ للمدير: يجب اختيار المشروع يدوياً لتجنب إدخال إيرادات في المشروع الخطأ
+                if (!isAdmin && userAssignedProjectId) {
+                    // لغير المدير: المشروع المخصص فقط
+                    setSelectedProjectId(userAssignedProjectId);
+                }
+                // ✅ لا نُعيّن مشروع افتراضي للمدير - يجب أن يختار يدوياً
             } catch (error) {
                 console.error('Error loading projects:', error);
                 addToast('خطأ في تحميل المشاريع', 'error');
@@ -74,6 +105,8 @@ const Treasury: React.FC = () => {
         if (!selectedProjectId) {
             setAccounts([]);
             setSelectedAccount(null);
+            setAllTransactions([]); // ✅ تنظيف المعاملات أيضاً
+            setTransactions([]);
             setLoading(false);
             return;
         }
@@ -94,6 +127,17 @@ const Treasury: React.FC = () => {
                 
                 setAccounts(loadedAccounts);
                 
+                // ✅ تحميل جميع معاملات المشروع لحساب الأرصدة
+                try {
+                    const projectTransactions = await transactionsService.getAll({
+                        projectId: selectedProjectId,
+                    });
+                    setAllTransactions(projectTransactions);
+                } catch (err) {
+                    console.error('Error loading all transactions:', err);
+                    setAllTransactions([]);
+                }
+                
                 if (loadedAccounts.length > 0) {
                     setSelectedAccount(loadedAccounts[0]);
                 } else {
@@ -111,7 +155,7 @@ const Treasury: React.FC = () => {
     }, [selectedProjectId]);
 
     // ────────────────────────────────────────────────────────────────────
-    // تحميل حركات الحساب المحدد
+    // تحميل حركات الحساب المحدد - ✅ الإيرادات فقط
     // ────────────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!selectedAccount) {
@@ -128,7 +172,10 @@ const Treasury: React.FC = () => {
                     accountId: selectedAccount.id,
                     projectId: selectedProjectId,
                 });
-                setTransactions(loadedTransactions);
+                // ✅ فلترة لعرض الإيرادات فقط (Deposits)
+                // المصروفات مستقلة في صفحة المصروفات
+                const depositsOnly = loadedTransactions.filter(t => t.type === 'Deposit');
+                setTransactions(depositsOnly);
             } catch (error) {
                 console.error('Error loading transactions:', error);
             } finally {
@@ -146,7 +193,14 @@ const Treasury: React.FC = () => {
             const accountCards = accountsListRef.current.querySelectorAll('.account-card');
             gsap.fromTo(accountCards,
                 { opacity: 0, x: -30, scale: 0.95 },
-                { opacity: 1, x: 0, scale: 1, duration: 0.4, stagger: 0.1, ease: "back.out(1.5)" }
+                { 
+                    opacity: 1, x: 0, scale: 1, 
+                    duration: 0.4, stagger: 0.1, ease: "back.out(1.5)",
+                    onComplete: () => {
+                        // ✅ ضمان ظهور العناصر بعد انتهاء الأنيميشن
+                        gsap.set(accountCards, { clearProps: "opacity,transform" });
+                    }
+                }
             );
         }
     }, [accounts]);
@@ -158,25 +212,40 @@ const Treasury: React.FC = () => {
             const items = transactionsListRef.current.querySelectorAll('.transaction-item');
             gsap.fromTo(items,
                 { opacity: 0, y: 20 },
-                { opacity: 1, y: 0, duration: 0.3, stagger: 0.05, ease: "power2.out" }
+                { 
+                    opacity: 1, y: 0, 
+                    duration: 0.3, stagger: 0.05, ease: "power2.out",
+                    onComplete: () => {
+                        // ✅ ضمان ظهور العناصر بعد انتهاء الأنيميشن
+                        gsap.set(items, { clearProps: "opacity,transform" });
+                    }
+                }
             );
         }
     }, [transactions]);
 
     // ────────────────────────────────────────────────────────────────────
-    // حساب الأرصدة
+    // حساب الأرصدة - ✅ حساب من المعاملات الفعلية
+    // ⚠️ لتجنب أي خطأ في رصيد DB، نحسب الرصيد من المعاملات مباشرة
     // ────────────────────────────────────────────────────────────────────
     const accountBalances = useMemo(() => {
         const balances = new Map<string, number>();
+        
+        // أولاً: تهيئة كل الحسابات برصيد 0
         accounts.forEach(acc => {
-            let balance = acc.initialBalance || 0;
-            transactions
-                .filter(t => t.accountId === acc.id)
-                .forEach(t => {
-                    balance += t.type === 'Deposit' ? t.amount : -t.amount;
-                });
-            balances.set(acc.id, balance);
+            balances.set(acc.id, 0);
         });
+        
+        // ثانياً: حساب الرصيد من المعاملات الفعلية
+        transactions.forEach(tx => {
+            const currentBalance = balances.get(tx.accountId) || 0;
+            if (tx.type === 'Deposit') {
+                balances.set(tx.accountId, currentBalance + tx.amount);
+            } else if (tx.type === 'Withdrawal') {
+                balances.set(tx.accountId, currentBalance - tx.amount);
+            }
+        });
+        
         return balances;
     }, [accounts, transactions]);
 
@@ -225,22 +294,200 @@ const Treasury: React.FC = () => {
         }
     }, [editingAccount, selectedProjectId, addToast]);
 
-    const handleDeleteAccount = useCallback(async (account: Account) => {
-        if (!confirm(`هل أنت متأكد من حذف حساب "${account.name}"؟`)) return;
-        
+    // ✅ تنفيذ حذف الحساب مع الاحتفاظ بالمصروفات
+    // - الإيرادات (Deposit): تُحذف نهائياً
+    // - المصروفات (Withdrawal): تُنقل لحساب آخر أو يُفك ربطها
+    const executeDeleteAccount = useCallback(async (account: Account, transferExpensesToAccountId?: string) => {
         try {
+            // ✅ فصل المعاملات حسب النوع
+            const accountTransactions = allTransactions.filter(t => t.accountId === account.id);
+            const deposits = accountTransactions.filter(t => t.type === 'Deposit');
+            const withdrawals = accountTransactions.filter(t => t.type === 'Withdrawal');
+            
+            const targetAccountId = transferExpensesToAccountId || accounts.find(a => a.id !== account.id)?.id;
+            const targetAccount = targetAccountId ? accounts.find(a => a.id === targetAccountId) : null;
+            
+            // 1️⃣ معالجة المصروفات في جدول expenses أولاً (قبل حذف المعاملات)
+            try {
+                const allExpenses = await expensesService.getAll();
+                const accountExpenses = allExpenses.filter(exp => exp.accountId === account.id);
+                
+                console.log(`📦 Found ${accountExpenses.length} expenses linked to account ${account.id}`);
+                
+                for (const expense of accountExpenses) {
+                    if (targetAccountId) {
+                        // نقل المصروف إلى حساب آخر
+                        await expensesService.update(expense.id, { accountId: targetAccountId });
+                    } else {
+                        // فك ربط المصروف من الحساب (لكن لا نحذفه!)
+                        await expensesService.update(expense.id, { accountId: '' }); // null
+                    }
+                }
+                
+                if (accountExpenses.length > 0) {
+                    if (targetAccountId) {
+                        addToast(`تم نقل ${accountExpenses.length} مصروف إلى ${targetAccount?.name}`, 'info');
+                    } else {
+                        addToast(`تم فك ربط ${accountExpenses.length} مصروف من الحساب المحذوف`, 'info');
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to update expenses:', err);
+            }
+            
+            // 2️⃣ حذف الإيرادات (Deposits)
+            for (const deposit of deposits) {
+                try {
+                    await transactionsService.delete(deposit.id);
+                } catch (err) {
+                    console.warn(`Failed to delete deposit ${deposit.id}:`, err);
+                }
+            }
+            
+            // 3️⃣ نقل أو حذف المصروفات (Withdrawals) من جدول transactions
+            for (const withdrawal of withdrawals) {
+                try {
+                    if (targetAccountId) {
+                        // نقل معاملة السحب إلى حساب آخر
+                        await transactionsService.update(withdrawal.id, {
+                            accountId: targetAccountId,
+                            accountName: targetAccount?.name || '',
+                        });
+                    } else {
+                        // فك ربط المعاملة (حذفها)
+                        await transactionsService.delete(withdrawal.id);
+                    }
+                } catch (err) {
+                    console.warn(`Failed to handle withdrawal ${withdrawal.id}:`, err);
+                }
+            }
+            
+            // 4️⃣ حذف الحساب
             await accountsService.delete(account.id);
+            
+            // ✅ تحديث الحالة المحلية
             setAccounts(prev => prev.filter(a => a.id !== account.id));
+            setAllTransactions(prev => {
+                // حذف الإيرادات من القائمة
+                const withoutDeposits = prev.filter(t => !(t.accountId === account.id && t.type === 'Deposit'));
+                // تحديث المصروفات المنقولة
+                if (transferExpensesToAccountId) {
+                    return withoutDeposits.map(t => 
+                        t.accountId === account.id && t.type === 'Withdrawal'
+                            ? { ...t, accountId: transferExpensesToAccountId }
+                            : t
+                    );
+                }
+                return withoutDeposits.filter(t => t.accountId !== account.id);
+            });
+            setTransactions(prev => prev.filter(t => t.accountId !== account.id));
+            
             if (selectedAccount?.id === account.id) {
                 setSelectedAccount(accounts.find(a => a.id !== account.id) || null);
             }
-            addToast('تم حذف الحساب بنجاح', 'success');
-            logActivity('Delete Account', `تم حذف حساب: ${account.name}`, 'expenses');
-        } catch (error) {
+            
+            addToast(`تم حذف الحساب "${account.name}" (${deposits.length} إيراد تم حذفه)`, 'success');
+            logActivity('Delete Account', `تم حذف حساب: ${account.name} - حُذف ${deposits.length} إيراد، نُقل ${withdrawals.length} مصروف`, 'expenses');
+        } catch (error: any) {
             console.error('Error deleting account:', error);
-            addToast('خطأ في حذف الحساب', 'error');
+            if (error?.code === '23503' || error?.message?.includes('violates foreign key') || error?.status === 409) {
+                addToast('لا يمكن حذف الحساب لأنه مرتبط بمعاملات. يرجى نقل المعاملات أولاً.', 'error');
+                setAccountToDelete(account);
+                setIsDeleteWithTransferModalOpen(true);
+            } else {
+                addToast('خطأ في حذف الحساب', 'error');
+            }
         }
-    }, [selectedAccount, accounts, addToast]);
+    }, [selectedAccount, accounts, allTransactions, addToast]);
+
+    const handleDeleteAccount = useCallback(async (account: Account) => {
+        // ✅ التحقق من وجود معاملات مرتبطة بالحساب قبل الحذف - استخدام allTransactions
+        const accountTransactions = allTransactions.filter(t => t.accountId === account.id);
+        
+        if (accountTransactions.length > 0) {
+            // ✅ عرض modal لنقل العمليات قبل الحذف بدلاً من confirm
+            setAccountToDelete(account);
+            setIsDeleteWithTransferModalOpen(true);
+            return;
+        }
+        
+        // إذا لم يكن هناك معاملات، نحذف مباشرة
+        if (!confirm(`هل أنت متأكد من حذف حساب "${account.name}"؟`)) return;
+        
+        await executeDeleteAccount(account);
+    }, [allTransactions, executeDeleteAccount]);
+
+    // ✅ نقل المعاملات من حساب إلى آخر
+    const handleTransferTransactions = useCallback(async (
+        fromAccountId: string, 
+        toAccountId: string,
+        deleteAfterTransfer: boolean = false
+    ) => {
+        try {
+            const fromAccount = accounts.find(a => a.id === fromAccountId);
+            const toAccount = accounts.find(a => a.id === toAccountId);
+            
+            if (!fromAccount || !toAccount) {
+                addToast('خطأ في تحديد الحسابات', 'error');
+                return;
+            }
+            
+            // ✅ جلب المعاملات من allTransactions بدلاً من transactions
+            const transactionsToTransfer = allTransactions.filter(t => t.accountId === fromAccountId);
+            
+            if (transactionsToTransfer.length === 0) {
+                addToast('لا توجد معاملات للنقل', 'warning');
+                return;
+            }
+            
+            // تحديث كل معاملة لتنتقل للحساب الجديد
+            for (const t of transactionsToTransfer) {
+                await transactionsService.update(t.id, {
+                    accountId: toAccountId,
+                    accountName: toAccount.name,
+                });
+            }
+            
+            // ✅ تحديث allTransactions (لحساب الأرصدة الصحيحة)
+            setAllTransactions(prev => prev.map(t => 
+                t.accountId === fromAccountId 
+                    ? { ...t, accountId: toAccountId, accountName: toAccount.name }
+                    : t
+            ));
+            
+            // ✅ تحديث transactions (للعرض)
+            setTransactions(prev => prev.map(t => 
+                t.accountId === fromAccountId 
+                    ? { ...t, accountId: toAccountId, accountName: toAccount.name }
+                    : t
+            ));
+            
+            addToast(`تم نقل ${transactionsToTransfer.length} معاملة إلى ${toAccount.name}`, 'success');
+            logActivity('Transfer Transactions', `نقل ${transactionsToTransfer.length} معاملة من ${fromAccount.name} إلى ${toAccount.name}`, 'expenses');
+            
+            // إذا كان النقل مطلوباً قبل الحذف
+            if (deleteAfterTransfer && accountToDelete) {
+                // ✅ تمرير الحساب الهدف لنقل المصروفات إليه
+                await executeDeleteAccount(accountToDelete, toAccountId);
+                setAccountToDelete(null);
+            }
+            
+            setIsTransferModalOpen(false);
+            setIsDeleteWithTransferModalOpen(false);
+        } catch (error) {
+            console.error('Error transferring transactions:', error);
+            addToast('خطأ في نقل المعاملات', 'error');
+        }
+    }, [accounts, transactions, accountToDelete, executeDeleteAccount, addToast]);
+
+    // ✅ حذف الحساب مع حذف الإيرادات فقط (بدون نقل)
+    const handleDeleteAccountWithoutTransfer = useCallback(async (account: Account) => {
+        // البحث عن أول حساب آخر لنقل المصروفات إليه
+        const targetAccount = accounts.find(a => a.id !== account.id);
+        await executeDeleteAccount(account, targetAccount?.id);
+        setAccountToDelete(null);
+        setIsDeleteWithTransferModalOpen(false);
+    }, [accounts, executeDeleteAccount]);
 
     const handleSaveRevenue = useCallback(async (revenueData: {
         description: string;
@@ -266,7 +513,9 @@ const Treasury: React.FC = () => {
                 sourceType: 'Manual',
             });
             
+            // ✅ إضافة المعاملة للقائمة - الرصيد يُحسب تلقائياً من المعاملات
             setTransactions(prev => [created, ...prev]);
+            
             addToast('تمت إضافة الإيراد بنجاح', 'success');
             logActivity('Add Revenue', `إيراد: ${revenueData.description} - ${formatCurrency(revenueData.amount)}`, 'expenses');
             setIsRevenueModalOpen(false);
@@ -275,6 +524,184 @@ const Treasury: React.FC = () => {
             addToast('خطأ في حفظ الإيراد', 'error');
         }
     }, [accounts, selectedProjectId, addToast]);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // تصدير الحركات المالية
+    // ════════════════════════════════════════════════════════════════════════
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+    
+    // إغلاق قائمة التصدير عند النقر خارجها
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setIsExportMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+    
+    // تحويل البيانات إلى CSV
+    const convertToCSV = useCallback((data: Transaction[]) => {
+        const headers = ['التاريخ', 'الوصف', 'النوع', 'المبلغ', 'الحساب', 'المصدر'];
+        const csvRows = [headers.join(',')];
+        
+        data.forEach(t => {
+            const row = [
+                t.date,
+                `"${(t.description || '').replace(/"/g, '""')}"`, // معالجة النصوص
+                t.type === 'Deposit' ? 'إيداع' : 'سحب',
+                t.amount.toString(),
+                `"${(t.accountName || '').replace(/"/g, '""')}"`,
+                t.sourceType === 'Manual' ? 'يدوي' : 
+                 t.sourceType === 'Payment' ? 'دفعة' :
+                 t.sourceType === 'Expense' ? 'مصروف' :
+                 t.sourceType === 'Salary' ? 'راتب' : (t.sourceType || '')
+            ];
+            csvRows.push(row.join(','));
+        });
+        
+        // إضافة BOM لدعم العربية في Excel
+        return '\uFEFF' + csvRows.join('\n');
+    }, []);
+    
+    // تصدير ك CSV
+    const handleExportCSV = useCallback(() => {
+        const dataToExport = selectedAccount 
+            ? transactions.filter(t => t.accountId === selectedAccount.id)
+            : allTransactions;
+        
+        if (dataToExport.length === 0) {
+            addToast('لا توجد بيانات للتصدير', 'warning');
+            return;
+        }
+        
+        const csv = convertToCSV(dataToExport);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const fileName = selectedAccount 
+            ? `حركات_${selectedAccount.name}_${new Date().toISOString().split('T')[0]}.csv`
+            : `حركات_${selectedProject?.name || 'المشروع'}_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        addToast('تم تصدير البيانات بنجاح', 'success');
+        setIsExportMenuOpen(false);
+    }, [selectedAccount, transactions, allTransactions, selectedProject, convertToCSV, addToast]);
+    
+    // تصدير ك Excel (XLSX بسيط عبر HTML Table)
+    const handleExportExcel = useCallback(() => {
+        const dataToExport = selectedAccount 
+            ? transactions.filter(t => t.accountId === selectedAccount.id)
+            : allTransactions;
+        
+        if (dataToExport.length === 0) {
+            addToast('لا توجد بيانات للتصدير', 'warning');
+            return;
+        }
+        
+        // إنشاء جدول HTML للتصدير ك Excel
+        let html = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="UTF-8">
+                <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+                <x:Name>الحركات المالية</x:Name>
+                <x:WorksheetOptions><x:DisplayGridlines/><x:DisplayRightToLeft/></x:WorksheetOptions>
+                </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+                <style>
+                    table { border-collapse: collapse; direction: rtl; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                    th { background-color: #4F46E5; color: white; font-weight: bold; }
+                    tr:nth-child(even) { background-color: #f9f9f9; }
+                    .deposit { color: #059669; }
+                    .withdrawal { color: #DC2626; }
+                </style>
+            </head>
+            <body>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>الوصف</th>
+                            <th>النوع</th>
+                            <th>المبلغ</th>
+                            <th>الحساب</th>
+                            <th>المصدر</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        dataToExport.forEach(t => {
+            const typeClass = t.type === 'Deposit' ? 'deposit' : 'withdrawal';
+            const typeText = t.type === 'Deposit' ? 'إيداع' : 'سحب';
+            const sourceText = t.sourceType === 'Manual' ? 'يدوي' : 
+                 t.sourceType === 'Payment' ? 'دفعة' :
+                 t.sourceType === 'Expense' ? 'مصروف' :
+                 t.sourceType === 'Salary' ? 'راتب' : (t.sourceType || '');
+            
+            html += `
+                <tr>
+                    <td>${t.date}</td>
+                    <td>${t.description || ''}</td>
+                    <td class="${typeClass}">${typeText}</td>
+                    <td class="${typeClass}">${formatCurrency(t.amount)}</td>
+                    <td>${t.accountName || ''}</td>
+                    <td>${sourceText}</td>
+                </tr>
+            `;
+        });
+        
+        // إضافة سطر المجموع
+        const totalDeposits = dataToExport.filter(t => t.type === 'Deposit').reduce((sum, t) => sum + t.amount, 0);
+        const totalWithdrawals = dataToExport.filter(t => t.type === 'Withdrawal').reduce((sum, t) => sum + t.amount, 0);
+        const netBalance = totalDeposits - totalWithdrawals;
+        
+        html += `
+                        <tr style="font-weight: bold; background-color: #e5e7eb;">
+                            <td colspan="3">إجمالي الإيداعات</td>
+                            <td class="deposit">${formatCurrency(totalDeposits)}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                        <tr style="font-weight: bold; background-color: #e5e7eb;">
+                            <td colspan="3">إجمالي السحوبات</td>
+                            <td class="withdrawal">${formatCurrency(totalWithdrawals)}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                        <tr style="font-weight: bold; background-color: #dbeafe;">
+                            <td colspan="3">صافي الرصيد</td>
+                            <td>${formatCurrency(netBalance)}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `;
+        
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const fileName = selectedAccount 
+            ? `حركات_${selectedAccount.name}_${new Date().toISOString().split('T')[0]}.xls`
+            : `حركات_${selectedProject?.name || 'المشروع'}_${new Date().toISOString().split('T')[0]}.xls`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        addToast('تم تصدير البيانات إلى Excel بنجاح', 'success');
+        setIsExportMenuOpen(false);
+    }, [selectedAccount, transactions, allTransactions, selectedProject, addToast]);
 
     // ────────────────────────────────────────────────────────────────────
     // التحقق من الصلاحيات
@@ -291,8 +718,6 @@ const Treasury: React.FC = () => {
             </div>
         );
     }
-
-    const selectedProject = projects.find(p => p.id === selectedProjectId);
 
     // ────────────────────────────────────────────────────────────────────
     // العرض
@@ -330,15 +755,19 @@ const Treasury: React.FC = () => {
             {/* إذا لم يتم اختيار مشروع */}
             {!selectedProjectId && (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                    <svg className="w-24 h-24 mb-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-24 h-24 mb-4 text-amber-400 dark:text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} 
-                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <h3 className="text-xl font-semibold text-slate-500 dark:text-slate-400 mb-2">
-                        اختر مشروعاً للبدء
+                    <h3 className="text-xl font-semibold text-slate-600 dark:text-slate-300 mb-2">
+                        ⚠️ اختر المشروع أولاً
                     </h3>
-                    <p className="text-slate-400 dark:text-slate-500 text-center max-w-md">
-                        يرجى اختيار مشروع من القائمة أعلاه لعرض وإدارة حساباته المالية
+                    <p className="text-slate-500 dark:text-slate-400 text-center max-w-md">
+                        يجب اختيار المشروع الصحيح قبل إضافة أي إيرادات أو مصروفات
+                        <br />
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">
+                            تأكد من اختيار المشروع المناسب لتجنب إدخال بيانات في المشروع الخطأ
+                        </span>
                     </p>
                 </div>
             )}
@@ -405,17 +834,19 @@ const Treasury: React.FC = () => {
                     
                     {/* أزرار الإجراءات */}
                     <div className="flex flex-wrap gap-3 mb-6">
-                        <button
-                            onClick={() => { setEditingAccount(null); setIsAccountModalOpen(true); }}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl
-                                font-semibold hover:bg-primary-700 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                            <PlusIcon className="h-5 w-5" />
-                            <span className="hidden sm:inline">إضافة حساب</span>
-                            <span className="sm:hidden">حساب</span>
-                        </button>
+                        {canAdd && (
+                            <button
+                                onClick={() => { setEditingAccount(null); setIsAccountModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl
+                                    font-semibold hover:bg-primary-700 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                <PlusIcon className="h-5 w-5" />
+                                <span className="hidden sm:inline">إضافة حساب</span>
+                                <span className="sm:hidden">حساب</span>
+                            </button>
+                        )}
                         
-                        {accounts.length > 0 && (
+                        {accounts.length > 0 && canAdd && (
                             <button
                                 onClick={() => setIsRevenueModalOpen(true)}
                                 className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl
@@ -424,6 +855,22 @@ const Treasury: React.FC = () => {
                                 <ArrowUpIcon className="h-5 w-5" />
                                 <span className="hidden sm:inline">إضافة إيراد</span>
                                 <span className="sm:hidden">إيراد</span>
+                            </button>
+                        )}
+                        
+                        {/* ✅ زر نقل العمليات بين الحسابات */}
+                        {accounts.length > 1 && (
+                            <button
+                                onClick={() => setIsTransferModalOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-xl
+                                    font-semibold hover:bg-amber-700 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                <span className="hidden sm:inline">نقل العمليات</span>
+                                <span className="sm:hidden">نقل</span>
                             </button>
                         )}
                     </div>
@@ -449,12 +896,14 @@ const Treasury: React.FC = () => {
                                     <div className="p-8 text-center text-slate-500">
                                         <CashIcon className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                                         <p>لا توجد حسابات لهذا المشروع</p>
-                                        <button
-                                            onClick={() => setIsAccountModalOpen(true)}
-                                            className="mt-3 text-primary-600 hover:text-primary-700 font-medium"
-                                        >
-                                            + إنشاء حساب جديد
-                                        </button>
+                                        {canAdd && (
+                                            <button
+                                                onClick={() => setIsAccountModalOpen(true)}
+                                                className="mt-3 text-primary-600 hover:text-primary-700 font-medium"
+                                            >
+                                                + إنشاء حساب جديد
+                                            </button>
+                                        )}
                                     </div>
                                 ) : (
                                     <div ref={accountsListRef} className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -484,8 +933,14 @@ const Treasury: React.FC = () => {
                                                             {acc.name}
                                                         </p>
                                                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                                            <span>{acc.type === 'Cash' ? 'صندوق' : 'مصرف'}</span>
-                                                            {!acc.projectId && (
+                                                            <span className={`px-1.5 py-0.5 rounded text-[10px] ${acc.type === 'Cash' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300'}`}>
+                                                                {acc.type === 'Cash' ? 'صندوق' : 'مصرف'}
+                                                            </span>
+                                                            {acc.projectId ? (
+                                                                <span className="px-1.5 py-0.5 bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 rounded text-[10px]">
+                                                                    {acc.projectName || selectedProject?.name || 'مشروع'}
+                                                                </span>
+                                                            ) : (
                                                                 <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded text-[10px]">
                                                                     مشترك
                                                                 </span>
@@ -504,24 +959,28 @@ const Treasury: React.FC = () => {
                                                 </div>
                                                 
                                                 {/* أزرار التعديل والحذف */}
-                                                {selectedAccount?.id === acc.id && (
+                                                {selectedAccount?.id === acc.id && (canEdit || canDelete) && (
                                                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-slate-600">
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setEditingAccount(acc); setIsAccountModalOpen(true); }}
-                                                            className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-sm
-                                                                text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg transition-colors"
-                                                        >
-                                                            <EditIcon className="h-4 w-4" />
-                                                            تعديل
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleDeleteAccount(acc); }}
-                                                            className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-sm
-                                                                text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
-                                                        >
-                                                            <TrashIcon className="h-4 w-4" />
-                                                            حذف
-                                                        </button>
+                                                        {canEdit && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setEditingAccount(acc); setIsAccountModalOpen(true); }}
+                                                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-sm
+                                                                    text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                                                            >
+                                                                <EditIcon className="h-4 w-4" />
+                                                                تعديل
+                                                            </button>
+                                                        )}
+                                                        {canDelete && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteAccount(acc); }}
+                                                                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-sm
+                                                                    text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                                                            >
+                                                                <TrashIcon className="h-4 w-4" />
+                                                                حذف
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -534,20 +993,78 @@ const Treasury: React.FC = () => {
                         {/* الحركات */}
                         <div className="lg:col-span-2">
                             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden">
-                                <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50
-                                    flex items-center justify-between">
-                                    <h3 className="font-bold text-slate-800 dark:text-slate-100">
+                                <div className="p-5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50
+                                    flex items-center justify-between flex-wrap gap-3">
+                                    <h3 className="font-bold text-xl text-slate-900 dark:text-white">
                                         سجل الحركات {selectedAccount ? `- ${selectedAccount.name}` : ''}
                                     </h3>
-                                    {selectedAccount && (
-                                        <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
-                                            selectedAccount.type === 'Cash'
-                                                ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
-                                                : 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300'
-                                        }`}>
-                                            {selectedAccount.type === 'Cash' ? 'صندوق' : 'مصرف'}
-                                        </span>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {/* ✅ زر التصدير - يظهر دائماً */}
+                                        <div className="relative" ref={exportMenuRef}>
+                                            <button
+                                                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                                                disabled={allTransactions.length === 0}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors
+                                                    ${allTransactions.length === 0 
+                                                        ? 'text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 cursor-not-allowed opacity-50'
+                                                        : 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                                    }`}
+                                            >
+                                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                </svg>
+                                                تصدير
+                                                <svg className={`h-4 w-4 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                            
+                                            {/* قائمة خيارات التصدير */}
+                                            {isExportMenuOpen && allTransactions.length > 0 && (
+                                                    <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg
+                                                        border border-slate-200 dark:border-slate-700 py-1 z-50 animate-fade-in-scale-up">
+                                                        <button
+                                                            onClick={handleExportExcel}
+                                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200
+                                                                hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                        >
+                                                            <svg className="h-5 w-5 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                                                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12.9,14.5L15.8,19H14L12,15.6L10,19H8.2L11.1,14.5L8.2,10H10L12,13.4L14,10H15.8L12.9,14.5Z"/>
+                                                            </svg>
+                                                            <div className="text-right">
+                                                                <p className="font-medium">تصدير Excel</p>
+                                                                <p className="text-xs text-slate-500 dark:text-slate-400">.xls</p>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            onClick={handleExportCSV}
+                                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200
+                                                                hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                        >
+                                                            <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                            </svg>
+                                                            <div className="text-right">
+                                                                <p className="font-medium">تصدير CSV</p>
+                                                                <p className="text-xs text-slate-500 dark:text-slate-400">ملف نصي</p>
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        
+                                        {selectedAccount && (
+                                            <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
+                                                selectedAccount.type === 'Cash'
+                                                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                                                    : 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300'
+                                            }`}>
+                                                {selectedAccount.type === 'Cash' ? 'صندوق' : 'مصرف'}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 
                                 {!selectedAccount ? (
@@ -573,28 +1090,28 @@ const Treasury: React.FC = () => {
                                         {transactions
                                             .filter(t => t.accountId === selectedAccount.id)
                                             .map(t => (
-                                                <li key={t.id} className="transaction-item p-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`p-2 rounded-full flex-shrink-0 ${
+                                                <li key={t.id} className="transaction-item p-5 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`p-3 rounded-full flex-shrink-0 ${
                                                             t.type === 'Deposit' 
                                                                 ? 'bg-emerald-100 dark:bg-emerald-500/20' 
                                                                 : 'bg-rose-100 dark:bg-rose-500/20'
                                                         }`}>
                                                             {t.type === 'Deposit' 
-                                                                ? <ArrowUpIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                                                                : <ArrowDownIcon className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                                                                ? <ArrowUpIcon className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                                                                : <ArrowDownIcon className="h-6 w-6 text-rose-600 dark:text-rose-400" />
                                                             }
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                                            <p className="font-bold text-4xl text-slate-900 dark:text-white truncate">
                                                                 {t.description}
                                                             </p>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                                                <span>{t.date}</span>
+                                                            <div className="flex items-center gap-3 text-base text-slate-600 dark:text-slate-300 mt-1">
+                                                                <span className="font-medium">{t.date}</span>
                                                                 {t.sourceType && (
                                                                     <>
                                                                         <span>•</span>
-                                                                        <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded">
+                                                                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md text-sm font-medium">
                                                                             {t.sourceType === 'Manual' ? 'يدوي' : 
                                                                              t.sourceType === 'Payment' ? 'دفعة' :
                                                                              t.sourceType === 'Expense' ? 'مصروف' :
@@ -604,13 +1121,15 @@ const Treasury: React.FC = () => {
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        <span className={`font-bold text-lg flex-shrink-0 ${
-                                                            t.type === 'Deposit' 
-                                                                ? 'text-emerald-600 dark:text-emerald-400' 
-                                                                : 'text-rose-600 dark:text-rose-400'
-                                                        }`}>
-                                                            {t.type === 'Deposit' ? '+' : '-'}{formatCurrency(t.amount)}
-                                                        </span>
+                                                        <div className="flex-shrink-0 w-[200px] flex items-center justify-center ml-auto">
+                                                            <span className={`font-black text-3xl tracking-wide inline-block w-full text-center ${
+                                                                t.type === 'Deposit' 
+                                                                    ? 'text-emerald-700 dark:text-emerald-300' 
+                                                                    : 'text-rose-700 dark:text-rose-300'
+                                                            }`} style={{ textShadow: '0 1px 3px rgba(0,0,0,0.15)' }}>
+                                                                {t.type === 'Deposit' ? '+' : '-'}{formatCurrency(t.amount)}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </li>
                                             ))}
@@ -623,22 +1142,46 @@ const Treasury: React.FC = () => {
             )}
             
             {/* Modals */}
-            {isAccountModalOpen && (
+            {isAccountModalOpen && ((editingAccount === null && canAdd) || (editingAccount !== null && canEdit)) && (
                 <AccountModal
                     account={editingAccount}
                     projectId={selectedProjectId!}
                     projectName={selectedProject?.name || ''}
+                    existingAccounts={accounts}
                     onClose={() => { setIsAccountModalOpen(false); setEditingAccount(null); }}
                     onSave={handleSaveAccount}
                 />
             )}
             
-            {isRevenueModalOpen && selectedProjectId && (
+            {isRevenueModalOpen && selectedProjectId && canAdd && (
                 <RevenueModal
                     accounts={accounts}
                     projectName={selectedProject?.name || ''}
                     onClose={() => setIsRevenueModalOpen(false)}
                     onSave={handleSaveRevenue}
+                />
+            )}
+            
+            {/* ✅ Modal نقل العمليات */}
+            {isTransferModalOpen && (
+                <TransferTransactionsModal
+                    accounts={accounts}
+                    transactions={allTransactions}
+                    projectName={selectedProject?.name || ''}
+                    onClose={() => setIsTransferModalOpen(false)}
+                    onTransfer={handleTransferTransactions}
+                />
+            )}
+            
+            {/* ✅ Modal حذف الحساب مع خيار نقل المصروفات */}
+            {isDeleteWithTransferModalOpen && accountToDelete && (
+                <DeleteAccountWithTransferModal
+                    account={accountToDelete}
+                    accounts={accounts}
+                    transactions={allTransactions}
+                    onClose={() => { setIsDeleteWithTransferModalOpen(false); setAccountToDelete(null); }}
+                    onTransferAndDelete={(toAccountId) => handleTransferTransactions(accountToDelete.id, toAccountId, true)}
+                    onDeleteOnly={() => handleDeleteAccountWithoutTransfer(accountToDelete)}
                 />
             )}
         </div>
@@ -653,11 +1196,12 @@ interface AccountModalProps {
     account: Account | null;
     projectId: string;
     projectName: string;
+    existingAccounts: Account[];
     onClose: () => void;
     onSave: (data: Omit<Account, 'id'>) => void;
 }
 
-const AccountModal: React.FC<AccountModalProps> = ({ account, projectId, projectName, onClose, onSave }) => {
+const AccountModal: React.FC<AccountModalProps> = ({ account, projectId, projectName, existingAccounts, onClose, onSave }) => {
     const { addToast } = useToast();
     const [formData, setFormData] = useState({
         name: account?.name || '',
@@ -672,6 +1216,18 @@ const AccountModal: React.FC<AccountModalProps> = ({ account, projectId, project
             addToast('اسم الحساب مطلوب', 'error');
             return;
         }
+        
+        // ✅ التحقق من تكرار الاسم
+        const isDuplicate = existingAccounts.some(
+            acc => acc.name.trim().toLowerCase() === formData.name.trim().toLowerCase() 
+                   && acc.id !== account?.id // استثناء الحساب الحالي عند التعديل
+        );
+        
+        if (isDuplicate) {
+            addToast('يوجد حساب بنفس الاسم بالفعل، الرجاء اختيار اسم مختلف', 'error');
+            return;
+        }
+        
         onSave({
             ...formData,
             projectId,
@@ -940,6 +1496,327 @@ const RevenueModal: React.FC<RevenueModalProps> = ({ accounts, projectName, onCl
                                 hover:bg-emerald-700 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
                         >
                             حفظ الإيراد
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// Modal: نقل العمليات بين الحسابات
+// ════════════════════════════════════════════════════════════════════════════
+
+interface TransferTransactionsModalProps {
+    accounts: Account[];
+    transactions: Transaction[];
+    projectName: string;
+    onClose: () => void;
+    onTransfer: (fromAccountId: string, toAccountId: string) => void;
+}
+
+const TransferTransactionsModal: React.FC<TransferTransactionsModalProps> = ({ 
+    accounts, transactions, projectName, onClose, onTransfer 
+}) => {
+    const { addToast } = useToast();
+    const [fromAccountId, setFromAccountId] = useState('');
+    const [toAccountId, setToAccountId] = useState('');
+    
+    // حساب عدد المعاملات للحساب المصدر
+    const transactionsCount = fromAccountId 
+        ? transactions.filter(t => t.accountId === fromAccountId).length 
+        : 0;
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!fromAccountId) {
+            addToast('يرجى اختيار الحساب المصدر', 'error');
+            return;
+        }
+        if (!toAccountId) {
+            addToast('يرجى اختيار الحساب الهدف', 'error');
+            return;
+        }
+        if (fromAccountId === toAccountId) {
+            addToast('لا يمكن النقل لنفس الحساب', 'error');
+            return;
+        }
+        if (transactionsCount === 0) {
+            addToast('لا توجد معاملات للنقل في الحساب المحدد', 'warning');
+            return;
+        }
+        onTransfer(fromAccountId, toAccountId);
+    };
+    
+    const inputStyle = `w-full p-2.5 border border-slate-300 dark:border-slate-600 
+        bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-xl
+        focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all`;
+    
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 flex justify-center items-center p-4" onClick={onClose}>
+            <div 
+                className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in-scale-up" 
+                onClick={e => e.stopPropagation()}
+            >
+                <form onSubmit={handleSubmit}>
+                    <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                <svg className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                نقل العمليات بين الحسابات
+                            </h2>
+                            <p className="text-sm text-slate-500 mt-0.5">المشروع: {projectName}</p>
+                        </div>
+                        <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full">
+                            <CloseIcon className="h-5 w-5 text-slate-500" />
+                        </button>
+                    </div>
+                    
+                    <div className="p-6 space-y-4">
+                        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4">
+                            <p className="text-sm text-amber-800 dark:text-amber-200">
+                                <strong>تنبيه:</strong> سيتم نقل جميع المعاملات من الحساب المصدر إلى الحساب الهدف.
+                                هذا يساعدك على دمج الحسابات أو تصحيح التسجيلات.
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                نقل من حساب <span className="text-rose-500">*</span>
+                            </label>
+                            <select
+                                value={fromAccountId}
+                                onChange={e => setFromAccountId(e.target.value)}
+                                className={inputStyle}
+                                required
+                            >
+                                <option value="">اختر الحساب المصدر...</option>
+                                {accounts.map(acc => (
+                                    <option key={acc.id} value={acc.id}>
+                                        {acc.type === 'Cash' ? '💵' : '🏦'} {acc.name}
+                                    </option>
+                                ))}
+                            </select>
+                            {fromAccountId && (
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    عدد المعاملات: <strong className="text-amber-600">{transactionsCount}</strong>
+                                </p>
+                            )}
+                        </div>
+                        
+                        <div className="flex justify-center">
+                            <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-full">
+                                <ArrowDownIcon className="h-5 w-5 text-slate-500" />
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                نقل إلى حساب <span className="text-rose-500">*</span>
+                            </label>
+                            <select
+                                value={toAccountId}
+                                onChange={e => setToAccountId(e.target.value)}
+                                className={inputStyle}
+                                required
+                            >
+                                <option value="">اختر الحساب الهدف...</option>
+                                {accounts
+                                    .filter(acc => acc.id !== fromAccountId)
+                                    .map(acc => (
+                                        <option key={acc.id} value={acc.id}>
+                                            {acc.type === 'Cash' ? '💵' : '🏦'} {acc.name}
+                                        </option>
+                                    ))}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 
+                                text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        >
+                            إلغاء
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={transactionsCount === 0}
+                            className="px-6 py-2 rounded-xl bg-amber-600 text-white font-semibold 
+                                hover:bg-amber-700 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]
+                                disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        >
+                            نقل {transactionsCount > 0 ? `(${transactionsCount})` : ''} المعاملات
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// Modal: حذف حساب مع خيار نقل العمليات
+// ════════════════════════════════════════════════════════════════════════════
+
+interface DeleteAccountWithTransferModalProps {
+    account: Account;
+    accounts: Account[];
+    transactions: Transaction[];
+    onClose: () => void;
+    onTransferAndDelete: (toAccountId: string) => void;
+    onDeleteOnly: () => void;
+}
+
+const DeleteAccountWithTransferModal: React.FC<DeleteAccountWithTransferModalProps> = ({
+    account, accounts, transactions, onClose, onTransferAndDelete, onDeleteOnly
+}) => {
+    const { addToast } = useToast();
+    const [toAccountId, setToAccountId] = useState('');
+    
+    // ✅ فصل المعاملات حسب النوع
+    const accountTransactions = transactions.filter(t => t.accountId === account.id);
+    const depositsCount = accountTransactions.filter(t => t.type === 'Deposit').length;
+    const withdrawalsCount = accountTransactions.filter(t => t.type === 'Withdrawal').length;
+    const otherAccounts = accounts.filter(a => a.id !== account.id);
+    
+    // ✅ تحديد ما إذا كان هناك مصروفات تحتاج نقل
+    const hasWithdrawals = withdrawalsCount > 0;
+    const hasOtherAccounts = otherAccounts.length > 0;
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        // ✅ إذا كان هناك مصروفات ويوجد حسابات أخرى، يجب اختيار حساب للنقل
+        if (hasWithdrawals && hasOtherAccounts && !toAccountId) {
+            addToast('يرجى اختيار الحساب لنقل المصروفات إليه', 'error');
+            return;
+        }
+        
+        // ✅ تأكيد الحذف
+        const confirmMsg = depositsCount > 0 
+            ? `سيتم حذف ${depositsCount} إيراد نهائياً${hasWithdrawals ? ` ونقل ${withdrawalsCount} مصروف` : ''}.\nهل أنت متأكد؟`
+            : `هل أنت متأكد من حذف الحساب "${account.name}"؟`;
+        
+        if (!confirm(confirmMsg)) return;
+        
+        if (toAccountId) {
+            onTransferAndDelete(toAccountId);
+        } else {
+            onDeleteOnly();
+        }
+    };
+    
+    const inputStyle = `w-full p-2.5 border border-slate-300 dark:border-slate-600 
+        bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-xl
+        focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all`;
+    
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 flex justify-center items-center p-4" onClick={onClose}>
+            <div 
+                className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in-scale-up" 
+                onClick={e => e.stopPropagation()}
+            >
+                <form onSubmit={handleSubmit}>
+                    <div className="p-5 border-b border-slate-200 dark:border-slate-700">
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <svg className="h-6 w-6 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            حذف حساب "{account.name}"
+                        </h2>
+                    </div>
+                    
+                    <div className="p-6 space-y-4">
+                        {/* ✅ ملخص المعاملات */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 text-center">
+                                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{depositsCount}</p>
+                                <p className="text-xs text-emerald-700 dark:text-emerald-300">إيراد (سيُحذف)</p>
+                            </div>
+                            <div className="bg-amber-50 dark:bg-amber-500/10 rounded-xl p-3 text-center">
+                                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{withdrawalsCount}</p>
+                                <p className="text-xs text-amber-700 dark:text-amber-300">مصروف (سيُنقل)</p>
+                            </div>
+                        </div>
+                        
+                        {/* ✅ شرح السلوك */}
+                        <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                                <strong>ℹ️ ماذا سيحدث:</strong>
+                            </p>
+                            <ul className="text-xs text-blue-700 dark:text-blue-300 mt-2 space-y-1 list-disc list-inside">
+                                {depositsCount > 0 && (
+                                    <li><span className="text-rose-600">الإيرادات ({depositsCount})</span>: ستُحذف نهائياً</li>
+                                )}
+                                {withdrawalsCount > 0 && hasOtherAccounts && (
+                                    <li><span className="text-emerald-600">المصروفات ({withdrawalsCount})</span>: ستُنقل للحساب المختار</li>
+                                )}
+                                {withdrawalsCount > 0 && !hasOtherAccounts && (
+                                    <li><span className="text-amber-600">المصروفات ({withdrawalsCount})</span>: سيُفك ربطها بالحساب</li>
+                                )}
+                                <li>الحساب نفسه سيُحذف</li>
+                            </ul>
+                        </div>
+                        
+                        {/* ✅ اختيار حساب لنقل المصروفات (إذا وجدت) */}
+                        {hasWithdrawals && hasOtherAccounts && (
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    نقل المصروفات إلى <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    value={toAccountId}
+                                    onChange={e => setToAccountId(e.target.value)}
+                                    className={inputStyle}
+                                    required
+                                >
+                                    <option value="">اختر الحساب...</option>
+                                    {otherAccounts.map(acc => (
+                                        <option key={acc.id} value={acc.id}>
+                                            {acc.type === 'Cash' ? '💵' : '🏦'} {acc.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    سيتم نقل {withdrawalsCount} مصروف لهذا الحساب
+                                </p>
+                            </div>
+                        )}
+                        
+                        {/* ✅ تحذير إذا لا يوجد حسابات أخرى */}
+                        {hasWithdrawals && !hasOtherAccounts && (
+                            <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4">
+                                <p className="text-sm text-amber-800 dark:text-amber-200">
+                                    <strong>⚠️ تنبيه:</strong> لا توجد حسابات أخرى لنقل المصروفات إليها.
+                                    سيتم فك ربط المصروفات من هذا الحساب.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 
+                                text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        >
+                            إلغاء
+                        </button>
+                        <button
+                            type="submit"
+                            className="px-6 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold 
+                                shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            حذف الحساب
                         </button>
                     </div>
                 </form>

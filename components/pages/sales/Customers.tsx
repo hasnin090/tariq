@@ -86,19 +86,27 @@ const Customers: React.FC = () => {
 
     // ✅ التعامل مع البحث والتنقل للعنصر المحدد
     useEffect(() => {
+        let isCancelled = false;
+        const timeoutIds: number[] = []; // ✅ تتبع جميع الـ timeouts
+        
         const handleSearchNavigate = (e: CustomEvent) => {
             if (e.detail?.page !== 'customers' || !e.detail?.id) return;
             
-            setTimeout(() => {
+            const searchTimeout = window.setTimeout(() => {
+                if (isCancelled) return;
                 const element = document.getElementById(`item-${e.detail.id}`) || 
                                document.querySelector(`[data-id="${e.detail.id}"]`);
                 if (element) {
                     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     element.classList.add('search-highlight');
-                    setTimeout(() => element.classList.remove('search-highlight'), 3000);
+                    const highlightTimeout = window.setTimeout(() => {
+                        if (!isCancelled) element.classList.remove('search-highlight');
+                    }, 3000);
+                    timeoutIds.push(highlightTimeout);
                 }
                 sessionStorage.removeItem('searchFocus');
             }, 300);
+            timeoutIds.push(searchTimeout);
         };
         
         // فحص عند التحميل
@@ -117,7 +125,11 @@ const Customers: React.FC = () => {
         
         // الاستماع للحدث المخصص
         window.addEventListener('searchNavigate', handleSearchNavigate as EventListener);
-        return () => window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        return () => {
+            isCancelled = true;
+            timeoutIds.forEach(id => clearTimeout(id)); // ✅ تنظيف جميع الـ timeouts
+            window.removeEventListener('searchNavigate', handleSearchNavigate as EventListener);
+        };
     }, [customers]);
 
     const loadData = async () => {
@@ -140,6 +152,15 @@ const Customers: React.FC = () => {
     };
 
     const handleOpenModal = (customer: Customer | null) => {
+        // ✅ فحص الصلاحيات قبل فتح المودال
+        if (customer === null && !canAdd) {
+            console.warn('🚫 handleOpenModal blocked: No add permission');
+            return;
+        }
+        if (customer !== null && !canEdit) {
+            console.warn('🚫 handleOpenModal blocked: No edit permission');
+            return;
+        }
         setEditingCustomer(customer);
         setIsModalOpen(true);
     };
@@ -309,7 +330,8 @@ const Customers: React.FC = () => {
             ) : (
                 <EmptyState Icon={CustomersEmptyIcon} title="لا يوجد عملاء" message="ابدأ بإضافة بيانات العملاء لتتمكن من ربطهم بالوحدات." actionButton={canAdd ? { text: 'إضافة عميل', onClick: () => handleOpenModal(null)} : undefined} />
             )}
-            {isModalOpen && <CustomerPanel customer={editingCustomer} units={units} activeProjectId={currentUser?.assignedProjectId || activeProject?.id} onClose={handleCloseModal} onSave={handleSave} />}
+            {/* ✅ حماية المودال بفحص الصلاحيات */}
+            {isModalOpen && ((editingCustomer === null && canAdd) || (editingCustomer !== null && canEdit)) && <CustomerPanel customer={editingCustomer} units={units} activeProjectId={currentUser?.assignedProjectId || activeProject?.id} onClose={handleCloseModal} onSave={handleSave} />}
             {isDocManagerOpen && selectedCustomerForDocs && (
                 <DocumentManager 
                     isOpen={isDocManagerOpen}
