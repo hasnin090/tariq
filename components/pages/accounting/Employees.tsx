@@ -238,7 +238,9 @@ const Employees: React.FC = () => {
                     return exp.categoryId === salaryCategory.id &&
                            exp.employeeId === employee.id &&
                            expDate.getMonth() === currentMonth &&
-                           expDate.getFullYear() === currentYear;
+                           expDate.getFullYear() === currentYear &&
+                           // ✅ فلترة حسب المشروع لتجنب حساب مصروفات مشاريع أخرى
+                           (!employee.projectId || exp.projectId === employee.projectId);
                 })
                 .reduce((sum, exp) => sum + exp.amount, 0);
             
@@ -387,7 +389,8 @@ const Employees: React.FC = () => {
         if (accounts.length === 0 && employee.projectId) {
             try {
                 addToast('جاري إنشاء صندوق المشروع...', 'info');
-                const projectCashbox = await accountsService.getOrCreateProjectCashbox(employee.projectId, selectedProject?.name || '');
+                const projectForCashbox = projects.find(p => p.id === employee.projectId);
+                const projectCashbox = await accountsService.getOrCreateProjectCashbox(employee.projectId, projectForCashbox?.name || '');
                 setAccounts([projectCashbox]);
             } catch (error) {
                 console.error('Error creating project cashbox:', error);
@@ -413,7 +416,6 @@ const Employees: React.FC = () => {
         // ✅ إنشاء فئة "رواتب" تلقائياً إذا لم تكن موجودة
         if (!salaryCategory) {
             try {
-                console.log('📁 Creating salary category automatically...');
                 const newCategory = await expenseCategoriesService.findOrCreate('رواتب', employee.projectId || null);
                 if (newCategory) {
                     salaryCategory = newCategory;
@@ -647,9 +649,9 @@ const Employees: React.FC = () => {
                                     <td className="p-4"><span className={`px-3 py-1 text-xs font-bold rounded-full ${getStatusStyle(statusInfo.status)}`}>{statusText[statusInfo.status]}</span></td>
                                     {currentUser?.role === 'Admin' && (
                                         <td className="p-4 whitespace-nowrap space-x-4">
-                                            <button onClick={() => handlePaySalaryRequest(emp)} className="text-primary-600 hover:underline font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled={statusInfo.status === 'Paid'}>دفع راتب</button>
-                                            <button onClick={() => handleOpenModal(emp)} className="text-blue-600 hover:underline font-semibold">تعديل</button>
-                                            <button onClick={() => handleDeleteRequest(emp)} className="text-rose-600 hover:underline font-semibold">حذف</button>
+                                            {canAdd && <button onClick={() => handlePaySalaryRequest(emp)} className="text-primary-600 hover:underline font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled={statusInfo.status === 'Paid'}>دفع راتب</button>}
+                                            {canEdit && <button onClick={() => handleOpenModal(emp)} className="text-blue-600 hover:underline font-semibold">تعديل</button>}
+                                            {canDelete && <button onClick={() => handleDeleteRequest(emp)} className="text-rose-600 hover:underline font-semibold">حذف</button>}
                                         </td>
                                     )}
                                 </tr>

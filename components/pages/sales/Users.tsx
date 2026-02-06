@@ -29,6 +29,7 @@ import {
 import { CloseIcon, UserGroupIcon, SearchIcon, TrashIcon, EditIcon, ShieldIcon } from '../../shared/Icons';
 import ConfirmModal from '../../shared/ConfirmModal';
 import SimplePermissionsManager from './SimplePermissionsManager';
+import { validatePassword } from '../../../utils/validation';
 
 const RoleBadge: React.FC<{ role: User['role'] }> = ({ role }) => {
     const colors = {
@@ -53,6 +54,7 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave, onOp
     const [formData, setFormData] = useState({
         name: user?.name || '',
         username: user?.username || '',
+        email: user?.email || '',
         role: user?.role || 'Sales',
         password: '',
         confirmPassword: '',
@@ -64,38 +66,39 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave, onOp
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('📋 Form submitted with data:', formData);
         
         if (!formData.name.trim() || !formData.role) {
-            console.log('❌ Validation failed: name or role missing');
             addToast('الاسم والدور حقول إلزامية.', 'error');
             return;
         }
         if (!formData.username.trim()) {
-            console.log('❌ Validation failed: username missing');
             addToast('اسم المستخدم مطلوب.', 'error');
             return;
         }
         // Username validation (allow Arabic, English letters, numbers, underscore)
         const usernameRegex = /^[\u0600-\u06FFa-zA-Z0-9_]+$/;
         if (!usernameRegex.test(formData.username)) {
-            console.log('❌ Validation failed: invalid username format');
             addToast('اسم المستخدم يجب أن يحتوي على حروف أو أرقام أو _ فقط.', 'error');
             return;
         }
         if (!isEditing && !formData.password) {
-            console.log('❌ Validation failed: password required for new user');
             addToast('كلمة المرور مطلوبة للمستخدمين الجدد.', 'error');
             return;
         }
         if (formData.password && formData.password !== formData.confirmPassword) {
-            console.log('❌ Validation failed: passwords do not match');
             addToast('كلمتا المرور غير متطابقتين.', 'error');
             return;
         }
+        // ✅ التحقق من قوة كلمة المرور
+        if (formData.password) {
+            const passwordValidation = validatePassword(formData.password);
+            if (!passwordValidation.valid) {
+                addToast(passwordValidation.error || 'كلمة المرور غير صالحة', 'error');
+                return;
+            }
+        }
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { confirmPassword, ...dataToSave } = formData;
-        console.log('✅ All validations passed, calling onSave with:', dataToSave);
         onSave(dataToSave);
     };
     
@@ -114,6 +117,7 @@ const UserPanel: React.FC<PanelProps> = ({ user, projects, onClose, onSave, onOp
                     <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                         <input type="text" name="name" placeholder="الاسم الكامل" value={formData.name} onChange={handleChange} className="input-field" required />
                         <input type="text" name="username" placeholder="اسم المستخدم (للدخول)" value={formData.username} onChange={handleChange} className="input-field" required disabled={isEditing} />
+                        <input type="email" name="email" placeholder="البريد الإلكتروني (اختياري)" value={formData.email} onChange={handleChange} className="input-field" />
                         <select name="role" value={formData.role} onChange={handleChange} className="input-field" required>
                             <option value="Sales">Sales - مبيعات</option>
                             <option value="Accounting">Accounting - محاسبة</option>
@@ -215,7 +219,6 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({ user, projects, o
             try {
                 const fullPerms = await userFullPermissionsService.getByUserId(user.id);
                 
-                console.log('📋 Loading permissions for user:', user.name, fullPerms);
                 
                 // تحميل القوائم
                 if (fullPerms.menuAccess && fullPerms.menuAccess.length > 0) {
@@ -894,7 +897,6 @@ const Users: React.FC = () => {
 
     const handleSave = async (userData: Omit<User, 'id'> & { assignedProjectId?: string }) => {
         const isEditing = !!editingUser;
-        console.log('💾 Saving user data:', userData);
         try {
             const { assignedProjectId, ...rest } = userData;
             
@@ -908,11 +910,9 @@ const Users: React.FC = () => {
                 permissions: rest.permissions
             };
             
-            console.log('📝 Core user data:', coreUserData);
             let userToSave: User;
 
             if (isEditing) {
-                console.log('✏️ Editing existing user');
                 // Admin can change password even during edit
                 const updateData = { ...coreUserData };
                 if (!updateData.password) {
@@ -920,13 +920,11 @@ const Users: React.FC = () => {
                 }
                 userToSave = await usersService.update(editingUser.id, updateData);
             } else {
-                console.log('➕ Creating new user');
                 if (!coreUserData.password) {
                     addToast('كلمة المرور مطلوبة للمستخدمين الجدد.', 'error');
                     return;
                 }
                 userToSave = await usersService.create(coreUserData);
-                console.log('✅ User created:', userToSave);
             }
 
             // Handle project assignment (with error handling for missing column)

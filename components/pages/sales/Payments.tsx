@@ -226,7 +226,6 @@ const Payments: React.FC = () => {
             if (e.detail?.page !== 'payments' || !e.detail?.id) return;
             
             const paymentId = e.detail.id;
-            console.log('🔍 Searching for payment:', paymentId);
             
             // ✅ دالة للبحث مع محاولات متعددة
             const tryFindAndScroll = (attempts = 0) => {
@@ -234,13 +233,11 @@ const Payments: React.FC = () => {
                 
                 if (!targetPayment && attempts < 10) {
                     // إذا لم نجد الدفعة، ننتظر ونحاول مرة أخرى
-                    console.log(`⏳ Payment not found yet, attempt ${attempts + 1}/10...`);
                     setTimeout(() => tryFindAndScroll(attempts + 1), 300);
                     return;
                 }
                 
                 if (targetPayment && targetPayment.bookingId) {
-                    console.log('✅ Found payment, bookingId:', targetPayment.bookingId);
                     
                     // توسيع مجموعة الحجز التي تحتوي على الدفعة
                     setExpandedBookings(prev => {
@@ -277,7 +274,6 @@ const Payments: React.FC = () => {
                         
                     }, 100);
                 } else {
-                    console.log('❌ Payment not found after all attempts:', paymentId);
                 }
                 
                 sessionStorage.removeItem('searchFocus');

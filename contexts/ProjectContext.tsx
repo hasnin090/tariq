@@ -52,13 +52,6 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
                     );
                 }
                 
-                console.log('📊 ProjectContext - User filtering:', {
-                    userId: currentUser.id,
-                    userName: currentUser.name,
-                    role: currentUser.role,
-                    assignedProjectId,
-                    foundProjects: userProjects.map(p => ({ id: p.id, name: p.name }))
-                });
             }
             
             setAvailableProjects(userProjects);

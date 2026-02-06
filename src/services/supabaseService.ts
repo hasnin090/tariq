@@ -388,7 +388,6 @@ export const unitsService = {
       project_id: (unit as any).projectId || null,
     };
     
-    console.log('🔵 Creating unit with data:', dbUnit);
     
     const { data, error } = await supabase
       .from('units')
@@ -513,15 +512,18 @@ export const bookingsService = {
     const id = generateUniqueId('booking');
     
     // Transform to snake_case for database
-    const dbData = {
+    const dbData: any = {
       id,
       unit_id: (booking as any).unit_id || booking.unitId,
       customer_id: (booking as any).customer_id || booking.customerId,
       booking_date: (booking as any).booking_date || booking.bookingDate,
-      total_price: (booking as any).total_price || (booking as any).totalPrice || 0, // حقل مطلوب في قاعدة البيانات
-      amount_paid: (booking as any).amount_paid || booking.amountPaid || 0,
+      total_price: (booking as any).total_price ?? (booking as any).totalPrice ?? 0,
+      amount_paid: (booking as any).amount_paid ?? booking.amountPaid ?? 0,
       status: booking.status || 'Active',
     };
+    // ✅ إضافة project_id إذا موجود
+    const projectId = (booking as any).project_id || (booking as any).projectId;
+    if (projectId) dbData.project_id = projectId;
     
     const { data, error } = await supabase
       .from('bookings')
@@ -552,6 +554,11 @@ export const bookingsService = {
       else if (key === 'customerId') dbData.customer_id = value;
       else if (key === 'bookingDate') dbData.booking_date = value;
       else if (key === 'amountPaid') dbData.amount_paid = value;
+      else if (key === 'totalPrice') dbData.total_price = value;
+      else if (key === 'projectId') dbData.project_id = value;
+      else if (key === 'unitSaleId') dbData.unit_sale_id = value;
+      else if (key === 'paymentPlanYears') dbData.payment_plan_years = value;
+      else if (key === 'paymentFrequencyMonths') dbData.payment_frequency_months = value;
       else if (key !== 'id' && key !== 'unitName' && key !== 'customerName') dbData[key] = value;
     });
     
@@ -887,6 +894,13 @@ export const paymentsService = {
     
     const unitPrice = unit?.price || 0;
     
+    // ✅ حساب إجمالي المدفوعات للحجز (وليس الدفعة الحالية فقط)
+    const { data: allBookingPayments } = await supabase
+      .from('payments')
+      .select('amount')
+      .eq('booking_id', data[0].booking_id);
+    const totalPaid = (allBookingPayments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    
     // Transform response back to camelCase with enriched data
     if (data?.[0]) {
       return {
@@ -900,7 +914,7 @@ export const paymentsService = {
         paymentDate: data[0].payment_date,
         paymentType: data[0].payment_type, // ✅ إضافة نوع الدفعة
         unitPrice: unitPrice,
-        remainingAmount: unitPrice - data[0].amount,
+        remainingAmount: unitPrice - totalPaid,
         accountId: payment.accountId,
         notes: payment.notes,
       };
@@ -1011,6 +1025,13 @@ export const paymentsService = {
     
     const unitPrice = unit?.price || 0;
     
+    // ✅ حساب إجمالي المدفوعات للحجز
+    const { data: allBookingPaymentsUpdate } = await supabase
+      .from('payments')
+      .select('amount')
+      .eq('booking_id', data?.[0]?.booking_id);
+    const totalPaidUpdate = (allBookingPaymentsUpdate || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    
     // Transform response back to camelCase with enriched data
     if (data?.[0]) {
       return {
@@ -1024,7 +1045,7 @@ export const paymentsService = {
         paymentDate: data[0].payment_date,
         paymentType: data[0].payment_type, // ✅ إضافة نوع الدفعة
         unitPrice: unitPrice,
-        remainingAmount: unitPrice - data[0].amount,
+        remainingAmount: unitPrice - totalPaidUpdate,
         accountId: payment.accountId,
         notes: payment.notes,
       };
@@ -1203,7 +1224,6 @@ export const expensesService = {
       employee_id: expense.employeeId || null,
     };
     
-    console.log('🔵 Creating expense with data:', dbExpense);
     
     const { error } = await supabase
       .from('expenses')
@@ -1214,7 +1234,6 @@ export const expensesService = {
       throw error;
     }
     
-    console.log('✅ Expense inserted successfully, fetching data...');
     
     // Fetch the inserted record
     const { data: fetchedData, error: fetchError } = await supabase
@@ -1282,7 +1301,6 @@ export const expensesService = {
   },
 
   async delete(id: string) {
-    console.log('🗑️ Attempting to delete expense:', id);
     
     // First verify the record exists
     const { data: existingRecord, error: checkError } = await supabase
@@ -1294,13 +1312,11 @@ export const expensesService = {
     if (checkError) {
       console.error('❌ Error checking expense existence:', checkError);
       if (checkError.code === 'PGRST116') {
-        console.log('ℹ️ Expense not found - may already be deleted');
         return; // Record doesn't exist, consider it deleted
       }
       throw checkError;
     }
     
-    console.log('✅ Expense exists, proceeding with delete...');
     
     const { error, count } = await supabase
       .from('expenses')
@@ -1313,7 +1329,6 @@ export const expensesService = {
       throw error;
     }
     
-    console.log('✅ Expense deleted successfully');
   },
 
   subscribe(callback: (expenses: Expense[]) => void) {
@@ -1426,7 +1441,6 @@ export const transactionsService = {
   },
 
   async delete(id: string) {
-    console.log('🗑️ Attempting to delete transaction:', id);
     
     // First verify the record exists using maybeSingle to avoid 406 error
     const { data: existingRecord, error: checkError } = await supabase
@@ -1441,7 +1455,6 @@ export const transactionsService = {
     }
     
     if (!existingRecord) {
-      console.log('ℹ️ Transaction not found - may already be deleted');
       return; // Record doesn't exist, consider it deleted
     }
     
@@ -1453,7 +1466,6 @@ export const transactionsService = {
       console.error('❌ Delete transaction error:', error);
       throw error;
     }
-    console.log('✅ Transaction deleted successfully');
   }
 };
 
@@ -1529,9 +1541,22 @@ export const unitSalesService = {
   },
 
   async update(id: string, sale: Partial<UnitSaleRecord>) {
+    // ✅ تحويل camelCase إلى snake_case
+    const dbData: any = {};
+    Object.entries(sale).forEach(([key, value]) => {
+      if (key === 'unitId') dbData.unit_id = value;
+      else if (key === 'customerId') dbData.customer_id = value;
+      else if (key === 'salePrice') dbData.sale_price = value;
+      else if (key === 'finalSalePrice') dbData.final_sale_price = value;
+      else if (key === 'saleDate') dbData.sale_date = value;
+      else if (key === 'accountId') dbData.account_id = value;
+      else if (key === 'transactionId') dbData.transaction_id = value;
+      else if (key === 'projectId') dbData.project_id = value;
+      else if (key !== 'id' && key !== 'unitName' && key !== 'customerName' && key !== 'documents') dbData[key] = value;
+    });
     const { data, error } = await supabase
       .from('unit_sales')
-      .update(sale)
+      .update(dbData)
       .eq('id', id)
       .select();
     if (error) throw error;
@@ -1602,7 +1627,6 @@ export const employeesService = {
       // - إذا includeGeneral = true: إظهار موظفي المشروع + الموظفين العامين (NULL)
       // - إذا includeGeneral = false: إظهار موظفي المشروع المحدد فقط
       if (filters?.projectId) {
-        console.log('🔍 Filtering employees by projectId:', filters.projectId);
         if (filters.includeGeneral) {
           query = query.or(`project_id.eq.${filters.projectId},project_id.is.null`);
         } else {
@@ -1611,14 +1635,11 @@ export const employeesService = {
         }
       } else {
         // ✅ لا يوجد مشروع محدد - إرجاع قائمة فارغة
-        console.log('⚠️ No projectId provided, returning empty array');
         return [];
       }
       
       const { data, error } = await query;
       
-      console.log('📊 Employees fetched:', data?.length || 0, 'records');
-      console.log('📊 Employees data:', data?.map(e => ({ id: e.id, name: e.name, project_id: e.project_id })));
       
       if (error) throw error;
       
@@ -2002,7 +2023,6 @@ export const projectsService = {
           description: `حساب بنكي خاص بمشروع ${project.name}`,
         });
         
-        console.log(`✅ تم إنشاء الحسابات المالية لمشروع: ${project.name}`);
       } catch (accountError) {
         // لا نوقف إنشاء المشروع إذا فشل إنشاء الحسابات
         console.warn('⚠️ تعذر إنشاء الحسابات المالية للمشروع:', accountError);
@@ -3328,7 +3348,6 @@ export const userMenuAccessService = {
       menu_key: m.menuKey,
         is_visible: m.isVisible,
       }));
-      console.log('📥 Inserting menu access:', dataToInsert);
       
       const { error } = await supabase
         .from('user_menu_access')
@@ -3499,7 +3518,6 @@ export const userProjectAssignmentsService = {
  */
 export const userFullPermissionsService = {
   async getByUserId(userId: string) {
-    console.log('📥 userFullPermissionsService.getByUserId called for:', userId);
     try {
       const [menuAccess, buttonAccess, projectAssignments, resourcePermissions] = await Promise.all([
         userMenuAccessService.getByUserId(userId),
@@ -3507,14 +3525,6 @@ export const userFullPermissionsService = {
         userProjectAssignmentsService.getByUserId(userId),
         userPermissionsService.getByUserId(userId),
       ]);
-
-      console.log('✅ Loaded permissions:', {
-        menuAccessCount: menuAccess.length,
-        buttonAccessCount: buttonAccess.length,
-        projectAssignmentsCount: projectAssignments.length,
-        resourcePermissionsCount: resourcePermissions.length,
-        buttonAccess: buttonAccess.slice(0, 5), // Log first 5 for debugging
-      });
 
       return {
         menuAccess,

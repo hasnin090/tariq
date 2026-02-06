@@ -262,11 +262,9 @@ export const ScheduledPayments: React.FC = () => {
      * - الأقساط التالية تُفعّل فقط بعد تسديد القسط السابق
      */
     const canPayInstallment = (payment: ScheduledPayment): { canPay: boolean; reason?: string } => {
-        console.log('🔍 Checking payment:', payment.installmentNumber, 'Status:', payment.status);
         
         // إذا كان القسط مدفوعاً بالفعل، لا حاجة لتسديده
         if (payment.status === 'paid') {
-            console.log('✅ Payment already paid');
             return { canPay: false, reason: 'تم الدفع بالفعل' };
         }
         
@@ -275,11 +273,9 @@ export const ScheduledPayments: React.FC = () => {
             .filter(p => p.bookingId === payment.bookingId)
             .sort((a, b) => a.installmentNumber - b.installmentNumber);
         
-        console.log('📋 Total payments for booking:', bookingPayments.length);
         
         // القسط الأول (رقم 1) دائماً يمكن تسديده
         if (payment.installmentNumber === 1) {
-            console.log('✅ First payment - always can pay');
             return { canPay: true };
         }
         
@@ -288,20 +284,17 @@ export const ScheduledPayments: React.FC = () => {
             p => p.installmentNumber < payment.installmentNumber
         );
         
-        console.log('📌 Previous payments:', previousPayments.map(p => `#${p.installmentNumber}:${p.status}`));
         
         const allPreviousPaid = previousPayments.every(p => p.status === 'paid');
         
         if (!allPreviousPaid) {
             const unpaidPrevious = previousPayments.find(p => p.status !== 'paid');
-            console.log('❌ Cannot pay - previous payment not paid:', unpaidPrevious?.installmentNumber);
             return { 
                 canPay: false, 
                 reason: `يجب تسديد القسط #${unpaidPrevious?.installmentNumber} أولاً` 
             };
         }
         
-        console.log('✅ All previous paid - can pay');
         return { canPay: true };
     };
 
@@ -679,15 +672,6 @@ export const ScheduledPayments: React.FC = () => {
                                     {filteredPayments.map((payment) => {
                                         const customerInfo = getCustomerInfo(payment.bookingId);
                                         const paymentCheck = canPayInstallment(payment);
-                                        
-                                        // Debug: تسجيل معلومات القسط
-                                        console.log(`القسط #${payment.installmentNumber}:`, {
-                                            status: payment.status,
-                                            canPay: paymentCheck.canPay,
-                                            reason: paymentCheck.reason,
-                                            dueDate: payment.dueDate,
-                                            amount: payment.amount
-                                        });
                                         
                                         return (
                                             <tr key={payment.id} className="hover:bg-white/5 transition-colors">

@@ -250,12 +250,14 @@ export const Expenses: React.FC = () => {
         filteredExpenses.forEach(exp => {
             const category = categories.find(c => c.id === exp.categoryId);
             const project = projects.find(p => p.id === exp.projectId);
+            // ✅ تنظيف البيانات من HTML injection
+            const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
             html += `
                 <tr>
-                    <td>${exp.date}</td>
-                    <td>${exp.description || ''}</td>
-                    <td>${category?.name || ''}</td>
-                    <td>${project?.name || ''}</td>
+                    <td>${esc(exp.date || '')}</td>
+                    <td>${esc(exp.description || '')}</td>
+                    <td>${esc(category?.name || '')}</td>
+                    <td>${esc(project?.name || '')}</td>
                     <td class="amount">${formatCurrency(exp.amount)}</td>
                 </tr>
             `;
@@ -323,7 +325,6 @@ export const Expenses: React.FC = () => {
         
         // ✅ تجنب إعادة التحميل إذا لم يتغير المشروع (ولكن السماح بالتحميل الأول)
         if (lastLoadedProjectRef.current !== INITIAL_LOAD && lastLoadedProjectRef.current === currentProjectId) {
-            console.log('⏭️ Skipping reload - same project:', currentProjectId);
             return;
         }
         
@@ -332,26 +333,18 @@ export const Expenses: React.FC = () => {
         const fetchExpenses = async () => {
             try {
                 let expensesData = await expensesService.getAll();
-                console.log('📊 Expenses - Total fetched:', expensesData.length);
                 
                 // ✅ فلترة صارمة: حسب المشروع المخصص للمستخدم أو المشروع النشط
                 const filterProjectId = userAssignedProjectId || activeProject?.id;
-                console.log('📊 Expenses - Filter project:', {
-                    userAssignedProjectId,
-                    activeProjectId: activeProject?.id,
-                    activeProjectName: activeProject?.name,
-                    finalFilterProjectId: filterProjectId
-                });
                 
                 if (filterProjectId) {
                     expensesData = expensesData.filter(e => e.projectId === filterProjectId);
-                    console.log('📊 Expenses - After project filter:', expensesData.length);
                 }
 
                 // Sort based on sortOrder
                 const sorted = sortOrder === 'newest' 
-                    ? expensesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    : expensesData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                    ? [...expensesData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    : [...expensesData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                 setAllExpenses(sorted);
             } catch (error) {
                 addToast('Failed to fetch expenses.', 'error');
@@ -388,8 +381,8 @@ export const Expenses: React.FC = () => {
             }
             
             const sorted = sortOrder === 'newest'
-                ? filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                : filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                ? [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                : [...filtered].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             setAllExpenses(sorted);
         });
 
@@ -405,7 +398,6 @@ export const Expenses: React.FC = () => {
     useEffect(() => {
         const checkSearchFocus = () => {
             const searchFocusStr = sessionStorage.getItem('searchFocus');
-            console.log('🔎 Checking searchFocus in Expenses:', searchFocusStr);
             if (searchFocusStr) {
                 try {
                     const searchFocus = JSON.parse(searchFocusStr);
@@ -426,7 +418,6 @@ export const Expenses: React.FC = () => {
                         setActiveProject(nextProject);
                     }
 
-                    console.log('🎯 Found search target:', searchFocus.id);
                     setSearchTargetId(searchFocus.id);
                     setSkipFilters(true); // تجاوز الفلاتر مؤقتاً
                 } catch (e) {
@@ -440,7 +431,6 @@ export const Expenses: React.FC = () => {
         
         // الاستماع لحدث مخصص يُطلق من Header عند النقر على نتيجة البحث
         const handleSearchNavigate = (e: CustomEvent) => {
-            console.log('📣 Received searchNavigate event:', e.detail);
             const currentProjectId = userAssignedProjectId || activeProject?.id;
             const targetProjectId = e.detail?.projectId as string | undefined;
 
@@ -485,7 +475,6 @@ export const Expenses: React.FC = () => {
         // إذا كنا نبحث عن عنصر معين، نتجاوز الفلاتر الأخرى (لكن ليس فلتر المشروع)
         if (searchTargetId && skipFilters) {
             // نبقي على المصروفات المفلترة حسب المشروع فقط
-            console.log('🔍 Skipping other filters for search target:', searchTargetId);
         } else {
             filtered = filtered.filter(expense => {
                 const expenseDate = new Date(expense.date);
@@ -523,19 +512,15 @@ export const Expenses: React.FC = () => {
         }
         
         setFilteredExpenses(filtered);
-        console.log('📋 FilteredExpenses updated:', filtered.length, 'items, searchTargetId:', searchTargetId, 'skipFilters:', skipFilters);
         
         // لا نعيد تعيين الصفحة إذا كان هناك searchTargetId نشط
         if (!searchTargetId) {
             if (suppressNextPageResetRef.current) {
-                console.log('📄 Skipping page reset (suppressed)');
                 suppressNextPageResetRef.current = false;
             } else {
-                console.log('📄 Resetting to page 1 (no searchTargetId)');
                 setCurrentPage(1);
             }
         } else {
-            console.log('📄 NOT resetting page because searchTargetId exists:', searchTargetId);
         }
     }, [filters, allExpenses, activeProject, userAssignedProjectId, searchQuery, searchTargetId, skipFilters]);
 
@@ -548,7 +533,6 @@ export const Expenses: React.FC = () => {
             // هذا التنقل يجب أن يكون ضمن نفس المشروع المعروض فقط.
             // ننتظر تحميل بيانات المشروع الحالي ثم نحدد الصفحة ونقوم بالتمرير.
             if (allExpenses.length === 0) {
-                console.log('⏳ Waiting for expenses to load...');
                 return;
             }
 
@@ -556,10 +540,6 @@ export const Expenses: React.FC = () => {
             if (!userAssignedProjectId && activeProject && allExpenses.length > 0) {
                 const listProjectId = allExpenses[0]?.projectId;
                 if (listProjectId && listProjectId !== activeProject.id) {
-                    console.log('⏳ Waiting for expenses list refresh after project switch...', {
-                        activeProjectId: activeProject.id,
-                        listProjectId,
-                    });
                     return;
                 }
             }
@@ -567,7 +547,6 @@ export const Expenses: React.FC = () => {
             const targetExpense = allExpenses.find(e => e.id === searchTargetId);
 
             if (!targetExpense) {
-                console.log('❌ Expense not found in current project list:', searchTargetId);
                 addToast('لم يتم العثور على الحركة المالية ضمن البيانات الحالية.', 'error');
                 setSearchTargetId(null);
                 setSkipFilters(false);
@@ -575,7 +554,6 @@ export const Expenses: React.FC = () => {
                 return;
             }
 
-            console.log('✅ Found expense:', targetExpense.description);
             
             // إذا skipFilters=true، نبحث في allExpenses مباشرة
             // وإلا نبحث في filteredExpenses
@@ -583,10 +561,8 @@ export const Expenses: React.FC = () => {
             const expenseIndex = searchList.findIndex(e => e.id === searchTargetId);
             
             if (expenseIndex === -1) {
-                console.log('⚠️ Expense not in current list, skipFilters:', skipFilters);
                 // إذا لم نجده ولم نكن نتجاوز الفلاتر، نفعّل تجاوز الفلاتر
                 if (!skipFilters) {
-                    console.log('🔄 Enabling skipFilters...');
                     setSkipFilters(true);
                 }
                 return;
@@ -594,13 +570,10 @@ export const Expenses: React.FC = () => {
             
             // حساب رقم الصفحة
             const targetPage = Math.floor(expenseIndex / ITEMS_PER_PAGE) + 1;
-            console.log('✅ Setting page to:', targetPage, 'for expense index:', expenseIndex, 'in list of', searchList.length);
-            console.log('📊 Current page BEFORE setCurrentPage:', currentPage);
             
             // ✅ استخدام setTimeout لضمان أن React يُعالج تغيير الصفحة قبل أي شيء آخر
             setTimeout(() => {
                 setCurrentPage(targetPage);
-                console.log('📊 Called setCurrentPage with:', targetPage);
                 
                 // حفظ ID للتمرير بعد تأخير إضافي
                 setTimeout(() => {
@@ -618,7 +591,6 @@ export const Expenses: React.FC = () => {
     const totalPages = Math.ceil(filteredExpenses.length / ITEMS_PER_PAGE);
     const paginatedExpenses = useMemo(() => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        console.log('📄 Paginating: currentPage=', currentPage, 'startIndex=', startIndex, 'total=', filteredExpenses.length);
         return filteredExpenses.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     }, [currentPage, filteredExpenses]);
 
@@ -629,11 +601,6 @@ export const Expenses: React.FC = () => {
         // التأكد من أن العنصر موجود في الصفحة الحالية
         const targetExpense = paginatedExpenses.find(e => e.id === pendingScrollId);
         const isInCurrentPage = !!targetExpense;
-        console.log('🎯 Scroll check - pendingScrollId:', pendingScrollId);
-        console.log('🎯 Target expense found:', targetExpense?.description);
-        console.log('🎯 isInCurrentPage:', isInCurrentPage);
-        console.log('🎯 Current page number:', currentPage);
-        console.log('🎯 Current page expenses count:', paginatedExpenses.length);
         
         if (!isInCurrentPage) {
             // ✅ إذا العنصر ليس في الصفحة الحالية، نعيد حساب الصفحة الصحيحة
@@ -641,21 +608,17 @@ export const Expenses: React.FC = () => {
             const expenseIndex = searchList.findIndex(e => e.id === pendingScrollId);
             if (expenseIndex !== -1) {
                 const correctPage = Math.floor(expenseIndex / ITEMS_PER_PAGE) + 1;
-                console.log('🔄 Recalculating page: index=', expenseIndex, 'correctPage=', correctPage);
                 if (correctPage !== currentPage) {
                     setCurrentPage(correctPage);
                     return; // سيتم إعادة تشغيل هذا الـ effect بعد تحديث الصفحة
                 }
             }
-            console.log('⚠️ Element not in current page, waiting for re-render...');
             return;
         }
         
         const scrollToElement = () => {
             const element = document.getElementById(`item-${pendingScrollId}`) || 
                            document.querySelector(`[data-id="${pendingScrollId}"]`);
-            console.log('🎯 Trying to scroll to element:', element);
-            console.log('🎯 Element ID searched:', `item-${pendingScrollId}`);
             if (element) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 element.classList.add('search-highlight');
@@ -665,7 +628,6 @@ export const Expenses: React.FC = () => {
                 setSearchTargetId(null);
                 setPendingScrollId(null);
                 setSkipFilters(false); // إعادة تفعيل الفلاتر
-                console.log('✅ Scroll completed successfully to:', targetExpense?.description);
             } else {
                 // محاولة أخرى بعد وقت أطول
                 setTimeout(() => {
@@ -675,9 +637,7 @@ export const Expenses: React.FC = () => {
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         el.classList.add('search-highlight');
                         setTimeout(() => el.classList.remove('search-highlight'), 3000);
-                        console.log('✅ Scroll completed on retry!');
                     } else {
-                        console.log('❌ Element still not found after retry');
                     }
                     if (el) {
                         suppressNextPageResetRef.current = true;
@@ -1142,7 +1102,6 @@ export const Expenses: React.FC = () => {
                 if (transactionId) {
                     try {
                         await transactionsService.delete(transactionId);
-                        console.log(`✅ Deleted linked transaction: ${transactionId}`);
                     } catch (txError) {
                         console.warn(`⚠️ Failed to delete transaction ${transactionId}:`, txError);
                         // Continue with expense deletion even if transaction delete fails
@@ -1156,7 +1115,6 @@ export const Expenses: React.FC = () => {
                         await documentsService.delete(doc.id);
                     }
                     if (expenseDocs.length > 0) {
-                        console.log(`✅ Deleted ${expenseDocs.length} documents linked to expense`);
                     }
                 } catch (docError) {
                     console.warn('⚠️ Failed to delete expense documents:', docError);
@@ -1506,10 +1464,9 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
     
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // ✅ الربط الكامل: التحقق من الحساب (إلا إذا كان المستخدم مرتبط بمشروع)
-        const needsAccount = !currentUser?.assignedProjectId && !formData.projectId;
-        if (!formData.description || formData.amount <= 0 || !formData.categoryId || (needsAccount && !formData.accountId)) {
-            addToast('يرجى ملء الحقول الإلزامية (الوصف، المبلغ، الفئة، والحساب).', 'error');
+        // ✅ التحقق من الحقول الإلزامية - الحساب يُحدد تلقائياً من صندوق المشروع
+        if (!formData.description || formData.amount <= 0 || !formData.categoryId) {
+            addToast('يرجى ملء الحقول الإلزامية (الوصف، المبلغ، الفئة).', 'error');
             return;
         }
         const expenseData = { ...formData, documents: document ? [document] : [] };
@@ -1543,15 +1500,6 @@ const ExpensePanel: React.FC<PanelProps> = ({ expense, categories, projects, acc
                                 placeholder="المبلغ"
                             />
                         </div>
-                        {/* ✅ الربط الكامل: اختيار الحساب لخصم المصروف */}
-                        <select name="accountId" value={formData.accountId} onChange={handleChange} className={selectStyle} required>
-                            <option value="">اختر الحساب (مطلوب)</option>
-                            {accounts.map(acc => (
-                                <option key={acc.id} value={acc.id}>
-                                    {acc.name} ({acc.type === 'Cash' ? 'صندوق' : 'بنك'})
-                                </option>
-                            ))}
-                        </select>
                         <select name="categoryId" value={formData.categoryId} onChange={handleChange} className={selectStyle} required><option value="">اختر فئة</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                         {currentUser?.assignedProjectId ? (
                             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">

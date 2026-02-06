@@ -269,7 +269,6 @@ export const userProjectAssignmentsService = {
 // ==================== Full Permissions Service ====================
 export const userFullPermissionsService = {
   async getByUserId(userId: string) {
-    console.log('📥 userFullPermissionsService.getByUserId called for:', userId);
     try {
       const [menuAccess, buttonAccess, projectAssignments, resourcePermissions] = await Promise.all([
         userMenuAccessService.getByUserId(userId),
@@ -277,14 +276,6 @@ export const userFullPermissionsService = {
         userProjectAssignmentsService.getByUserId(userId),
         userPermissionsService.getByUserId(userId),
       ]);
-
-      console.log('✅ Loaded permissions:', {
-        menuAccessCount: menuAccess.length,
-        buttonAccessCount: buttonAccess.length,
-        projectAssignmentsCount: projectAssignments.length,
-        resourcePermissionsCount: resourcePermissions.length,
-        buttonAccess: buttonAccess.slice(0, 5), // Log first 5 for debugging
-      });
 
       return {
         menuAccess,

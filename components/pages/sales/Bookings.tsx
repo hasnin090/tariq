@@ -112,7 +112,6 @@ export const Bookings: React.FC = () => {
             if (e.detail?.page !== 'bookings' || !e.detail?.id) return;
             
             const bookingId = e.detail.id;
-            console.log('🔍 Searching for booking:', bookingId);
             
             // ✅ دالة للبحث مع محاولات متعددة
             const tryFindAndScroll = (attempts = 0) => {
@@ -122,14 +121,12 @@ export const Bookings: React.FC = () => {
                                document.querySelector(`[data-id="${bookingId}"]`);
                 
                 if (!element && attempts < 10) {
-                    console.log(`⏳ Booking element not found yet, attempt ${attempts + 1}/10...`);
                     const retryTimeout = window.setTimeout(() => tryFindAndScroll(attempts + 1), 300);
                     timeoutIds.push(retryTimeout); // ✅ حفظ الـ timeout
                     return;
                 }
                 
                 if (element) {
-                    console.log('✅ Found booking element, scrolling...');
                     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     element.classList.add('search-highlight');
                     const highlightTimeout = window.setTimeout(() => {
@@ -137,7 +134,6 @@ export const Bookings: React.FC = () => {
                     }, 3000);
                     timeoutIds.push(highlightTimeout); // ✅ حفظ الـ timeout
                 } else {
-                    console.log('❌ Booking element not found after all attempts:', bookingId);
                 }
                 
                 sessionStorage.removeItem('searchFocus');
@@ -500,7 +496,7 @@ export const Bookings: React.FC = () => {
         switch (status) {
             case 'Active': return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300';
             case 'Cancelled': return 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300';
-            case 'Completed': return 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300';
+            case 'Completed': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300';
             default: return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
         }
     };

@@ -65,15 +65,6 @@ const CategoryAccounting: React.FC = () => {
     // ✅ المشروع المخصص للمستخدم
     const userAssignedProjectId = currentUser?.assignedProjectId;
     
-    // 🔍 Debug log
-    console.log('📋 CategoryAccounting - User assigned project:', {
-        userId: currentUser?.id,
-        username: currentUser?.username,
-        role: currentUser?.role,
-        assignedProjectId: userAssignedProjectId,
-        shouldHideProjectSelector: !!userAssignedProjectId
-    });
-    
     // GSAP Table Animation Ref
     const tableBodyRef = useRef<HTMLTableSectionElement>(null);
     const hasAnimated = useRef(false);
@@ -95,10 +86,6 @@ const CategoryAccounting: React.FC = () => {
             let filteredExpenses = expensesData;
             if (userAssignedProjectId) {
                 filteredExpenses = expensesData.filter(e => e.projectId === userAssignedProjectId);
-                console.log(`📋 CategoryAccounting - Filtered by assigned project: ${userAssignedProjectId}`, {
-                    total: expensesData.length,
-                    filtered: filteredExpenses.length
-                });
             }
             
             // ✅ فلترة المشاريع حسب المشروع المخصص

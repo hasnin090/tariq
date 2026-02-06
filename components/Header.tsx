@@ -160,22 +160,17 @@ const Header: React.FC<{
                         interfaceMode={interfaceMode}
                         onNavigate={(type, id) => {
                             // التنقل للصفحة المناسبة
-                            console.log('🔄 Header onNavigate called:', { type, id });
                             if (type === 'expense') {
-                                console.log('🚀 Setting page to expenses');
                                 setActivePage('expenses');
                             }
                             else if (type === 'payment') {
-                                console.log('🚀 Setting page to payments');
                                 setActivePage('payments');
                             }
                             else if (type === 'booking') {
-                                console.log('🚀 Setting page to bookings');
                                 setActivePage('bookings');
                             }
                         }}
                         setActivePage={(page) => {
-                            console.log('🚀 Header setActivePage called with:', page);
                             setActivePage(page);
                         }}
                     />

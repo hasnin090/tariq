@@ -332,7 +332,6 @@ const InlineSearch: React.FC<InlineSearchProps> = ({
 
   // الانتقال للصفحة مع تحديد العنصر
   const handleNavigateToItem = (type: string, id: string) => {
-    console.log('🔍 handleNavigateToItem called:', { type, id });
     
     // تحديد الصفحة المستهدفة
     const pageMap: Record<string, string> = {
@@ -342,7 +341,6 @@ const InlineSearch: React.FC<InlineSearchProps> = ({
     };
     
     const targetPage = pageMap[type] || type;
-    console.log('🎯 Target page:', targetPage);
     
     // استخدام نظام searchFocus الموجود للتمييز والتمرير
     const searchFocus = {
@@ -355,18 +353,15 @@ const InlineSearch: React.FC<InlineSearchProps> = ({
     // ✅ حفظ في sessionStorage أولاً
     sessionStorage.setItem('searchFocus', JSON.stringify(searchFocus));
     sessionStorage.setItem('activePage', targetPage);
-    console.log('💾 Saved searchFocus to sessionStorage:', searchFocus);
     
     // ✅ الحل: استدعاء setActivePage قبل إغلاق النافذة
     // هذا يضمن أن الـ reference صحيح قبل أن يُعاد رسم المكون
     if (typeof setActivePage === 'function') {
-      console.log('✅ Calling setActivePage BEFORE close:', targetPage);
       setActivePage(targetPage);
     }
     
     // ✅ استدعاء onNavigate أيضاً قبل الإغلاق
     if (typeof onNavigate === 'function') {
-      console.log('✅ Calling onNavigate BEFORE close');
       onNavigate(type as 'expense' | 'payment' | 'booking', id);
     }
     
@@ -376,7 +371,6 @@ const InlineSearch: React.FC<InlineSearchProps> = ({
       
       // إطلاق الحدث بعد تأخير إضافي
       setTimeout(() => {
-        console.log('📣 Dispatching searchNavigate event');
         window.dispatchEvent(new CustomEvent('searchNavigate', { 
           detail: searchFocus 
         }));

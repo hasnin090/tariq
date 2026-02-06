@@ -231,13 +231,13 @@ const Treasury: React.FC = () => {
     const accountBalances = useMemo(() => {
         const balances = new Map<string, number>();
         
-        // أولاً: تهيئة كل الحسابات برصيد 0
+        // أولاً: تهيئة كل الحسابات برصيد initialBalance
         accounts.forEach(acc => {
-            balances.set(acc.id, 0);
+            balances.set(acc.id, acc.initialBalance || 0);
         });
         
-        // ثانياً: حساب الرصيد من المعاملات الفعلية
-        transactions.forEach(tx => {
+        // ثانياً: حساب الرصيد من جميع المعاملات (إيرادات + مصروفات)
+        allTransactions.forEach(tx => {
             const currentBalance = balances.get(tx.accountId) || 0;
             if (tx.type === 'Deposit') {
                 balances.set(tx.accountId, currentBalance + tx.amount);
@@ -247,7 +247,7 @@ const Treasury: React.FC = () => {
         });
         
         return balances;
-    }, [accounts, transactions]);
+    }, [accounts, allTransactions]);
 
     // إجمالي أرصدة المشروع
     const projectTotals = useMemo(() => {
@@ -312,7 +312,6 @@ const Treasury: React.FC = () => {
                 const allExpenses = await expensesService.getAll();
                 const accountExpenses = allExpenses.filter(exp => exp.accountId === account.id);
                 
-                console.log(`📦 Found ${accountExpenses.length} expenses linked to account ${account.id}`);
                 
                 for (const expense of accountExpenses) {
                     if (targetAccountId) {
@@ -513,8 +512,9 @@ const Treasury: React.FC = () => {
                 sourceType: 'Manual',
             });
             
-            // ✅ إضافة المعاملة للقائمة - الرصيد يُحسب تلقائياً من المعاملات
+            // ✅ إضافة المعاملة للقائمتين - الرصيد يُحسب تلقائياً من المعاملات
             setTransactions(prev => [created, ...prev]);
+            setAllTransactions(prev => [created, ...prev]);
             
             addToast('تمت إضافة الإيراد بنجاح', 'success');
             logActivity('Add Revenue', `إيراد: ${revenueData.description} - ${formatCurrency(revenueData.amount)}`, 'expenses');
@@ -647,13 +647,16 @@ const Treasury: React.FC = () => {
                  t.sourceType === 'Expense' ? 'مصروف' :
                  t.sourceType === 'Salary' ? 'راتب' : (t.sourceType || '');
             
+            // ✅ تنظيف البيانات من HTML injection
+            const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            
             html += `
                 <tr>
-                    <td>${t.date}</td>
-                    <td>${t.description || ''}</td>
+                    <td>${esc(t.date || '')}</td>
+                    <td>${esc(t.description || '')}</td>
                     <td class="${typeClass}">${typeText}</td>
                     <td class="${typeClass}">${formatCurrency(t.amount)}</td>
-                    <td>${t.accountName || ''}</td>
+                    <td>${esc(t.accountName || '')}</td>
                     <td>${sourceText}</td>
                 </tr>
             `;
@@ -1103,7 +1106,7 @@ const Treasury: React.FC = () => {
                                                             }
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="font-bold text-4xl text-slate-900 dark:text-white truncate">
+                                                            <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">
                                                                 {t.description}
                                                             </p>
                                                             <div className="flex items-center gap-3 text-base text-slate-600 dark:text-slate-300 mt-1">

@@ -214,26 +214,21 @@ const UploadDocumentPanel: React.FC<{ onClose: () => void; onSave: (documents: S
         const errors: string[] = [];
 
         filesToValidate.forEach((file: File) => {
-            console.log(`📝 Validating file: ${file.name}, Size: ${file.size} bytes (${formatFileSize(file.size)}), Type: ${file.type}`);
             
             // ✅ فقط التحقق من التكرار في نفس الجلسة (نفس الاختيار)
             if (files.some(f => f.name === file.name && f.size === file.size)) {
-                console.log(`❌ Rejected: Duplicate in current selection`);
                 errors.push(`${file.name}: الملف مضاف بالفعل في الاختيار الحالي`);
                 return;
             }
 
             // ✅ التحقق من حجم الملف فقط (بدون التحقق من التكرار في القاعدة)
             const isCompressibleImage = file.type.startsWith('image/') && !file.type.includes('svg');
-            console.log(`🖼️ Is compressible image: ${isCompressibleImage}, Max size: ${formatFileSize(MAX_FILE_SIZE)}`);
             
             if (!isCompressibleImage && file.size > MAX_FILE_SIZE) {
-                console.log(`❌ Rejected: File too large (${formatFileSize(file.size)} > ${formatFileSize(MAX_FILE_SIZE)})`);
                 errors.push(`${file.name}: حجم الملف أكبر من ${formatFileSize(MAX_FILE_SIZE)}`);
                 return;
             }
 
-            console.log(`✅ File accepted: ${file.name}`);
             validFiles.push(file);
         });
 
@@ -242,7 +237,6 @@ const UploadDocumentPanel: React.FC<{ onClose: () => void; onSave: (documents: S
             errors.forEach(err => addToast(err, 'error'));
         }
 
-        console.log(`📊 Validation complete: ${validFiles.length} valid files out of ${filesToValidate.length}`);
         return validFiles;
     };
 
@@ -646,7 +640,6 @@ const DocumentsAccounting: React.FC = () => {
         try {
             // ✅ تجنب إعادة التحميل إذا لم يتغير المشروع (ولكن السماح بالتحميل الأول)
             if (lastLoadedProjectRef.current !== INITIAL_LOAD && lastLoadedProjectRef.current === projectIdToFilter) {
-                console.log('⏭️ Documents - Skipping reload, same project:', projectIdToFilter);
                 return;
             }
             

@@ -362,10 +362,10 @@ const FinancialDashboard: React.FC = () => {
         fetchData();
     }, [currentUser]);
 
-    // ✅ تصفية البيانات حسب المشروع المختار (للمدير فقط)
+    // ✅ تصفية البيانات حسب المشروع المختار
     const filteredData = useMemo(() => {
-        // إذا كان المستخدم ليس مدير أو لم يختر مشروع، نعرض كل البيانات
-        if (currentUser?.role !== 'Admin' || !selectedProjectId) {
+        // إذا لم يختر مشروع، نعرض كل البيانات
+        if (!selectedProjectId) {
             return { sales, payments, expenses, manualRevenues, accounts };
         }
         
@@ -396,16 +396,16 @@ const FinancialDashboard: React.FC = () => {
         // 2. الإيرادات اليدوية (manualRevenues) مُحسوبة منفصلة
         // 3. إضافة كليهما يُسبب حساب مُضاعف
         
-        // ✅ حساب الإيرادات: المبيعات + المدفوعات + الإيرادات اليدوية
-        const salesRevenue = filteredSales.reduce((sum, s) => sum + s.finalSalePrice, 0);
+        // ✅ حساب الإيرادات: المدفوعات المحصّلة + الإيرادات اليدوية
+        // ⚠️ لا نجمع salesRevenue لأن المدفوعات هي التحصيل الفعلي للمبيعات (تجنب الازدواج)
         const paymentsRevenue = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
         const manualRevenueTotal = filteredManualRevenues.reduce((sum, r) => sum + r.amount, 0);
-        const totalRevenue = salesRevenue + paymentsRevenue + manualRevenueTotal;
+        const totalRevenue = paymentsRevenue + manualRevenueTotal;
         
         const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
         const netIncome = totalRevenue - totalExpenses;
         const profitMargin = totalRevenue > 0 ? ((netIncome / totalRevenue) * 100).toFixed(1) + '%' : '0%';
-        const totalTransactions = filteredExpenses.length + filteredManualRevenues.length;
+        const totalTransactions = filteredExpenses.length + filteredPayments.length + filteredManualRevenues.length;
         
         return { totalRevenue, totalExpenses, netIncome, profitMargin, totalTransactions };
     }, [filteredData]);
@@ -427,13 +427,13 @@ const FinancialDashboard: React.FC = () => {
 
         const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1);
 
-        // ✅ إضافة المبيعات والمدفوعات
-        [...filteredSales, ...filteredPayments].forEach(item => {
-            const date = new Date('saleDate' in item ? item.saleDate : item.paymentDate);
+        // ✅ إضافة المدفوعات المحصّلة فقط (بدون المبيعات لتجنب الازدواج)
+        filteredPayments.forEach(item => {
+            const date = new Date(item.paymentDate);
             if (date >= sixMonthsAgo) {
                 const monthDiff = (date.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (date.getMonth() - sixMonthsAgo.getMonth());
                 if(monthDiff >= 0 && monthDiff < 6) {
-                    revenueData[monthDiff] += 'finalSalePrice' in item ? item.finalSalePrice : item.amount;
+                    revenueData[monthDiff] += item.amount;
                 }
             }
         });

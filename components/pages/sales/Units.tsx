@@ -169,7 +169,6 @@ const Units: React.FC = () => {
 
     const handleSave = async (unitData: Omit<Unit, 'id'>) => {
         try {
-            console.log('🔵 Saving unit with data:', unitData);
             if (editingUnit) {
                 await unitsService.update(editingUnit.id, unitData);
                 logActivity('Update Unit', `Updated unit: ${unitData.name}`, 'projects');

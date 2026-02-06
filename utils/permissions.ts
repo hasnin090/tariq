@@ -337,7 +337,6 @@ export function canAccessPage(
 ): boolean {
   // إذا كان المستخدم Admin، يمكنه الوصول لكل شيء
   if (role === 'Admin') {
-    console.log(`🔐 canAccessPage [${page}]: Admin - GRANTED`);
     return true;
   }
   
@@ -345,11 +344,6 @@ export function canAccessPage(
   if (hasCustomMenuAccess(customMenuAccess)) {
     const menuItem = customMenuAccess!.find(m => m.menuKey === page);
     const result = menuItem ? menuItem.isVisible : false;
-    console.log(`🔐 canAccessPage [${page}]: Custom permissions - ${result ? 'GRANTED' : 'DENIED'}`, {
-      hasCustomMenu: true,
-      menuItem,
-      totalMenuItems: customMenuAccess?.length
-    });
     // يظهر فقط إذا كان موجود و isVisible = true
     return result;
   }
@@ -357,10 +351,6 @@ export function canAccessPage(
   // ✅ بدون صلاحيات مخصصة: استخدم صلاحيات الدور الافتراضية
   const rolePages = ROLE_PAGES[role] || [];
   const result = rolePages.includes(page);
-  console.log(`🔐 canAccessPage [${page}]: Role-based (${role}) - ${result ? 'GRANTED' : 'DENIED'}`, {
-    hasCustomMenu: false,
-    rolePages
-  });
   return result;
 }
 
@@ -484,21 +474,8 @@ export function canShowButton(
   // Admin يرى كل الأزرار دائماً
   if (role === 'Admin') {
     if (DEBUG_BUTTON_PERMISSIONS) {
-      console.log(`🔓 canShowButton(${pageKey}, ${buttonKey}): Admin - ALLOWED`);
     }
     return true;
-  }
-  
-  // ✅ تسجيل حالة الصلاحيات للتصحيح
-  if (DEBUG_BUTTON_PERMISSIONS) {
-    console.log(`🔍 canShowButton checking:`, {
-      role,
-      pageKey,
-      buttonKey,
-      hasCustomButtonAccess: hasCustomButtonAccess(customButtonAccess),
-      customButtonAccessCount: customButtonAccess?.length || 0,
-      customButtonAccess: customButtonAccess?.slice(0, 10) // أول 10 للتصحيح
-    });
   }
   
   // إذا توجد صلاحيات مخصصة للأزرار، استخدمها بشكل حصري
@@ -518,7 +495,6 @@ export function canShowButton(
       );
       if (globalDelete && !globalDelete.isVisible) {
         if (DEBUG_BUTTON_PERMISSIONS) {
-          console.log(`🚫 canShowButton(${pageKey}, ${buttonKey}): Global delete BLOCKED`);
         }
         return false;
       }
@@ -529,7 +505,6 @@ export function canShowButton(
       );
       if (pageDelete && !pageDelete.isVisible) {
         if (DEBUG_BUTTON_PERMISSIONS) {
-          console.log(`🚫 canShowButton(${pageKey}, ${buttonKey}): Page delete BLOCKED`);
         }
         return false;
       }
@@ -541,7 +516,6 @@ export function canShowButton(
     );
     if (specificButton) {
       if (DEBUG_BUTTON_PERMISSIONS) {
-        console.log(`🎯 canShowButton(${pageKey}, ${buttonKey}): Found specific - ${specificButton.isVisible ? 'ALLOWED' : 'DENIED'}`);
       }
       return specificButton.isVisible;
     }
@@ -551,7 +525,6 @@ export function canShowButton(
     );
     if (globalButton) {
       if (DEBUG_BUTTON_PERMISSIONS) {
-        console.log(`🌐 canShowButton(${pageKey}, ${buttonKey}): Found global - ${globalButton.isVisible ? 'ALLOWED' : 'DENIED'}`);
       }
       return globalButton.isVisible;
     }
@@ -563,7 +536,6 @@ export function canShowButton(
       );
       if (genericDelete) {
         if (DEBUG_BUTTON_PERMISSIONS) {
-          console.log(`🔄 canShowButton(${pageKey}, ${buttonKey}): Fallback to delete - ${genericDelete.isVisible ? 'ALLOWED' : 'DENIED'}`);
         }
         return genericDelete.isVisible;
       }
@@ -571,7 +543,6 @@ export function canShowButton(
 
     // ✅ إذا لم يوجد تخصيص لهذا الزر في الصلاحيات المخصصة = مرفوض
     if (DEBUG_BUTTON_PERMISSIONS) {
-      console.log(`❌ canShowButton(${pageKey}, ${buttonKey}): Custom permissions exist but button not found - DENIED`);
     }
     return false;
   }
@@ -582,7 +553,6 @@ export function canShowButton(
   const result = safeButtons.includes(buttonKey);
   
   if (DEBUG_BUTTON_PERMISSIONS) {
-    console.log(`📋 canShowButton(${pageKey}, ${buttonKey}): No custom permissions, safe buttons only - ${result ? 'ALLOWED' : 'DENIED'}`);
   }
   
   return result;

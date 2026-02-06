@@ -68,7 +68,6 @@ export const projectsService = {
           description: `حساب بنكي خاص بمشروع ${project.name}`,
         });
         
-        console.log(`✅ تم إنشاء الحسابات المالية لمشروع: ${project.name}`);
       } catch (accountError) {
         // لا نوقف إنشاء المشروع إذا فشل إنشاء الحسابات
         console.warn('⚠️ تعذر إنشاء الحسابات المالية للمشروع:', accountError);
